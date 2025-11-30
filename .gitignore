@@ -1,0 +1,30 @@
+# ---- Rust / Cargo ----
+# ビルド成果物
+/trpg-json/target/
+
+# Cargo.lock (ライブラリなら無視するが、バイナリアプリなら追跡したほうがよい)
+# → ライブラリ開発の場合はコメントアウトを外す:
+Cargo.lock
+
+# ---- IDE / エディタ ----
+# VS Code
+.vscode/
+*.code-workspace
+
+# JetBrains (IntelliJ / CLion / RustRover)
+.idea/
+
+# ---- OS / エディタ共通 ----
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+
+# ---- ログ / 一時ファイル ----
+*.log
+*.tmp
+*.bak
+
+# ---- その他 ----
+# 生成されるドキュメント
+doc/

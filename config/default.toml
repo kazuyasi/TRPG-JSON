@@ -1,0 +1,18 @@
+# TRPG-JSON Configuration File
+# Default configuration for SW2.5 system
+
+[data]
+# Path to the monsters data file(s)
+# Relative to home directory (~), or absolute paths
+# You can use:
+# - Single file: monsters = "playground/TRPG-JSON/data/sample/monsters_sample.json"
+# - Multiple files: monsters = ["playground/TRPG-JSON/data/sample/monsters_part1.json", "playground/TRPG-JSON/data/sample/monsters_part2.json"]
+# - Absolute path: monsters = "/path/to/monsters.json"
+monsters = "playground/TRPG-JSON/data/sample/monsters_sample.json"
+
+# Example of multiple data files (relative to home directory):
+# monsters = ["playground/TRPG-JSON/data/sample/monsters_basic.json", "playground/TRPG-JSON/data/sample/monsters_advanced.json"]
+
+[system]
+# Current system (sw25, dnd, etc.)
+name = "sw25"
