@@ -2,7 +2,7 @@ use clap::{Parser, Subcommand};
 use std::io::{stdin, stdout, Write};
 use std::path::PathBuf;
 use std::process;
-use trpg_json_core::{config, io, query, Monster};
+use trpg_json_core::{config, export, io, query, Monster};
 
 #[derive(Parser)]
 #[command(name="gm", version, about="TRPG JSON CLI")]
@@ -51,6 +51,7 @@ enum Commands {
     ///   gm select -l 6          # レベル6のモンスターをすべて取得
     ///   gm select -c 蛮族       # カテゴリ「蛮族」のモンスターをすべて取得
     ///   gm select -l 6 -c 蛮族  # レベル6かつカテゴリ「蛮族」のモンスターを取得
+    ///   gm select -l 6 --export json --output results.json # 結果をJSONファイルにエクスポート
     Select {
         /// 名前で検索（部分マッチ、オプション）
         #[arg(short = 'n', long)]
@@ -63,6 +64,14 @@ enum Commands {
         /// カテゴリで絞り込む（オプション）
         #[arg(short = 'c', long)]
         category: Option<String>,
+        
+        /// エクスポート形式（json, sheets）
+        #[arg(long)]
+        export: Option<String>,
+        
+        /// エクスポート出力先（ファイルパスまたはスプレッドシートID）
+        #[arg(long)]
+        output: Option<String>,
     },
     
     /// モンスターを追加する
@@ -116,8 +125,8 @@ fn main() {
         Some(Commands::List { pattern }) => {
             handle_list_command(&data_path_strs, pattern);
         }
-        Some(Commands::Select { name, level, category }) => {
-            handle_select_command(&data_path_strs, name.as_deref(), *level, category.as_deref());
+        Some(Commands::Select { name, level, category, export: export_format, output }) => {
+            handle_select_command(&data_path_strs, name.as_deref(), *level, category.as_deref(), export_format.as_deref(), output.as_deref());
         }
         Some(Commands::Add { file }) => {
             handle_add_command(&data_path_strs, file);
@@ -226,7 +235,14 @@ fn handle_list_command(data_paths: &[String], pattern: &str) {
     }
 }
 
-fn handle_select_command(data_paths: &[String], name: Option<&str>, level: Option<i32>, category: Option<&str>) {
+fn handle_select_command(
+    data_paths: &[String],
+    name: Option<&str>,
+    level: Option<i32>,
+    category: Option<&str>,
+    export_format: Option<&str>,
+    output_dest: Option<&str>,
+) {
     // データを読み込む（複数ファイル対応）
     let monsters = match io::load_multiple_json_arrays(
         &data_paths.iter().map(|p| p.as_str()).collect::<Vec<_>>()
@@ -248,12 +264,61 @@ fn handle_select_command(data_paths: &[String], name: Option<&str>, level: Optio
             process::exit(1);
         }
         _ => {
-            // すべての結果を JSON 配列で出力
             let json_results: Vec<_> = results.iter().map(|&m| m.clone()).collect();
-            if let Err(e) = io::save_json_array_stdout(&json_results) {
-                eprintln!("エラー: JSON 出力に失敗しました: {}", e);
-                process::exit(1);
+
+            // エクスポート機能が指定されている場合
+            if let Some(fmt) = export_format {
+                if let Some(output) = output_dest {
+                    export_results(&json_results, fmt, output);
+                } else {
+                    eprintln!("エラー: --export を使用する場合は --output で出力先を指定してください");
+                    process::exit(1);
+                }
+            } else {
+                // 通常の stdout 出力
+                if let Err(e) = io::save_json_array_stdout(&json_results) {
+                    eprintln!("エラー: JSON 出力に失敗しました: {}", e);
+                    process::exit(1);
+                }
             }
+        }
+    }
+}
+
+/// エクスポート処理を実行
+fn export_results(monsters: &[Monster], format: &str, output: &str) {
+    // エクスポート形式をパース
+    let export_format = match format.parse::<export::ExportFormat>() {
+        Ok(fmt) => fmt,
+        Err(e) => {
+            eprintln!("エラー: {}", e);
+            process::exit(1);
+        }
+    };
+
+    // エクスポーターを生成
+    let exporter = match export::ExporterFactory::create_exporter(export_format) {
+        Ok(exp) => exp,
+        Err(e) => {
+            eprintln!("エラー: {}", e);
+            process::exit(1);
+        }
+    };
+
+    // エクスポート設定を作成
+    let config = export::ExportConfig {
+        destination: output.to_string(),
+        format: export_format,
+    };
+
+    // エクスポート実行
+    match exporter.export(monsters, &config) {
+        Ok(()) => {
+            println!("成功: {} 件のモンスターを {} にエクスポートしました", monsters.len(), output);
+        }
+        Err(e) => {
+            eprintln!("エラー: エクスポートに失敗しました: {}", e);
+            process::exit(1);
         }
     }
 }

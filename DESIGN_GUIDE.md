@@ -156,7 +156,7 @@ CLI (app/) → Core Library (core/) → JSON File (data/systems/monsters.json)
 - **Benefits**: High flexibility, easy migration ✅
 
 ### Phase 2.5: External Data Export (Recommended Next)
-- Support for exporting data to external formats
+- Support for exporting data to JSON and Google Sheets
 - OAuth 2.0 authentication for cloud services (user-friendly)
 - Preserve formatting when exporting
 - Manual execution (no automation needed)
@@ -174,42 +174,50 @@ pub trait DataExporter {
 }
 
 pub struct ExportConfig {
-    pub destination: String,
+    pub destination: String,  // File path for JSON, Spreadsheet ID for Google Sheets
     pub format: ExportFormat,
 }
 
 pub enum ExportFormat {
     Json,
-    Csv,
+    GoogleSheets,
     // Future: Custom formats
 }
 ```
 
 **CLI Usage:**
 ```bash
-# Export search results to file
+# Export search results to JSON file
 gm select -l 6 --export json --output results.json
 
-# Export to CSV format
-gm select -c "Category" --export csv --output results.csv
+# Export to Google Sheets (requires OAuth 2.0 setup)
+gm select -c "Category" --export sheets --output "Spreadsheet ID"
 ```
 
-**Setup Steps:**
-1. User runs: `gm select ... --export <format> --output <file>`
+**Setup Steps for JSON Export:**
+1. User runs: `gm select ... --export json --output <file>`
 2. System validates data
-3. Data exported to specified format
+3. Data exported to JSON file
 4. Confirmation message displayed
 
+**Setup Steps for Google Sheets Export:**
+1. User authenticates with Google OAuth 2.0 (one-time setup)
+2. User runs: `gm select ... --export sheets --output <spreadsheet-id>`
+3. System creates/updates rows in the specified Google Sheet
+4. Confirmation message with sheet URL displayed
+
 **Advantages of this approach:**
-- Flexible export options
-- No external authentication complexity
-- File-based, easy to version control
+- JSON export: No authentication needed, file-based, easy to version control
+- Google Sheets: Cloud-based, collaborative editing, real-time synchronization
 - Data remains under user control
+- Flexible destination options
 
 **Design Considerations:**
-- Support for multiple output formats
-- Validation of exported data
+- JSON export: Standard JSON array format with Monster objects
+- Google Sheets: OAuth 2.0 authentication, Google Sheets API integration
+- Data validation before export
 - Integration with existing command structure
+- Error handling for authentication and API failures
 
 ### Phase 3: System Abstraction
 - Trait-based system separation
@@ -531,7 +539,7 @@ gm find "Monster Name" -l 3                 # Search System A monsters (default)
 - **Config format**: TOML (chose over YAML for simplicity)
 - **Path resolution**: Home directory relative (supports `~` expansion)
 - **Data merge**: Load all files into single collection for unified query
-- **Export format**: Multiple formats supported (JSON, CSV, etc.)
+- **Export format**: JSON and Google Sheets supported
 - **Manual execution**: Data export is user-triggered, no automation needed
 - **Phase 4**: Not planned (scope limited to core functionality)
 - **Extensibility**: Design supports adding new game systems and export formats

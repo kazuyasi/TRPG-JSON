@@ -2,9 +2,9 @@
 
 ## 🧭 Meta
 - Project: TRPG-JSON
-- Last Updated: 2025-11-30 JST (T009 complete)
+- Last Updated: 2025-12-03 JST (T013, T014, T016 complete - ready for review)
 - Responsibilities: kazuyasi (specification/approval) / Claude (proposal/implementation)
-- Status: Phase 2 complete, Phase 3 & 4 documented and ready for implementation
+- Status: Phase 2 complete, Phase 2.5 implementation (core + JSON exporter + CLI integration done, ready for commit)
 
 ---
 
@@ -17,6 +17,20 @@
 ## 🚧 In Progress
 
 ---
+
+## Backlog (Phase 2.5)
+- [x] T013 Phase 2.5: Core export module structure (P25-1) — 2025-12-03
+     - Description: Implemented core/src/export/mod.rs with DataExporter trait, ExportFormat enum (Json, GoogleSheets), ExportConfig struct. ExporterFactory for creating exporters. 9 unit tests for format parsing, config creation, factory methods.
+- [x] T014 Phase 2.5: JSON exporter implementation (P25-2) — 2025-12-03
+     - Description: Implemented core/src/export/json.rs with JsonExporter struct. Export Monster array to JSON file with pretty-printing. All 8 unit tests passing: single/multiple monsters, empty data, roundtrip, invalid directory, formatting preservation.
+- [ ] T015 Phase 2.5: Google Sheets exporter implementation (P25-3)
+     - Description: Implement core/src/export/sheets.rs with GoogleSheetsExporter struct. Integrate Google Sheets API with OAuth 2.0 authentication. Create/update rows in specified spreadsheet. Handle authentication errors gracefully.
+- [x] T016 Phase 2.5: CLI integration - export flags (P25-4) — 2025-12-03
+     - Description: Updated app/src/main.rs Select command with --export and --output flags. Created export_results() helper function. Integrated ExporterFactory and error handling. All functionality tested: JSON export with multiple filters, error messages for missing --output and unsupported formats, sheets format correctly reports "not yet implemented".
+- [ ] T017 Phase 2.5: Export module tests (P25-5)
+     - Description: Add comprehensive unit tests for JSON and Google Sheets exporters. Test error handling, empty data, large datasets. Mock Google Sheets API for testing. Target 10+ new tests.
+- [ ] T018 Phase 2.5: Integration tests and build verification (P25-6, P25-7)
+     - Description: Add integration tests for select command with export functionality. Run full test suite (target: 50+ tests passing). Verify release build succeeds. Document any breaking changes.
 
 ---
 
@@ -65,3 +79,7 @@
 - I/O policy: **stdout as default**, errors to stderr
 - Security: Decrypt during development, enforce encryption for sensitive data
 - Data target: JSON-based entity files, **future expansion under consideration**
+- Phase 2.5 Export Targets: JSON (file-based) + Google Sheets (cloud-based with OAuth 2.0)
+- No CSV export (JSON is preferred for data interchange)
+- Export is user-triggered (manual), no automation needed
+- OAuth 2.0: One-time setup for Google Sheets, credentials stored locally
