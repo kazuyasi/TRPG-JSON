@@ -457,12 +457,12 @@ impl GameEntity for Character {
 **2. Create system factory** in `core/src/systems/mod.rs`:
 ```rust
 pub fn load_system(name: &str, config: &Config) -> Result<Box<dyn GameEntity>, String> {
-    match name {
-        "system_a" => load_system_a_entities(config),
-        "system_b" => load_system_b_characters(config),
-        _ => Err(format!("Unknown system: {}", name)),
-    }
-}
+     match name {
+         "system_a" => load_system_a_entities(config),
+         "system_b" => load_system_b_characters(config),
+         _ => Err(format!("Unknown system: {}", name)),
+     }
+ }
 ```
 
 **3. Update config schema** to support system selection:
@@ -556,3 +556,173 @@ gm find "Monster Name" -l 3                 # Search System A monsters (default)
 3. **Enhanced validation** - Stricter JSON schema validation per system
 4. **Performance optimization** - For large datasets (>10k entities)
 5. **Documentation** - Comprehensive user guides and examples
+
+
+## Google Sheets Export Format
+
+### Design Principles
+- **Text only**: No formatting, cell formulas, or styling
+- **Cell merging**: Preserve existing cell merges; cells have mixed merging patterns (some vertical, some horizontal)
+- **Line breaks**: Represented as `\n` in specification; actual cell content uses real line breaks
+- **Language**: All output field names in Japanese
+- **Row structure**: 2 rows per part (part A line + part B line)
+- **Multiple parts**: Output n parts × 2 rows each
+  - Example: Trent with 3 parts (幹, 根, 根) → 2 rows + 2 rows + 2 rows = 6 rows total
+  - Example: Single-part monster → 2 rows total
+- **Missing part data**: Fill with "-" except for `name` and `共通特殊能力` columns
+- **Empty/negative values**: Convert to "-"
+- **Output target**: "search" sheet only
+- **Insertion point**: Scan from row 3, find first empty cell in odd rows (row 3, 5, 7, 9...) of column A; insert there
+- **Error handling**: If no empty row found, display error and cancel export
+- **Weakness field transformation**: In `弱点` column, replace "エネルギー" with "E" and "ダメージ" with "ダメ"; remove "属性"
+- **`\n()` handling**: If content inside `\n()` is empty, omit the entire `\n()` wrapper
+
+### Row Output Structure
+**For each part in the monster's `part` array:**
+
+1. **First line (odd-numbered row in output)**:
+   - Columns with single-part data: Output the value
+   - Common data (`name`, `共通特殊能力`, etc.): Output the value
+   - Example: Row 3 for first part
+
+2. **Second line (even-numbered row in output)**:
+   - Output Part-specific special abilities(`部位特殊能力`)
+   - Output Weakness debuff with field transformations(`弱点`)
+   - Output Only two above values
+   - Example: Row 4 for first part
+
+**For Trent example (2 parts: 幹 + 根(x2)):**
+- Row 3: First part (幹) data + common data
+- Row 4: First part (幹) Part-specific special abilities + Weakness
+- Row 5: Second part (根) data + common data
+- Row 6: Second part (根) Part-specific special abilities + Weakness
+- Row 7: Second part (根) data + common data
+- Row 8: Second part (根) Part-specific special abilities + Weakness
+- Common data fields repeat in all rows (3, 4, 5, 6, 7, 8)
+
+### Column Mapping
+
+| Cell | Output Data | Notes |
+|------|------------|-------|
+| A | `name` with `part.name` | Format: `name` if `part.name` is empty; `name\n(part.name)` if present. Prefix "★" if `コア==true` |
+| L | `part.HP` | Part hit points |
+| P | `part.MP` | Part magic points; "-" if negative or -1 |
+| R | `part.防護点` | Part defense rating |
+| T | `先制値` | Initiative; "-" for non-first parts |
+| V | `生命抵抗力` | Life resistance; "-" for non-first parts |
+| X | `精神抵抗力` | Spirit resistance; "-" for non-first parts |
+| Z | "3" | Fixed constant value (rule constraint) |
+| AB | `moveon\n(moveon_des)` | Ground movement speed and description; "-" if `moveon==-1` |
+| AD | `movein\n(movein_des)` | Aerial movement speed and description; "-" if `movein==-1` |
+| AF | `part.命中力` | Part accuracy |
+| AH | `part.回避力` | Part evasion |
+| AJ | `data` | Rulebook reference page |
+| AM（odd row） | `共通特殊能力` | Common special abilities (repeats for all rows of same monster) |
+| AM+1(even row) | `part.部位特殊能力` | Part-specific special abilities |
+| AW(odd row) | `知名度 / 弱点値` | Knowledge rating / weakness value; "-" for non-first parts |
+| AW+1(even row) | `弱点` (transformed) | Weakness debuff with field transformations; "-" for non-first parts |
+
+### Cell Merge Structure
+
+**Cells merged both vertically and horizontally (across rows and columns):**
+- Multiple small grid cells are merged both vertically across rows and horizontally across columns (Example for rows 3-4: A3:G4, H3:I4, J3:K4, N3:O4, P3:Q4, R3:S4, T3:U4, V3:W4, X3:Y4, Z3:AA4, AB3:AC4, AD3:AE4, AF3:AG4, AH3:AI4, AJ3:AL4)
+   - **Data placement**: Only fill cells in odd-numbered rows (first line of each part)
+   - **Even rows**: Leave completely empty; the cell merge automatically spans from the odd row above
+   - When outputting to Google Sheets API, do not write any data to even-row cells in these columns
+
+**Cells merged only horizontally (across columns only):**
+- Merging pattern is as shown in parentheses (Example for rows 3-4: AM3:AV3, AM4:AV4, AW3:AX3, AW4:AX4)
+   - Column AM (`共通特殊能力`): Write to target odd rows only (if multiple parts, copy the same value to all rows)
+   - Column AM+1 (`part.部位特殊能力`): Write to target even rows only (if multiple parts, copy the same value to all rows, but values differ per part)
+   - Column AW (`知名度 / 弱点値`): Write only for the first part in the target rows (to odd rows); fill other odd rows with "-/-"
+   - Column AW+1 (`弱点`): Write only for the first part in the target rows (to even rows); fill other even rows with "-"
+
+**Implementation Note:**
+When using Google Sheets API to insert data:
+1. Cells merged both vertically and horizontally (A-AJ): Write data only to specified odd rows; do not write to even rows or unspecified odd rows
+2. Cells merged only horizontally (AM-AW+1): Output different data to specified odd and even rows respectively; do not write to unspecified sections
+3. Preserve existing cell merge formatting; API call must maintain merge structure
+
+### Field Transformation Rules
+
+1. **`part.name` concatenation**:
+   - If `part.name` is empty → output only `name`
+   - If `part.name` has value → output `name\n(part.name)`
+   - Add "★" prefix if `コア == true`
+
+2. **Movement fields** (`moveon`, `movein`):
+   - If value is -1 → output "-"
+   - Otherwise → output as `value\n(description)`
+   - If description is empty → omit `\n()` wrapper
+
+3. **Weakness field**:
+   - Apply text replacements: "エネルギー" → "E", "ダメージ" → "ダメ"
+   - Delete text: "属性"
+   - Example: "炎属性ダメージ+2" → "炎ダメ+2"
+
+4. **Common data across rows**:
+   - `name`, `共通特殊能力` columns repeat in all rows of same monster
+   - Example: For Trent (2 parts, 6 rows), columns AM, AM+1, AW, AW+1 appear in rows 3, 4, 5, 6, 7, 8
+
+5. **Part-specific data**:
+   - `part.HP`, `part.MP`, `part.防護点`, etc. → only change when moving to different part
+   - Non-first parts: Replace single-part common fields with "-"
+   - Exception: `name` and `共通特殊能力` always output actual values (not "-")
+
+### Example: Trent (Multiple Parts)
+
+**JSON Data:**
+```json
+{
+  "name": "トレント",
+  "先制値": 13,
+  "共通特殊能力": "特殊系統魔法8Lv／11、魔法の才能",
+  "知名度": 16,
+  "弱点値": 21,
+  "弱点": "炎属性ダメージ+3",
+  "moveon": -1,
+  "moveon_des": "",
+  "movein": -1,
+  "movein_des": "",
+  "data": "SAMPLE",
+  "part": [
+    {
+      "name": "幹",
+      "コア": true,
+      "HP": 105,
+      "MP": 45,
+      "命中力": 21,
+      "回避力": 18,
+      "部位特殊能力": "再生＝5",
+      "防護点": 9,
+      "部位数": 1
+    },
+    {
+      "name": "根",
+      "コア": false,
+      "HP": 75,
+      "MP": 20,
+      "命中力": 19,
+      "回避力": 15,
+      "部位特殊能力": "拘束攻撃",
+      "防護点": 7,
+      "部位数": 2
+    }
+  ]
+}
+```
+
+**Expected Output (rows 3-8):**
+
+| Row | A | L | P | R | T | V | X | Z | AB | AD | AF | AH | AJ | AM | AW |
+|-----|---|---|---|---|---|---|---|---|----|----|----|----|----|----|------|
+| 3 | ★トレント\n(幹) | 105 | 45 | 9 | 13 | 21 | 19 | 3 | - | - | 21 | 18 | SAMPLE | 特殊系統魔法8Lv／11、魔法の才能 | 16/21 |
+| 4 |||||||||||||| 再生＝5 | 炎ダメ+3 |
+| 5 | トレント\n(根) | 75 | 20 | 7 | - | - | - | 3 | - | - | 19 | 15 | SAMPLE | 特殊系統魔法8Lv／11、魔法の才能 | - |
+| 6 |||||||||||||| 拘束攻撃 | - |
+| 7 | トレント\n(根) | 75 | 20 | 7 | - | - | - | 3 | - | - | 19 | 15 | SAMPLE | 特殊系統魔法8Lv／11、魔法の才能 | - |
+| 8 |||||||||||||| 拘束攻撃 | - |
+
+**Notes:**
+- Rows 3-4: First part (幹, コア=true) → "★" prefix, common values output, all fields populated
+- Rows 5-8: Second part (根, コア=false) → no "★" prefix, `先制値`/`生命抵抗力`/`精神抵抗力`/`知名度`/`弱点値`/`弱点` → "-"
