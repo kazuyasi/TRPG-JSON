@@ -463,3 +463,140 @@ fn find_config_file() -> String {
     "config/default.toml".to_string()
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::fs;
+    use tempfile::NamedTempFile;
+
+    fn create_test_monster() -> Monster {
+        Monster {
+            category: "蛮族".to_string(),
+            level: 6,
+            revision: 2.5,
+            data: "TEST001".to_string(),
+            illust: "".to_string(),
+            movein: -1,
+            movein_description: "".to_string(),
+            moveon: -1,
+            moveon_description: "".to_string(),
+            name: "テストモンスター".to_string(),
+            part: vec![trpg_json_core::Part {
+                hp: Some(50),
+                mp: 50,
+                name: "".to_string(),
+                core: Some(true),
+                hit_rate: Some(15),
+                dodge: Some(15),
+                damage: Some(6),
+                part_count: 1,
+                special_abilities: "".to_string(),
+                armor: 5,
+            }],
+            notes: "".to_string(),
+            initiative: 14,
+            common_abilities: "".to_string(),
+            weakness: "属性ダメージ+3".to_string(),
+            weakness_value: 17,
+            life_resistance: 16,
+            fame: 14,
+            mental_resistance: 16,
+            extra: std::collections::HashMap::new(),
+        }
+    }
+
+    #[test]
+    fn test_export_format_json_parsing() {
+        let result = "json".parse::<export::ExportFormat>();
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), export::ExportFormat::Json);
+    }
+
+    #[test]
+    fn test_export_format_sheets_parsing() {
+        let result = "sheets".parse::<export::ExportFormat>();
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), export::ExportFormat::GoogleSheets);
+    }
+
+    #[test]
+    fn test_export_factory_creates_json_exporter() {
+        let exporter = export::ExporterFactory::create_exporter(export::ExportFormat::Json);
+        assert!(exporter.is_ok());
+        assert_eq!(exporter.unwrap().name(), "JSON Exporter");
+    }
+
+    #[test]
+    fn test_export_factory_creates_sheets_exporter() {
+        let exporter = export::ExporterFactory::create_exporter(export::ExportFormat::GoogleSheets);
+        assert!(exporter.is_ok());
+        assert_eq!(exporter.unwrap().name(), "Google Sheets Exporter");
+    }
+
+    #[test]
+    fn test_export_config_creation() {
+        let config = export::ExportConfig {
+            destination: "/tmp/test.json".to_string(),
+            format: export::ExportFormat::Json,
+        };
+
+        assert_eq!(config.destination, "/tmp/test.json");
+        assert_eq!(config.format, export::ExportFormat::Json);
+    }
+
+    #[test]
+    fn test_json_export_with_monster() {
+        let monster = create_test_monster();
+        let exporter = export::ExporterFactory::create_exporter(export::ExportFormat::Json)
+            .expect("Failed to create JSON exporter");
+
+        let temp_file = NamedTempFile::new().unwrap();
+        let output_path = temp_file.path().to_string_lossy().to_string();
+
+        let config = export::ExportConfig {
+            destination: output_path.clone(),
+            format: export::ExportFormat::Json,
+        };
+
+        // エクスポート実行
+        let result = exporter.export(&[monster], &config);
+        assert!(result.is_ok());
+
+        // ファイルが正しく作成されたか確認
+        let content = fs::read_to_string(&output_path).unwrap();
+        assert!(content.contains("テストモンスター"));
+    }
+
+    #[test]
+    fn test_export_error_handling_empty_data() {
+        let exporter = export::ExporterFactory::create_exporter(export::ExportFormat::GoogleSheets)
+            .expect("Failed to create Google Sheets exporter");
+
+        let config = export::ExportConfig {
+            destination: "1BxiMVs0XRA5nFMKUVfIz487hJblLvZQvq_fHM9GjMhs".to_string(),
+            format: export::ExportFormat::GoogleSheets,
+        };
+
+        // 空データでのエクスポートはエラーになる
+        let result = exporter.export(&[], &config);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_export_error_handling_invalid_spreadsheet_id() {
+        let exporter = export::ExporterFactory::create_exporter(export::ExportFormat::GoogleSheets)
+            .expect("Failed to create Google Sheets exporter");
+
+        let monster = create_test_monster();
+        let config = export::ExportConfig {
+            destination: "invalid".to_string(), // 短すぎるID
+            format: export::ExportFormat::GoogleSheets,
+        };
+
+        let result = exporter.export(&[monster], &config);
+        assert!(result.is_err());
+        let error_msg = result.err().unwrap().to_string();
+        assert!(error_msg.contains("Invalid spreadsheet ID") || error_msg.contains("invalid"));
+    }
+}
+

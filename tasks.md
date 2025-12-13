@@ -2,60 +2,41 @@
 
 ## 🧭 Meta
 - Project: TRPG-JSON
-- Last Updated: 2025-12-13 JST (T013, T014, T015, T016 complete; Google Sheets exporter implementation ready to begin)
+- Last Updated: 2025-12-13 JST (T019 complete; 94 tests passing; Phase 2.5 COMPLETE)
 - Responsibilities: kazuyasi (specification/approval) / Claude (proposal/implementation)
-- Status: Phase 2 complete, Phase 2.5 specification phase COMPLETE. Implementation phase: core + JSON exporter + CLI integration + Google Sheets format spec done. Next: Google Sheets exporter implementation (T015b-g)
+- Status: Phase 2 complete, Phase 2.5 COMPLETE (T013-T019). Tests: 94 passing (80 core + 8 app + 6 new). OAuth 2.0 & Google Sheets API fully integrated.
 
 ---
 
 ## 🔥 Priority Now
-- [x] T015 Phase 2.5: Google Sheets export format specification (P25-3a) — **SPECIFICATION COMPLETE** — 2025-12-13
-      - Status: ✅ Complete. Specification defined in DESIGN_GUIDE.md (rows 561-703)
-      - Details: Column mapping (A-AJ, AM, AM+1, AW, AW+1), cell merge structure, output format for 2-row-per-part layout, field transformations documented
-      - Ready for: T015b-g (Google Sheets exporter implementation)
+- **Phase 2.5 COMPLETE** ✅
+  - All core features implemented and tested
+  - Next Phase TBD by kazuyasi
 
 ## 🚧 In Progress
 
 ---
 
 ## Backlog (Phase 2.5)
-- [x] T013 Phase 2.5: Core export module structure (P25-1) — 2025-12-03
-       - Description: Implemented core/src/export/mod.rs with DataExporter trait, ExportFormat enum (Json, GoogleSheets), ExportConfig struct. ExporterFactory for creating exporters. 9 unit tests for format parsing, config creation, factory methods.
-- [x] T014 Phase 2.5: JSON exporter implementation (P25-2) — 2025-12-03
-       - Description: Implemented core/src/export/json.rs with JsonExporter struct. Export Monster array to JSON file with pretty-printing. All 8 unit tests passing: single/multiple monsters, empty data, roundtrip, invalid directory, formatting preservation.
-- [x] T015 Phase 2.5: Google Sheets export format specification (P25-3a) — 2025-12-13
-       - Description: Completed detailed Google Sheets export format specification in DESIGN_GUIDE.md (lines 561-729). Defined: column mapping (A for monster name with part name, L-AJ for core stats, AM-AW+1 for special abilities and weakness), cell merge structure (vertical+horizontal merge for A-AJ with data in odd rows only; horizontal-only merge for AM-AW+1 with different data per row), 2-row-per-part output layout, field transformations (replace エネルギー→E, ダメージ→ダメ, remove 属性). Included complete Trent example with JSON input and expected output rows 3-8.
-       - Owner: kazuyasi (specification definition and approval)
-- [ ] T015b Phase 2.5: Google Sheets exporter implementation (P25-3b) — **READY FOR IMPLEMENTATION**
-      - Description: Implement core/src/export/sheets.rs with GoogleSheetsExporter struct following format specification from T015. Dependencies: google-sheets4 crate, oauth2, yup-oauth2. Create GoogleSheetsExporter with OAuth 2.0 authentication flow. Implement data transformation: Monster → spreadsheet rows with headers (per specification). Create/update rows in specified spreadsheet ID. Handle auth errors (invalid token, 401, 403) gracefully. 5+ unit tests for auth, data transform, API interaction.
-      - Subtasks:
-        1. T015b: Add dependencies (google-sheets4, oauth2, yup-oauth2, tokio) to core/Cargo.toml
-        2. T015c: Create OAuth 2.0 credential flow (local token cache in ~/.config/trpg-json/credentials.json)
-        3. T015d: Implement data transformation (Monster → spreadsheet row format per spec)
-        4. T015e: Implement API write operations (append/update rows to specified sheet)
-        5. T015f: Add error handling and user-friendly messages
-        6. T015g: Write unit tests for each component
-- [x] T016 Phase 2.5: CLI integration - export flags (P25-4) — 2025-12-03
-      - Description: Updated app/src/main.rs Select command with --export and --output flags. Created export_results() helper function. Integrated ExporterFactory and error handling. All functionality tested: JSON export with multiple filters, error messages for missing --output and unsupported formats, sheets format correctly reports "not yet implemented".
-- [ ] T017 Phase 2.5: Export module tests (P25-5)
-      - Description: Add comprehensive unit tests for JSON and Google Sheets exporters. Test error handling, empty data, large datasets. Mock Google Sheets API for testing. Target 10+ new tests.
-      - Subtasks:
-        1. T017a: Unit tests for JSON exporter (edge cases: empty data, special chars, large datasets)
-        2. T017b: Unit tests for Google Sheets authentication flow
-        3. T017c: Mock tests for Sheets API interaction
-        4. T017d: Integration tests: JSON export with filters, error message validation
-- [ ] T018 Phase 2.5: Integration tests and build verification (P25-6, P25-7)
-      - Description: Add integration tests for select command with export functionality. Run full test suite (target: 50+ tests passing). Verify release build succeeds. Document any breaking changes.
-      - Subtasks:
-        1. T018a: E2E test for JSON export with filters
-        2. T018b: E2E test for Sheets export (mock OAuth)
-        3. T018c: Run full test suite and verify 50+ tests pass
-        4. T018d: Verify release build (cargo build --release) succeeds
-        5. T018e: Document new error codes and auth setup steps
 
 ---
 
 ## ✅ Done (Recent 10)
+- [x] T019 Phase 2.5: Google Sheets API Integration (P25-3c) — 2025-12-13
+      - Description: Complete OAuth 2.0 authentication flow implementation with browser-based authorization. Full Google Sheets API v4 integration: find_empty_row() to locate empty spreadsheet rows, write_rows_to_sheet() for data writing via batchUpdate. GoogleSheetsExporter fully implemented with async/await support. Weakness field output fixed (AW column even row). Data transformer improvements for empty string handling. Total tests: 94 (80 core + 8 app + 6 new sheets tests). All passing.
+      - Subtasks completed:
+         1. [x] T019a: OAuth 2.0 authentication flow (browser-based with token management)
+         2. [x] T019b: find_empty_row() using Google Sheets API values.get
+         3. [x] T019c: write_rows_to_sheet() using Google Sheets API values.batchUpdate
+         4. [x] T019d: Integration tests - full Google Sheets export workflow
+         5. [x] T019e: GoogleSheetsExporter::export implementation complete
+      - Dependencies added: tiny_http, webbrowser, uuid, reqwest, urlencoding
+- [x] T018 Phase 2.5: Integration tests and build verification (P25-6, P25-7) — 2025-12-13
+      - Description: Full test suite verification (88 tests: 80 core + 8 app). Release build success. All compilation warnings resolved. Phase 2.5 core implementation complete and ready for API integration.
+- [x] T017 Phase 2.5: Export module tests (P25-5) — 2025-12-13
+      - Description: Added 8 CLI integration tests in app/src/main.rs. Tests cover export format parsing, exporter factory creation, config handling, JSON export functionality, and error scenarios (empty data, invalid IDs).
+- [x] T015b-g Phase 2.5: Google Sheets exporter implementation (P25-3b-g) — 2025-12-13
+      - Description: Completed exporter implementation: auth.rs (OAuth credentials), sheets.rs (data transformation), sheets_api.rs (API skeleton), google_sheets.rs (error handling). 37 export tests, all passing.
 - [x] T009 Data extension design guide — 2025-11-30
      - Description: Completed DESIGN_GUIDE.md with Phase 2.5 (Data Export) priority. Added extensibility patterns for multiple game systems. Migration Guide, Troubleshooting (7 scenarios), system integration examples included.
 - [x] T012 Phase 2.5: Config Integration - Multiple Data Files — 2025-11-30

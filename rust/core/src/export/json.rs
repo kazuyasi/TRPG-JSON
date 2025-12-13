@@ -227,4 +227,46 @@ mod tests {
             assert_eq!(loaded.category, original.category);
         }
     }
+
+    #[test]
+    fn test_export_with_special_characters() {
+        let exporter = JsonExporter;
+        let monsters = vec![create_test_monster("日本語・特殊文字テスト", 6)];
+
+        let temp_file = NamedTempFile::new().unwrap();
+        let output_path = temp_file.path().to_string_lossy().to_string();
+
+        let config = ExportConfig {
+            destination: output_path.clone(),
+            format: super::super::ExportFormat::Json,
+        };
+
+        exporter.export(&monsters, &config).unwrap();
+
+        let content = fs::read_to_string(&output_path).unwrap();
+        assert!(content.contains("日本語・特殊文字テスト"));
+    }
+
+    #[test]
+    fn test_export_large_dataset() {
+        let exporter = JsonExporter;
+        let monsters: Vec<Monster> = (0..100)
+            .map(|i| create_test_monster(&format!("モンスター{}", i), 6 + (i % 5) as i32))
+            .collect();
+
+        let temp_file = NamedTempFile::new().unwrap();
+        let output_path = temp_file.path().to_string_lossy().to_string();
+
+        let config = ExportConfig {
+            destination: output_path.clone(),
+            format: super::super::ExportFormat::Json,
+        };
+
+        exporter.export(&monsters, &config).unwrap();
+
+        let content = fs::read_to_string(&output_path).unwrap();
+        let loaded_monsters: Vec<Monster> = serde_json::from_str(&content).unwrap();
+
+        assert_eq!(loaded_monsters.len(), 100);
+    }
 }

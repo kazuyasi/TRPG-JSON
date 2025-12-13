@@ -11,6 +11,9 @@ toml = "0.8"
 trpg-json-core = { path = "../core" }
 dirs = "6.0.0"
 
+[dev-dependencies]
+tempfile = "3"
+
 [[bin]]
 name = "gm"   # 実行コマンド名
 path = "src/main.rs"

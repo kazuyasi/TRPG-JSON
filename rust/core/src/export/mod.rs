@@ -1,7 +1,11 @@
 use crate::Monster;
 use thiserror::Error;
 
+pub mod auth;
+pub mod google_sheets;
 pub mod json;
+pub mod sheets;
+pub mod sheets_api;
 
 /// エクスポート形式の定義
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -43,6 +47,12 @@ pub enum ExportError {
     #[error("Serialization error: {0}")]
     SerializationError(#[from] serde_json::Error),
 
+    #[error("Authentication error: {0}")]
+    AuthError(#[from] auth::AuthError),
+
+    #[error("Google Sheets API error: {0}")]
+    SheetsApiError(#[from] sheets_api::SheetsApiError),
+
     #[error("Google Sheets error: {0}")]
     GoogleSheetsError(String),
 
@@ -70,11 +80,7 @@ impl ExporterFactory {
     pub fn create_exporter(format: ExportFormat) -> Result<Box<dyn DataExporter>, ExportError> {
         match format {
             ExportFormat::Json => Ok(Box::new(json::JsonExporter)),
-            ExportFormat::GoogleSheets => {
-                Err(ExportError::UnsupportedFormat(
-                    "Google Sheets export is not yet implemented".to_string(),
-                ))
-            }
+            ExportFormat::GoogleSheets => Ok(Box::new(google_sheets::GoogleSheetsExporter)),
         }
     }
 }
@@ -132,7 +138,8 @@ mod tests {
 
     #[test]
     fn test_exporter_factory_google_sheets() {
-        let result = ExporterFactory::create_exporter(ExportFormat::GoogleSheets);
-        assert!(result.is_err());
+        let exporter = ExporterFactory::create_exporter(ExportFormat::GoogleSheets);
+        assert!(exporter.is_ok());
+        assert_eq!(exporter.unwrap().name(), "Google Sheets Exporter");
     }
 }
