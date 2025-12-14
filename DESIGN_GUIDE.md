@@ -558,6 +558,158 @@ gm find "Monster Name" -l 3                 # Search System A monsters (default)
 5. **Documentation** - Comprehensive user guides and examples
 
 
+## Udonarium Export Format
+
+### Design Principles
+- **Output format**: XML for single part, ZIP for multiple parts
+- **File naming**: `(monster_name)_(part_name)(no).xml` or `(monster_name).xml`
+  - Example: `ゴブリン.xml` (single part)
+  - Example: `トレント_幹.xml`, `トレント_根0.xml`, `トレント_根1.xml` (multiple parts)
+- **Multiple parts**: All parts stored in single ZIP file named `(monster_name).zip`
+- **Template selection**: Core template used for all parts (both コア=true and コア=false)
+- **XML structure**: Based on Udonarium character format with nested `<data>` elements
+- **Chat palette**: Auto-generated with hit, dodge, and resistance checks only (no special abilities)
+- **Field mapping**: TRPG-JSON Monster → Udonarium XML data structure
+
+### XML Structure
+
+**Root element:**
+```xml
+<character location.name="table" location.x="0" location.y="0" posZ="0" rotate="0" roll="0">
+```
+
+**Data hierarchy:**
+```xml
+<data name="character">
+  <data name="common">
+    <data name="name">モンスター名 (or モンスター名\n(部位名))</data>
+  </data>
+  <data name="detail">
+    <data name="リソース">
+      <data type="numberResource" currentValue="X" name="HP">X</data>
+      <data type="numberResource" currentValue="X" name="MP">X</data>
+      <data type="numberResource" currentValue="X" name="防護点">X</data>
+    </data>
+    <data name="ステータス・バフ・デバフ">
+      <!-- Hit rate, Damage, Dodge, Resistances -->
+    </data>
+    <data name="戦闘準備">
+      <data name="魔物知識・先制判定" type="note">
+        知名度／弱点：／　先制値：
+      </data>
+    </data>
+    <data name="情報">
+      <data name="弱点" type=""></data>
+      <data name="移動速度"></data>
+    </data>
+    <data name="魔物知識">
+      <data name="生態" type="note"><!-- Category, Level --></data>
+    </data>
+  </data>
+</data>
+
+<chat-palette dicebot="SwordWorld2.5">
+<!-- Auto-generated commands: 命中力,打撃点, 回避力, 生命抵抗力, 精神抵抗力 -->
+</chat-palette>
+```
+
+### Field Mapping
+
+**Rust Monster struct → Udonarium XML:**
+
+| Rust Field | JSON Key | Udonarium XML Location | Format | Notes |
+|------------|----------|------------------------|--------|-------|
+| `monster.name` | `name` | `character/common/name` | `name` or `name\n(part.name)` | If part.name is empty, output only name; if exists, concatenate |
+| `monster.category` | `Category` | `character/detail/魔物知識/生態` | Included in ecology note | Part of knowledge field |
+| `monster.level` | `Lv` | `character/detail/魔物知識/生態` | Included in ecology note | Part of knowledge field |
+| `part.hp` | `part.HP` | `character/detail/リソース/HP` | numeric value | |
+| `part.mp` | `part.MP` | `character/detail/リソース/MP` | numeric value | Output 0 if mp == -1 |
+| `part.armor` | `part.防護点` | `character/detail/リソース/防護点` | numeric value | |
+| `part.hit_rate` | `part.命中力` | `character/detail/ステータス・バフ・デバフ/命中力` | hit_rate - 7 | Subtract 7 (expected value to base value) |
+| `part.damage` | `part.打撃点` | `character/detail/ステータス・バフ・デバフ/打撃点` | numeric value | No adjustment needed (already base value) |
+| `part.dodge` | `part.回避力` | `character/detail/ステータス・バフ・デバフ/回避力` | dodge - 7 | Subtract 7 (expected value to base value) |
+| `monster.life_resistance` | `生命抵抗力` | `character/detail/ステータス・バフ・デバフ/生命抵抗力` | life_resistance - 7 | Subtract 7; core parts only |
+| `monster.mental_resistance` | `精神抵抗力` | `character/detail/ステータス・バフ・デバフ/精神抵抗力` | mental_resistance - 7 | Subtract 7; core parts only |
+| `monster.fame` | `知名度` | `character/detail/戦闘準備/魔物知識・先制判定` | Format: `知名度/弱点値:弱点\n先制値` | **Core parts only** |
+| `monster.weakness_value` | `弱点値` | `character/detail/戦闘準備/魔物知識・先制判定` | Format: `知名度/弱点値:弱点\n先制値` | **Core parts only** |
+| `monster.weakness` | `弱点` | `character/detail/情報/弱点` | string | **Core parts only** |
+| `monster.initiative` | `先制値` | `character/detail/戦闘準備/魔物知識・先制判定` | Format: `知名度/弱点値:弱点\n先制値` | **Core parts only** |
+| `monster.common_abilities` | `共通特殊能力` | `character/detail/特殊能力/特殊能力1` | text value | First special ability slot |
+| `part.special_abilities` | `part.部位特殊能力` | `character/detail/特殊能力/特殊能力2` | text value | Part-specific abilities |
+
+### Chat Palette Auto-Generation
+
+**Generated commands include (hit/dodge/resistance checks only):**
+```
+2d+{命中力}　命中判定
+2d+{回避力}　回避判定
+2d+{打撃点}　ダメージロール
+2d+{生命抵抗力}　生命抵抗判定
+2d+{精神抵抗力}　精神抵抗判定
+```
+
+**Notes:**
+- Commands reference Rust field names with -7 adjustment applied (命中力, 回避力, 生命抵抗力, 精神抵抗力 values already adjusted)
+- Special abilities are NOT included in chat palette
+- Dicebot: SwordWorld2.5
+
+### XML Output Differences: Core vs Non-Core Parts
+
+**Core parts (コア=true):**
+- Include `character/detail/戦闘準備/魔物知識・先制判定`, `character/detail/情報/弱点`, and `character/detail/魔物知識/生態` sections
+- Format in 戦闘準備: `知名度/弱点値\n先制値`
+- Output all status values (命中力-7, 回避力-7, 生命抵抗力-7, 精神抵抗力-7)
+
+**Non-core parts (コア=false):**
+- **DO NOT include** `character/detail/戦闘準備`, `character/detail/情報`, `character/detail/魔物知識` sections
+- Output part-specific HP, MP, armor, hit_rate-7, dodge-7, life_resistance-7, mental_resistance-7
+- Include resistance values (for resistance judgment rolls)
+
+### File Output Strategy
+
+**Single-part monsters:**
+- Output format: ZIP containing single XML file
+- Naming: `(monster_name).zip` → `(monster_name).xml`
+- Example: `ゴブリン.zip` → `ゴブリン.xml`
+
+**Multi-part monsters (including multiple core parts):**
+- Output format: ZIP containing multiple XML files
+- File naming convention: `(monster_name)_(part_name)(no).xml`
+- Example for Trent with 3 parts:
+  ```
+  トレント.zip
+  ├── トレント_幹.xml (core part - includes 戦闘準備 情報 魔物知識)
+  ├── トレント_根0.xml (non-core part)
+  └── トレント_根1.xml (non-core part)
+  ```
+- Example with multiple core parts:
+  ```
+  アンシェント・ドラゴン.zip
+  ├── アンシェント・ドラゴン_頭0.xml (core part - includes 戦闘準備 情報 魔物知識)
+  ├── アンシェント・ドラゴン_頭1.xml (core part - includes 戦闘準備 情報 魔物知識)
+  └── アンシェント・ドラゴン_防護膜.xml (non-core part)
+  ```
+
+### Part Naming Algorithm
+
+1. If `part.name` is empty, use "core" for コア=true, use sequential number for others
+2. If `part.name` is provided, use that name
+3. For duplicate names (e.g., multiple "根" parts), append sequential number (0, 1, 2...)
+
+**Examples:**
+- Part with `name=""` and `コア=true` → `monster.xml`
+- Part with `name=""` and `コア=false` (first) → `monster_0.xml`
+- Part with `name="幹"` and `コア=true` → `monster_幹.xml`
+- Parts with `name="根"` → `monster_根0.xml`, `monster_根1.xml`
+
+### Implementation Notes
+
+- Location attributes (location.x, location.y) set to "0" by default
+- All other character attributes (posZ, rotate, roll) set to "0"
+- Dicebot set to "SwordWorld2.5"
+- numberResource elements use `currentValue` attribute for convenience
+- Data transformation handles empty/null values as "-" where appropriate
+
 ## Google Sheets Export Format
 
 ### Design Principles

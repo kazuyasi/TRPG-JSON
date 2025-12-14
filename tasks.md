@@ -2,22 +2,30 @@
 
 ## 🧭 Meta
 - Project: TRPG-JSON
-- Last Updated: 2025-12-13 JST (T019 complete; 94 tests passing; Phase 2.5 COMPLETE)
+- Last Updated: 2025-12-14 JST (T020 complete; Udonarium export backlog planned)
 - Responsibilities: kazuyasi (specification/approval) / Claude (proposal/implementation)
-- Status: Phase 2 complete, Phase 2.5 COMPLETE (T013-T019). Tests: 94 passing (80 core + 8 app + 6 new). OAuth 2.0 & Google Sheets API fully integrated.
+- Status: Phase 2 complete, Phase 2.5 COMPLETE (T013-T020). Udonarium export format spec finalized. Next: T021-T027 (Udonarium exporter implementation).
 
 ---
 
 ## 🔥 Priority Now
-- **Phase 2.5 COMPLETE** ✅
-  - All core features implemented and tested
-  - Next Phase TBD by kazuyasi
+- **Udonarium Export Format Specification** ✅ (DESIGN_GUIDE.md T021-T027)
+  - Format design finalized: XML + ZIP packaging
+  - Field mappings and chat palette generation rules documented
+  - Ready for implementation: T021-T027
 
 ## 🚧 In Progress
 
 ---
 
-## Backlog (Phase 2.5)
+## Backlog (Udonarium Export - Next Phase)
+- [ ] T021 Udonarium exporter: Core module design and data transformer
+- [ ] T022 Udonarium exporter: XML generation for each part
+- [ ] T023 Udonarium exporter: ZIP compression for multi-part monsters
+- [ ] T024 Udonarium exporter: Chat palette auto-generation
+- [ ] T025 Udonarium exporter: CLI integration (--export udonarium)
+- [ ] T026 Udonarium exporter: Unit and integration tests
+- [ ] T027 Documentation: Update README.md with Udonarium export examples
 
 ---
 
