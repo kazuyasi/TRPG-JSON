@@ -167,8 +167,8 @@ impl GoogleSheetsAuth {
     fn get_credentials_path() -> Result<PathBuf, AuthError> {
         let config_dir = if let Ok(config_home) = std::env::var("XDG_CONFIG_HOME") {
             PathBuf::from(config_home)
-        } else if let Ok(home) = std::env::var("HOME") {
-            PathBuf::from(home).join(".config")
+        } else if let Some(config_home) = dirs::config_dir() {
+            config_home
         } else {
             return Err(AuthError::MissingCredentials);
         };
@@ -181,8 +181,8 @@ impl GoogleSheetsAuth {
     fn get_config_path() -> Result<PathBuf, AuthError> {
         let config_dir = if let Ok(config_home) = std::env::var("XDG_CONFIG_HOME") {
             PathBuf::from(config_home)
-        } else if let Ok(home) = std::env::var("HOME") {
-            PathBuf::from(home).join(".config")
+        } else if let Some(config_home) = dirs::config_dir() {
+            config_home
         } else {
             return Err(AuthError::MissingCredentials);
         };
