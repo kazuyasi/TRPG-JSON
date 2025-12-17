@@ -1,6 +1,5 @@
 use clap::{Parser, Subcommand};
 use std::io::{stdin, stdout, Write};
-use std::path::PathBuf;
 use std::process;
 use trpg_json_core::{config, export, io, query, Monster};
 
@@ -101,7 +100,7 @@ fn main() {
     
     // ホームディレクトリを基準にパスを解決
     // パスが絶対パスの場合はそのまま使用、相対パスの場合はホームディレクトリから解決
-    let home_dir = std::env::var("HOME").ok().map(PathBuf::from);
+    let home_dir = dirs::home_dir();
     let data_paths = cfg.resolve_monsters_paths(home_dir.as_deref());
     
     // パスが存在するかチェック
@@ -451,11 +450,11 @@ fn load_config(config_path: &Option<String>) -> config::Config {
 /// 設定ファイルを探す
 /// 複数の候補を試して、最初に見つかったものを使用
 fn find_config_file() -> String {
-    // ~/.config/trpg-json/default.toml を確認
-    if let Ok(home) = std::env::var("HOME") {
-        let path = format!("{}/.config/trpg-json/default.toml", home);
-        if PathBuf::from(&path).exists() {
-            return path;
+    // ホームディレクトリから設定ファイルを探す
+    if let Some(home) = dirs::home_dir() {
+        let path = home.join(".config").join("trpg-json").join("default.toml");
+        if path.exists() {
+            return path.to_string_lossy().to_string();
         }
     }
 
