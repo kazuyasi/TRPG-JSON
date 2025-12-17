@@ -561,11 +561,14 @@ gm find "Monster Name" -l 3                 # Search System A monsters (default)
 ## Udonarium Export Format
 
 ### Design Principles
-- **Output format**: XML for single part, ZIP for multiple parts
-- **File naming**: `(monster_name)_(part_name)(no).xml` or `(monster_name).xml`
-  - Example: `ゴブリン.xml` (single part)
-  - Example: `トレント_幹.xml`, `トレント_根0.xml`, `トレント_根1.xml` (multiple parts)
-- **Multiple parts**: All parts stored in single ZIP file named `(monster_name).zip`
+- **Output format**: ZIP file containing XML file(s) for all monsters (single-part and multi-part)
+- **CLI flag**: `--export udonarium --output <zip_file_path>` specifies the ZIP output file path
+- **File naming (inside ZIP)**: Individual XML files follow naming convention:
+  - Single-part: `(monster_name).xml`
+  - Multi-part: `(monster_name)_(part_name)(no).xml` for each part
+  - Examples:
+    - Single-part: `ゴブリン.xml` inside `ゴブリン.zip`
+    - Multi-part: `トレント_幹.xml`, `トレント_根0.xml`, `トレント_根1.xml` inside `トレント.zip`
 - **Template selection**: Core template used for all parts (both コア=true and コア=false)
 - **XML structure**: Based on Udonarium character format with nested `<data>` elements
 - **Chat palette**: Auto-generated with hit, dodge, and resistance checks only (no special abilities)
@@ -581,8 +584,12 @@ gm find "Monster Name" -l 3                 # Search System A monsters (default)
 **Data hierarchy:**
 ```xml
 <data name="character">
+  <data name="image">
+    <data type="image" name="imageIdentifier"></data>
+  </data>
   <data name="common">
     <data name="name">モンスター名 (or モンスター名\n(部位名))</data>
+    <data name="size">1</data>
   </data>
   <data name="detail">
     <data name="リソース">
@@ -593,13 +600,15 @@ gm find "Monster Name" -l 3                 # Search System A monsters (default)
     <data name="ステータス・バフ・デバフ">
       <!-- Hit rate, Damage, Dodge, Resistances -->
     </data>
+    <data name="特殊能力">
+      <data name="特殊能力1" type="note"></data>
+      <data name="特殊能力2" type="note"></data>
+    </data>
     <data name="戦闘準備">
-      <data name="魔物知識・先制判定" type="note">
-        知名度／弱点：／　先制値：
-      </data>
+      <data name="魔物知識・先制判定" type="note"></data>
     </data>
     <data name="情報">
-      <data name="弱点" type=""></data>
+      <data name="弱点" type="note"></data>
       <data name="移動速度"></data>
     </data>
     <data name="魔物知識">
@@ -630,10 +639,10 @@ gm find "Monster Name" -l 3                 # Search System A monsters (default)
 | `part.dodge` | `part.回避力` | `character/detail/ステータス・バフ・デバフ/回避力` | dodge - 7 | Subtract 7 (expected value to base value) |
 | `monster.life_resistance` | `生命抵抗力` | `character/detail/ステータス・バフ・デバフ/生命抵抗力` | life_resistance - 7 | Subtract 7; core parts only |
 | `monster.mental_resistance` | `精神抵抗力` | `character/detail/ステータス・バフ・デバフ/精神抵抗力` | mental_resistance - 7 | Subtract 7; core parts only |
-| `monster.fame` | `知名度` | `character/detail/戦闘準備/魔物知識・先制判定` | Format: `知名度/弱点値:弱点\n先制値` | **Core parts only** |
-| `monster.weakness_value` | `弱点値` | `character/detail/戦闘準備/魔物知識・先制判定` | Format: `知名度/弱点値:弱点\n先制値` | **Core parts only** |
+| `monster.fame` | `知名度` | `character/detail/戦闘準備/魔物知識・先制判定` | Format: `知名度/弱点値\r先制値` | **Core parts only** |
+| `monster.weakness_value` | `弱点値` | `character/detail/戦闘準備/魔物知識・先制判定` | Format: `知名度/弱点値\r先制値` | **Core parts only** |
 | `monster.weakness` | `弱点` | `character/detail/情報/弱点` | string | **Core parts only** |
-| `monster.initiative` | `先制値` | `character/detail/戦闘準備/魔物知識・先制判定` | Format: `知名度/弱点値:弱点\n先制値` | **Core parts only** |
+| `monster.initiative` | `先制値` | `character/detail/戦闘準備/魔物知識・先制判定` | Format: `知名度/弱点値\r先制値` | **Core parts only** |
 | `monster.common_abilities` | `共通特殊能力` | `character/detail/特殊能力/特殊能力1` | text value | First special ability slot |
 | `part.special_abilities` | `part.部位特殊能力` | `character/detail/特殊能力/特殊能力2` | text value | Part-specific abilities |
 
@@ -667,27 +676,33 @@ gm find "Monster Name" -l 3                 # Search System A monsters (default)
 
 ### File Output Strategy
 
+**CLI Usage:**
+```bash
+gm export --export udonarium --output <zip_file_path>
+# Example:
+gm export --export udonarium --output ゴブリン.zip
+gm export --export udonarium --output /path/to/monsters.zip
+```
+
 **Single-part monsters:**
-- Output format: ZIP containing single XML file
-- Naming: `(monster_name).zip` → `(monster_name).xml`
-- Example: `ゴブリン.zip` → `ゴブリン.xml`
+- Output format: ZIP file containing single XML file
+- File naming inside ZIP: `(monster_name).xml`
+- Example: `--output ゴブリン.zip` creates a ZIP file containing `ゴブリン.xml`
 
 **Multi-part monsters (including multiple core parts):**
-- Output format: ZIP containing multiple XML files
-- File naming convention: `(monster_name)_(part_name)(no).xml`
-- Example for Trent with 3 parts:
+- Output format: ZIP file containing multiple XML files
+- File naming convention inside ZIP: `(monster_name)_(part_name)(no).xml`
+- Example: `--output トレント.zip` creates a ZIP file containing:
   ```
-  トレント.zip
-  ├── トレント_幹.xml (core part - includes 戦闘準備 情報 魔物知識)
-  ├── トレント_根0.xml (non-core part)
-  └── トレント_根1.xml (non-core part)
+  トレント_幹.xml (core part - includes 戦闘準備 情報 魔物知識)
+  トレント_根0.xml (non-core part)
+  トレント_根1.xml (non-core part)
   ```
-- Example with multiple core parts:
+- Example with multiple core parts: `--output アンシェント・ドラゴン.zip` creates:
   ```
-  アンシェント・ドラゴン.zip
-  ├── アンシェント・ドラゴン_頭0.xml (core part - includes 戦闘準備 情報 魔物知識)
-  ├── アンシェント・ドラゴン_頭1.xml (core part - includes 戦闘準備 情報 魔物知識)
-  └── アンシェント・ドラゴン_防護膜.xml (non-core part)
+  アンシェント・ドラゴン_頭0.xml (core part - includes 戦闘準備 情報 魔物知識)
+  アンシェント・ドラゴン_頭1.xml (core part - includes 戦闘準備 情報 魔物知識)
+  アンシェント・ドラゴン_防護膜.xml (non-core part)
   ```
 
 ### Part Naming Algorithm

@@ -2,34 +2,46 @@
 
 ## 🧭 Meta
 - Project: TRPG-JSON
-- Last Updated: 2025-12-14 JST (T020 complete; Udonarium export backlog planned)
+- Last Updated: 2025-12-17 JST (T027 complete; Udonarium export fully implemented)
 - Responsibilities: kazuyasi (specification/approval) / Claude (proposal/implementation)
-- Status: Phase 2 complete, Phase 2.5 COMPLETE (T013-T020). Udonarium export format spec finalized. Next: T021-T027 (Udonarium exporter implementation).
+- Status: Phase 2 complete, Phase 2.5 COMPLETE (T013-T027). Udonarium export fully implemented with XML generation, ZIP packaging, and chat palette auto-generation. Ready for commit.
 
 ---
 
 ## 🔥 Priority Now
-- **Udonarium Export Format Specification** ✅ (DESIGN_GUIDE.md T021-T027)
-  - Format design finalized: XML + ZIP packaging
-  - Field mappings and chat palette generation rules documented
-  - Ready for implementation: T021-T027
+- **Commit T021-T027 Implementation** 📋
+   - All Udonarium export modules complete and tested
+   - Documentation updated (DESIGN_GUIDE.md, README.md)
+   - Ready for git commit
 
 ## 🚧 In Progress
 
 ---
 
-## Backlog (Udonarium Export - Next Phase)
-- [ ] T021 Udonarium exporter: Core module design and data transformer
-- [ ] T022 Udonarium exporter: XML generation for each part
-- [ ] T023 Udonarium exporter: ZIP compression for multi-part monsters
-- [ ] T024 Udonarium exporter: Chat palette auto-generation
-- [ ] T025 Udonarium exporter: CLI integration (--export udonarium)
-- [ ] T026 Udonarium exporter: Unit and integration tests
-- [ ] T027 Documentation: Update README.md with Udonarium export examples
+## Backlog (Phase 3 - System Abstraction)
+- [ ] T028 Phase 3: System abstraction - Design GameEntity trait
+- [ ] T029 Phase 3: Implement system-specific modules
+- [ ] T030 Phase 3: CLI system selection support (--system flag)
+- [ ] T031 Phase 3: Multi-system test coverage
 
 ---
 
 ## ✅ Done (Recent 10)
+- [x] T027 Documentation: Udonarium export examples in README.md — 2025-12-17
+       - Description: Updated README.md and DESIGN_GUIDE.md with complete Udonarium export documentation. Added single-part and multi-part monster export examples, feature descriptions, and usage examples.
+- [x] T026 Unit and integration tests: Udonarium export (22 tests) — 2025-12-17
+       - Description: All XML generator tests passing (22/22). Tests cover core/non-core part generation, chat palette commands, value adjustments (-7 for hit_rate/dodge/resistance), weakness transformation, and multi-part monsters.
+       - Tests verified: CorePartXmlGeneration, NonCorePartXmlGeneration, ChatPaletteGeneration (11 comprehensive tests), value adjustments, proper newline handling.
+- [x] T025 CLI Integration: Udonarium export flag and help text — 2025-12-17
+       - Description: Integrated Udonarium exporter into core export module. Updated CLI help text for select command with Udonarium export examples. Added ExportFormat::Udonarium enum and factory support.
+- [x] T024 Udonarium exporter: Chat palette auto-generation — 2025-12-17
+       - Description: Implemented auto-generation of chat palette with 5 dice roll commands (命中力, 回避力, 打撃点, 生命抵抗力, 精神抵抗力). Commands correctly reference adjusted values (-7 applied where needed). No special abilities included in chat palette per spec.
+- [x] T023 Udonarium exporter: ZIP compression for multi-part monsters — 2025-12-17
+       - Description: Implemented ZipFileWriter with proper multi-file packaging. Supports single-part (one XML) and multi-part (multiple XML files) monsters. File naming follows convention: monster_name.xml (single), monster_name_part_name#.xml (multi-part).
+- [x] T022 Udonarium exporter: XML generation for each part — 2025-12-17
+       - Description: Implemented XmlGenerator with separate core and non-core part XML templates. Proper XML structure with image section, size field, status values with -7 adjustment, chat palette, and section visibility control.
+- [x] T021 Udonarium exporter: Core module design and data transformer — 2025-12-17
+       - Description: Implemented data transformation pipeline: Monster → TransformedMonster/TransformedPart. Includes value adjustments (hit_rate/dodge/resistance -7), MP handling (-1→0), weakness text transformation, and part-specific data segregation.
 - [x] T020 Documentation: README.md Export Features Section — 2025-12-14
       - Description: Updated README.md with comprehensive Export Features documentation. Added detailed Google Sheets setup instructions (Google Cloud Project setup, OAuth configuration via environment variables or config file, authentication flow explanation). Included supported export formats (JSON and Google Sheets), export command examples with `--export` and `--output` flags, and practical export examples with actual use cases.
 - [x] T019 Phase 2.5: Google Sheets API Integration (P25-3c) — 2025-12-13

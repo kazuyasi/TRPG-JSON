@@ -579,12 +579,30 @@ mod tests {
 
     #[test]
     fn test_credentials_path_creation() {
-        // This test verifies that the path is created correctly with HOME env var
+        // This test verifies that the path is created correctly
+        // The path depends on the OS and dirs crate behavior:
+        // - macOS: /Users/username/Library/Application Support/trpg-json/credentials.json
+        // - Linux: /home/username/.config/trpg-json/credentials.json
+        // - Windows: C:\Users\username\AppData\Roaming\trpg-json\credentials.json
         let credentials_path = GoogleSheetsAuth::get_credentials_path();
         assert!(credentials_path.is_ok());
         
         if let Ok(path) = credentials_path {
-            assert!(path.to_string_lossy().contains(".config/trpg-json/credentials.json"));
+            let path_str = path.to_string_lossy();
+            
+            // Check that the path ends with trpg-json/credentials.json (or with backslash on Windows)
+            let valid_path = path_str.ends_with("trpg-json/credentials.json") || 
+                           path_str.ends_with("trpg-json\\credentials.json");
+            
+            assert!(valid_path, 
+                "Path should end with 'trpg-json/credentials.json', got: {}", path_str);
+            
+            // Additionally verify file name and parent directory names
+            assert_eq!(path.file_name().and_then(|n| n.to_str()), Some("credentials.json"),
+                "File name should be 'credentials.json'");
+            assert_eq!(path.parent().and_then(|p| p.file_name()).and_then(|n| n.to_str()), 
+                Some("trpg-json"),
+                "Parent directory should be 'trpg-json'");
         }
     }
 }

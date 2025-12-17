@@ -6,7 +6,10 @@ use trpg_json_core::{config, export, io, query, Monster};
 #[derive(Parser)]
 #[command(name="gm", version, about="TRPG JSON CLI")]
 struct Cli {
-    /// 設定ファイルのパス（デフォルト: ~/.config/trpg-json/default.toml）
+    /// 設定ファイルのパス（デフォルト: OS別の標準的な設定ディレクトリ配下のtrpg-json/default.toml）
+    /// macOS: ~/Library/Application Support/trpg-json/default.toml
+    /// Linux: ~/.config/trpg-json/default.toml
+    /// Windows: C:\Users\username\AppData\Roaming\trpg-json\default.toml
     #[arg(long, global = true)]
     config: Option<String>,
 
@@ -51,6 +54,8 @@ enum Commands {
     ///   gm select -c 蛮族       # カテゴリ「蛮族」のモンスターをすべて取得
     ///   gm select -l 6 -c 蛮族  # レベル6かつカテゴリ「蛮族」のモンスターを取得
     ///   gm select -l 6 --export json --output results.json # 結果をJSONファイルにエクスポート
+    ///   gm select -l 6 --export sheets --output "Spreadsheet ID" # Google Sheetsにエクスポート
+    ///   gm select -l 6 --export udonarium --output monsters.zip # Udonarium形式にエクスポート
     Select {
         /// 名前で検索（部分マッチ、オプション）
         #[arg(short = 'n', long)]
@@ -64,11 +69,11 @@ enum Commands {
         #[arg(short = 'c', long)]
         category: Option<String>,
         
-        /// エクスポート形式（json, sheets）
+        /// エクスポート形式（json, sheets, udonarium）
         #[arg(long)]
         export: Option<String>,
         
-        /// エクスポート出力先（ファイルパスまたはスプレッドシートID）
+        /// エクスポート出力先（JSONの場合: ファイルパス、Sheetsの場合: スプレッドシートID、Udonariumの場合: ZIPファイルパス）
         #[arg(long)]
         output: Option<String>,
     },
@@ -450,9 +455,12 @@ fn load_config(config_path: &Option<String>) -> config::Config {
 /// 設定ファイルを探す
 /// 複数の候補を試して、最初に見つかったものを使用
 fn find_config_file() -> String {
-    // ホームディレクトリから設定ファイルを探す
-    if let Some(home) = dirs::home_dir() {
-        let path = home.join(".config").join("trpg-json").join("default.toml");
+    // OS別の標準的な設定ディレクトリから設定ファイルを探す
+    // - macOS: ~/Library/Application Support/trpg-json/default.toml
+    // - Linux: ~/.config/trpg-json/default.toml
+    // - Windows: C:\Users\username\AppData\Roaming\trpg-json\default.toml
+    if let Some(config_dir) = dirs::config_dir() {
+        let path = config_dir.join("trpg-json").join("default.toml");
         if path.exists() {
             return path.to_string_lossy().to_string();
         }

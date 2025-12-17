@@ -37,6 +37,7 @@ This tool supports exporting TRPG data to multiple formats for collaboration and
 
 - **JSON**: Native JSON format for data interchange and integration with other tools
 - **Google Sheets**: Direct export to Google Sheets for collaborative editing and sharing
+- **Udonarium**: Export to Udonarium character format (ZIP file with XML) for use in the Udonarium TRPG tool
 
 ### Export Commands
 
@@ -49,8 +50,14 @@ gm select -l 6 --export json --output results.json
 # Export query results to Google Sheets
 gm select -l 6 -c "Category" --export sheets --output <spreadsheet-id>
 
+# Export to Udonarium format (ZIP file with XML)
+gm select -l 6 --export udonarium --output monsters.zip
+
 # Export single monster to JSON
 gm select -n "monster name" --export json --output monster.json
+
+# Export single monster to Udonarium format
+gm select -n "monster name" --export udonarium --output monster.zip
 ```
 
 ### Google Sheets Setup
@@ -102,15 +109,56 @@ On first export to Google Sheets:
 
 The credentials are automatically saved and reused for future exports. They are stored securely in `~/.config/trpg-json/credentials.json`.
 
+### Udonarium Export
+
+The Udonarium export feature converts TRPG-JSON monster data to Udonarium character XML format, packaged in a ZIP file for easy import.
+
+#### How It Works
+
+1. **Single-part monsters**: Creates a ZIP file containing one XML file
+   - Example: `gm select -n "ゴブリン" --export udonarium --output ゴブリン.zip`
+   - Creates: `ゴブリン.zip` containing `ゴブリン.xml`
+
+2. **Multi-part monsters**: Creates a ZIP file containing multiple XML files (one per part)
+   - Example: `gm select -n "トレント" --export udonarium --output トレント.zip`
+   - Creates: `トレント.zip` containing:
+     - `トレント_幹.xml` (core part with full stats)
+     - `トレント_根0.xml` (non-core part)
+     - `トレント_根1.xml` (non-core part)
+
+#### Features
+
+- **Automatic XML generation**: Converts monster stats to Udonarium XML format
+- **Chat palette**: Auto-generates dice roll commands for combat checks
+- **Part handling**: Correctly handles core and non-core monster parts
+- **File organization**: Multiple parts automatically organized in ZIP archive
+
+#### Usage Examples
+
+```bash
+# Export a single monster to Udonarium format
+gm select -n "ゴブリン" --export udonarium --output ゴブリン.zip
+
+# Export all level 6 monsters
+gm select -l 6 --export udonarium --output level6_monsters.zip
+
+# Export monsters by category
+gm select -c "蛮族" --export udonarium --output barbarians.zip
+```
+
 ### Export Examples
 
 ```bash
-# Export all level 6 monsters
+# JSON Export Examples
 gm select -l 6 --export json --output level6_monsters.json
+gm select -c "蛮族" --export json --output barbarians.json
 
-# Export category-specific monsters to Google Sheets
-gm select -c "動物" --export sheets --output <spreadsheet-id>
+# Google Sheets Export Examples
+gm select -l 2 -c "動物" --export sheets --output <spreadsheet-id>
+gm select -l 6 -c "蛮族" --export sheets --output <spreadsheet-id>
 
-# Export with multiple filters
-gm select -l 6 -c "蛮族" --export json --output filtered_results.json
+# Udonarium Export Examples
+gm select -l 6 --export udonarium --output level6_monsters.zip
+gm select -c "蛮族" --export udonarium --output barbarians.zip
+gm select -n "ゴブリン" --export udonarium --output ゴブリン.zip
 ```

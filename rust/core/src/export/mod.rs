@@ -6,12 +6,14 @@ pub mod google_sheets;
 pub mod json;
 pub mod sheets;
 pub mod sheets_api;
+pub mod udonarium;
 
 /// エクスポート形式の定義
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ExportFormat {
     Json,
     GoogleSheets,
+    Udonarium,
 }
 
 impl std::str::FromStr for ExportFormat {
@@ -21,8 +23,9 @@ impl std::str::FromStr for ExportFormat {
         match s.to_lowercase().as_str() {
             "json" => Ok(ExportFormat::Json),
             "sheets" | "google-sheets" | "googlesheets" => Ok(ExportFormat::GoogleSheets),
+            "udonarium" => Ok(ExportFormat::Udonarium),
             _ => Err(format!(
-                "Unknown export format: '{}'. Supported: json, sheets",
+                "Unknown export format: '{}'. Supported: json, sheets, udonarium",
                 s
             )),
         }
@@ -81,6 +84,7 @@ impl ExporterFactory {
         match format {
             ExportFormat::Json => Ok(Box::new(json::JsonExporter)),
             ExportFormat::GoogleSheets => Ok(Box::new(google_sheets::GoogleSheetsExporter)),
+            ExportFormat::Udonarium => Ok(Box::new(udonarium::UdonariumExporter)),
         }
     }
 }
@@ -104,12 +108,20 @@ mod tests {
             "googlesheets".parse::<ExportFormat>().unwrap(),
             ExportFormat::GoogleSheets
         );
+        assert_eq!(
+            "udonarium".parse::<ExportFormat>().unwrap(),
+            ExportFormat::Udonarium
+        );
     }
 
     #[test]
     fn test_export_format_case_insensitive() {
         assert_eq!("JSON".parse::<ExportFormat>().unwrap(), ExportFormat::Json);
         assert_eq!("SHEETS".parse::<ExportFormat>().unwrap(), ExportFormat::GoogleSheets);
+        assert_eq!(
+            "UDONARIUM".parse::<ExportFormat>().unwrap(),
+            ExportFormat::Udonarium
+        );
     }
 
     #[test]
@@ -141,5 +153,12 @@ mod tests {
         let exporter = ExporterFactory::create_exporter(ExportFormat::GoogleSheets);
         assert!(exporter.is_ok());
         assert_eq!(exporter.unwrap().name(), "Google Sheets Exporter");
+    }
+
+    #[test]
+    fn test_exporter_factory_udonarium() {
+        let exporter = ExporterFactory::create_exporter(ExportFormat::Udonarium);
+        assert!(exporter.is_ok());
+        assert_eq!(exporter.unwrap().name(), "Udonarium Exporter");
     }
 }
