@@ -222,33 +222,47 @@ impl GoogleSheetsAuth {
         Ok(())
     }
 
-    /// OAuth 2.0 フロー全体を実行して認証情報を取得
-    ///
-    /// # 処理フロー
-    /// 1. OAuth 設定を読み込む（環境変数またはファイル）
-    /// 2. ブラウザで Google 認可画面を開く
-    /// 3. ユーザー認可後、ローカルHTTPサーバーで認可コードを受け取る
-    /// 4. トークンエンドポイントでアクセストークンを取得
-    /// 5. 認証情報を保存して返す
-    pub fn authenticate(&self) -> Result<OAuthCredentials, AuthError> {
-        // OAuth 設定を読み込む
-        let config = OAuthConfig::from_env()
-            .or_else(|_| OAuthConfig::from_file(&self.config_path))
-            .map_err(|_| AuthError::AuthenticationFailed(
-                "Failed to load OAuth config. Please set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET environment variables, or create ~/.config/trpg-json/oauth_config.json".to_string()
-            ))?;
+     /// OAuth 2.0 フロー全体を実行して認証情報を取得
+     ///
+     /// # 処理フロー
+     /// 1. OAuth 設定を読み込む（環境変数またはファイル）
+     /// 2. ブラウザで Google 認可画面を開く
+     /// 3. ユーザー認可後、ローカルHTTPサーバーで認可コードを受け取る
+     /// 4. トークンエンドポイントでアクセストークンを取得
+     /// 5. 認証情報を保存して返す
+     /// 
+     /// 認証が失敗した場合は、無効な認証情報を削除します。
+     pub fn authenticate(&self) -> Result<OAuthCredentials, AuthError> {
+         // OAuth 設定を読み込む
+         let config = OAuthConfig::from_env()
+             .or_else(|_| OAuthConfig::from_file(&self.config_path))
+             .map_err(|_| AuthError::AuthenticationFailed(
+                 "Failed to load OAuth config. Please set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET environment variables, or create ~/.config/trpg-json/oauth_config.json".to_string()
+             ))?;
 
-        // 認可コードを取得
-        let auth_code = self.get_authorization_code(&config)?;
+         // 認可コードを取得
+         let auth_code = self.get_authorization_code(&config)
+             .map_err(|e| {
+                 // 認可コード取得失敗時は credentials を削除
+                 eprintln!("⚠ Authorization code retrieval failed. Removing invalid credentials...");
+                 let _ = self.clear_credentials();
+                 e
+             })?;
 
-        // トークンを取得
-        let credentials = self.exchange_code_for_token(&config, &auth_code)?;
+         // トークンを取得
+         let credentials = self.exchange_code_for_token(&config, &auth_code)
+             .map_err(|e| {
+                 // トークン取得失敗時は credentials を削除
+                 eprintln!("⚠ Token exchange failed. Removing invalid credentials...");
+                 let _ = self.clear_credentials();
+                 e
+             })?;
 
-        // 認証情報を保存
-        self.save_credentials(&credentials)?;
+         // 認証情報を保存
+         self.save_credentials(&credentials)?;
 
-        Ok(credentials)
-    }
+         Ok(credentials)
+     }
 
     /// ユーザー認可画面を開き、認可コードを取得
     fn get_authorization_code(&self, config: &OAuthConfig) -> Result<String, AuthError> {

@@ -25,25 +25,27 @@ impl DataExporter for GoogleSheetsExporter {
             .map_err(|e| ExportError::GoogleSheetsError(format!("Authentication error: {}", e)))?;
 
         // 認証情報を読み込む
-        let _credentials = match auth.load_credentials() {
-            Ok(_creds) => {
-                eprintln!("✓ Loaded existing credentials");
-            }
-            Err(AuthError::MissingCredentials) => {
-                eprintln!("! No credentials found. Starting OAuth flow...");
-                eprintln!();
-                
-                auth.authenticate()
-                    .map_err(|e| ExportError::GoogleSheetsError(
-                        format!("OAuth authentication failed: {}\n\nSetup required:\n1. Ensure GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET are set\n2. Check that http://localhost:8080/callback is registered as a redirect URI", e)
-                    ))?;
-            }
-            Err(e) => {
-                return Err(ExportError::GoogleSheetsError(
-                    format!("Failed to load credentials: {}", e)
-                ));
-            }
-        };
+         let _credentials = match auth.load_credentials() {
+             Ok(_creds) => {
+                 eprintln!("✓ Loaded existing credentials");
+             }
+             Err(AuthError::MissingCredentials) => {
+                 eprintln!("! No credentials found. Starting OAuth flow...");
+                 eprintln!();
+                 
+                 auth.authenticate()
+                     .map_err(|e| ExportError::GoogleSheetsError(
+                         format!("OAuth authentication failed: {}\n\nSetup required:\n1. Ensure GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET are set\n2. Check that http://localhost:8080/callback is registered as a redirect URI", e)
+                     ))?;
+             }
+             Err(e) => {
+                 eprintln!("⚠ Authentication error: {}. Removing invalid credentials...", e);
+                 let _ = auth.clear_credentials();
+                 return Err(ExportError::GoogleSheetsError(
+                     format!("Failed to load credentials: {}", e)
+                 ));
+             }
+         };
 
         eprintln!("✓ Authenticated");
 
