@@ -6,6 +6,25 @@ A JSON-based data management system for TRPG (Tabletop Role-Playing Game) game s
 
 This repository provides tools for managing and querying TRPG game data (such as monsters, characters, and items) in JSON format. It includes a command-line interface for searching and filtering game data.
 
+## Installation
+
+### Prerequisites
+
+- [Rust](https://www.rust-lang.org/tools/install) 1.70 or later
+
+### Install Steps
+
+```bash
+# Option 1: From repository root
+cargo install --path rust/app
+
+# Option 2: From rust/app directory
+cd rust/app
+cargo install --path .
+```
+
+The `gm` command will be installed to your Cargo bin directory (typically `~/.cargo/bin`). Make sure this directory is in your `PATH`.
+
 ## Usage
 
 This is a command-line tool for managing TRPG game data in JSON format.
