@@ -69,6 +69,20 @@ impl XmlGenerator {
     </data>
   </data>
   <chat-palette dicebot="SwordWorld2.5">
+//-----計算
+C({{HP}}+{{防護点}}+{{ダメージ軽減}}-()) 　【残HP（物理ダメージ）】
+C({{HP}}+{{ダメージ軽減}}-())　【残HP（魔法ダメージ）】
+C({{MP}}-())　【MP消費】
+C{{HP}}　【現在HP】
+C{{MP}}　【現在MP】
+
+//-----固定値判定
+C({{命中力}}+7) 命中判定（固定値）
+C({{回避力}}+7) 回避判定（固定値）
+C({{生命抵抗力}}+7) 生命抵抗判定（固定値）
+C({{精神抵抗力}}+7) 精神抵抗判定（固定値）
+
+//-----ダイス判定
 2d+{{命中力}}　命中判定
 2d+{{打撃点}}　ダメージロール
 2d+{{回避力}}　回避判定
@@ -137,11 +151,25 @@ impl XmlGenerator {
      </data>
    </data>
    <chat-palette dicebot="SwordWorld2.5">
- 2d+{{命中力}}　命中判定
- 2d+{{打撃点}}　ダメージロール
- 2d+{{回避力}}　回避判定
- 2d+{{生命抵抗力}}　生命抵抗判定
- 2d+{{精神抵抗力}}　精神抵抗判定
+//-----計算
+C({{HP}}+{{防護点}}+{{ダメージ軽減}}-()) 　【残HP（物理ダメージ）】
+C({{HP}}+{{ダメージ軽減}}-())　【残HP（魔法ダメージ）】
+C({{MP}}-())　【MP消費】
+C{{HP}}　【現在HP】
+C{{MP}}　【現在MP】
+
+//-----固定値判定
+C({{命中力}}+7) 命中判定（固定値）
+C({{回避力}}+7) 回避判定（固定値）
+C({{生命抵抗力}}+7) 生命抵抗判定（固定値）
+C({{精神抵抗力}}+7) 精神抵抗判定（固定値）
+
+//-----ダイス判定
+2d+{{命中力}}　命中判定
+2d+{{打撃点}}　ダメージロール
+2d+{{回避力}}　回避判定
+2d+{{生命抵抗力}}　生命抵抗判定
+2d+{{精神抵抗力}}　精神抵抗判定
    </chat-palette>
  </character>"#,
              part.display_name,
@@ -585,5 +613,239 @@ mod tests {
          // Actual status values in XML should be correct (adjusted by -7)
          assert!(xml.contains("<data name=\"命中力\" type=\"number\">13</data>"), 
                  "Status values should be correctly adjusted (20-7=13)");
+    }
+
+    // T025: Fixed-Value Judgment Commands Tests
+    #[test]
+    fn test_chat_palette_contains_fixed_value_judgment_section() {
+        let monster = create_test_monster();
+        let display_names = vec!["テストモンスター".to_string()];
+        let transformed =
+            super::super::data_transformer::DataTransformer::transform(&monster, display_names);
+
+        let xml = XmlGenerator::generate_xml(&transformed, 0).unwrap();
+        
+        // Fixed-value judgment section should exist
+        assert!(xml.contains("//-----固定値判定"), "Fixed-value section header missing");
+    }
+
+    #[test]
+    fn test_chat_palette_fixed_value_hit_command() {
+        let monster = create_test_monster();
+        let display_names = vec!["テストモンスター".to_string()];
+        let transformed =
+            super::super::data_transformer::DataTransformer::transform(&monster, display_names);
+
+        let xml = XmlGenerator::generate_xml(&transformed, 0).unwrap();
+        
+        // Extract chat-palette section
+        let start = xml.find("<chat-palette").expect("chat-palette not found");
+        let end = xml.find("</chat-palette>").expect("chat-palette end not found");
+        let palette = &xml[start..end + "</chat-palette>".len()];
+        
+        // Verify fixed-value hit judgment command
+        // Note: {{ in format string becomes { in output
+        assert!(palette.contains("C({命中力}+7) 命中判定（固定値）"), 
+                "Fixed-value hit command format is incorrect");
+    }
+
+    #[test]
+    fn test_chat_palette_fixed_value_dodge_command() {
+        let monster = create_test_monster();
+        let display_names = vec!["テストモンスター".to_string()];
+        let transformed =
+            super::super::data_transformer::DataTransformer::transform(&monster, display_names);
+
+        let xml = XmlGenerator::generate_xml(&transformed, 0).unwrap();
+        
+        // Extract chat-palette section
+        let start = xml.find("<chat-palette").expect("chat-palette not found");
+        let end = xml.find("</chat-palette>").expect("chat-palette end not found");
+        let palette = &xml[start..end + "</chat-palette>".len()];
+        
+        // Verify fixed-value dodge command
+        // Note: {{ in format string becomes { in output
+        assert!(palette.contains("C({回避力}+7) 回避判定（固定値）"), 
+                "Fixed-value dodge command format is incorrect");
+    }
+
+    #[test]
+    fn test_chat_palette_fixed_value_resistance_commands() {
+        let monster = create_test_monster();
+        let display_names = vec!["テストモンスター".to_string()];
+        let transformed =
+            super::super::data_transformer::DataTransformer::transform(&monster, display_names);
+
+        let xml = XmlGenerator::generate_xml(&transformed, 0).unwrap();
+        
+        // Extract chat-palette section
+        let start = xml.find("<chat-palette").expect("chat-palette not found");
+        let end = xml.find("</chat-palette>").expect("chat-palette end not found");
+        let palette = &xml[start..end + "</chat-palette>".len()];
+        
+        // Verify fixed-value resistance commands
+        // Note: {{ in format string becomes { in output
+        assert!(palette.contains("C({生命抵抗力}+7) 生命抵抗判定（固定値）"), 
+                "Fixed-value life resistance command format is incorrect");
+        assert!(palette.contains("C({精神抵抗力}+7) 精神抵抗判定（固定値）"), 
+                "Fixed-value mental resistance command format is incorrect");
+    }
+
+    #[test]
+    fn test_chat_palette_fixed_value_judgment_count() {
+        let monster = create_test_monster();
+        let display_names = vec!["テストモンスター".to_string()];
+        let transformed =
+            super::super::data_transformer::DataTransformer::transform(&monster, display_names);
+
+        let xml = XmlGenerator::generate_xml(&transformed, 0).unwrap();
+        
+        // Extract chat-palette section
+        let start = xml.find("<chat-palette").expect("chat-palette not found");
+        let end = xml.find("</chat-palette>").expect("chat-palette end not found");
+        let palette = &xml[start..end + "</chat-palette>".len()];
+        
+        // Extract fixed-value section
+        let fixed_start = palette.find("//-----固定値判定").expect("Fixed-value section not found");
+        let dice_start = palette.find("//-----ダイス判定").expect("Dice section not found");
+        let fixed_section = &palette[fixed_start..dice_start];
+        
+        // Count fixed-value commands (C( pattern, with { not {{)
+        let fixed_command_count = fixed_section.matches("C({").count();
+        assert_eq!(fixed_command_count, 4, "Must have exactly 4 fixed-value commands");
+    }
+
+    #[test]
+    fn test_chat_palette_dice_judgment_section_intact() {
+        let monster = create_test_monster();
+        let display_names = vec!["テストモンスター".to_string()];
+        let transformed =
+            super::super::data_transformer::DataTransformer::transform(&monster, display_names);
+
+        let xml = XmlGenerator::generate_xml(&transformed, 0).unwrap();
+        
+        // Extract chat-palette section
+        let start = xml.find("<chat-palette").expect("chat-palette not found");
+        let end = xml.find("</chat-palette>").expect("chat-palette end not found");
+        let palette = &xml[start..end + "</chat-palette>".len()];
+        
+        // Verify dice judgment section header
+        assert!(palette.contains("//-----ダイス判定"), "Dice judgment section header missing");
+        
+        // Verify all dice commands are present ({{ becomes { in output)
+        assert!(palette.contains("2d+{命中力}　命中判定"), "Dice hit command missing");
+        assert!(palette.contains("2d+{打撃点}　ダメージロール"), "Dice damage command missing");
+        assert!(palette.contains("2d+{回避力}　回避判定"), "Dice dodge command missing");
+        assert!(palette.contains("2d+{生命抵抗力}　生命抵抗判定"), "Dice life resistance command missing");
+        assert!(palette.contains("2d+{精神抵抗力}　精神抵抗判定"), "Dice mental resistance command missing");
+    }
+
+    #[test]
+    fn test_chat_palette_dice_judgment_count() {
+        let monster = create_test_monster();
+        let display_names = vec!["テストモンスター".to_string()];
+        let transformed =
+            super::super::data_transformer::DataTransformer::transform(&monster, display_names);
+
+        let xml = XmlGenerator::generate_xml(&transformed, 0).unwrap();
+        
+        // Extract chat-palette section
+        let start = xml.find("<chat-palette").expect("chat-palette not found");
+        let end = xml.find("</chat-palette>").expect("chat-palette end not found");
+        let palette = &xml[start..end + "</chat-palette>".len()];
+        
+        // Extract dice section
+        let dice_start = palette.find("//-----ダイス判定").expect("Dice section not found");
+        let palette_end = palette.find("</chat-palette>").expect("Palette end not found");
+        let dice_section = &palette[dice_start..palette_end];
+        
+        // Count dice commands (2d+{ pattern, with { not {{)
+        let dice_command_count = dice_section.matches("2d+{").count();
+        assert_eq!(dice_command_count, 5, "Must have exactly 5 dice judgment commands");
+    }
+
+    #[test]
+    fn test_chat_palette_section_order() {
+        let monster = create_test_monster();
+        let display_names = vec!["テストモンスター".to_string()];
+        let transformed =
+            super::super::data_transformer::DataTransformer::transform(&monster, display_names);
+
+        let xml = XmlGenerator::generate_xml(&transformed, 0).unwrap();
+        
+        // Extract chat-palette section
+        let start = xml.find("<chat-palette").expect("chat-palette not found");
+        let end = xml.find("</chat-palette>").expect("chat-palette end not found");
+        let palette = &xml[start..end + "</chat-palette>".len()];
+        
+        // Verify section order: 計算 -> 固定値判定 -> ダイス判定
+        let calc_pos = palette.find("//-----計算").expect("Calculation section not found");
+        let fixed_pos = palette.find("//-----固定値判定").expect("Fixed-value section not found");
+        let dice_pos = palette.find("//-----ダイス判定").expect("Dice section not found");
+        
+        assert!(calc_pos < fixed_pos, "Calculation section should come before fixed-value section");
+        assert!(fixed_pos < dice_pos, "Fixed-value section should come before dice section");
+    }
+
+    #[test]
+    fn test_non_core_part_fixed_value_commands() {
+        let mut monster = create_test_monster();
+        monster.part[0].core = Some(false);
+        let display_names = vec!["テストモンスター_部位".to_string()];
+        let transformed =
+            super::super::data_transformer::DataTransformer::transform(&monster, display_names);
+
+        let xml = XmlGenerator::generate_xml(&transformed, 0).unwrap();
+        
+        // Extract chat-palette section
+        let start = xml.find("<chat-palette").expect("chat-palette not found");
+        let end = xml.find("</chat-palette>").expect("chat-palette end not found");
+        let palette = &xml[start..end + "</chat-palette>".len()];
+        
+        // Non-core parts should also have fixed-value commands ({{ becomes { in output)
+        assert!(palette.contains("C({命中力}+7) 命中判定（固定値）"), 
+                "Non-core part missing fixed-value hit command");
+        assert!(palette.contains("C({回避力}+7) 回避判定（固定値）"), 
+                "Non-core part missing fixed-value dodge command");
+        assert!(palette.contains("C({生命抵抗力}+7) 生命抵抗判定（固定値）"), 
+                "Non-core part missing fixed-value life resistance command");
+        assert!(palette.contains("C({精神抵抗力}+7) 精神抵抗判定（固定値）"), 
+                "Non-core part missing fixed-value mental resistance command");
+    }
+
+    #[test]
+    fn test_core_and_non_core_chat_palette_parity() {
+        let monster_core = create_test_monster();
+        let display_names_core = vec!["テストモンスター".to_string()];
+        let transformed_core =
+            super::super::data_transformer::DataTransformer::transform(&monster_core, display_names_core);
+        let xml_core = XmlGenerator::generate_xml(&transformed_core, 0).unwrap();
+
+        let mut monster_non_core = create_test_monster();
+        monster_non_core.part[0].core = Some(false);
+        let display_names_non_core = vec!["テストモンスター_部位".to_string()];
+        let transformed_non_core =
+            super::super::data_transformer::DataTransformer::transform(&monster_non_core, display_names_non_core);
+        let xml_non_core = XmlGenerator::generate_xml(&transformed_non_core, 0).unwrap();
+
+        // Extract chat-palette sections
+        let core_start = xml_core.find("<chat-palette").unwrap();
+        let core_end = xml_core.find("</chat-palette>").unwrap();
+        let core_palette = &xml_core[core_start..core_end + "</chat-palette>".len()];
+
+        let non_core_start = xml_non_core.find("<chat-palette").unwrap();
+        let non_core_end = xml_non_core.find("</chat-palette>").unwrap();
+        let non_core_palette = &xml_non_core[non_core_start..non_core_end + "</chat-palette>".len()];
+
+        // Count total commands (calculation + fixed-value + dice)
+        // Note: {{ in format string becomes { in output
+        let core_calc = core_palette.matches("C({").count() + core_palette.matches("C{").count();
+        let non_core_calc = non_core_palette.matches("C({").count() + non_core_palette.matches("C{").count();
+        let core_dice = core_palette.matches("2d+{").count();
+        let non_core_dice = non_core_palette.matches("2d+{").count();
+
+        // Both should have same structure (calculation and fixed-value commands)
+        assert_eq!(core_calc, non_core_calc, "Core and non-core should have same number of calculation/fixed-value commands");
+        assert_eq!(core_dice, non_core_dice, "Core and non-core should have same number of dice commands");
     }
 }
