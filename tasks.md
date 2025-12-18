@@ -2,31 +2,89 @@
 
 ## 🧭 Meta
 - Project: TRPG-JSON
-- Last Updated: 2025-12-17 JST (T027 complete; Udonarium export fully implemented)
-- Responsibilities: kazuyasi (specification/approval) / Claude (proposal/implementation)
-- Status: Phase 2 complete, Phase 2.5 COMPLETE (T013-T027). Udonarium export fully implemented with XML generation, ZIP packaging, and chat palette auto-generation. Ready for commit.
+- Last Updated: 2025-12-18 JST (T028 in progress; Phase 3 spell system kickoff)
+- Responsibilities: kazuyasi (specification/approval/sample data) / Claude (proposal/implementation/testing)
+- Status: Phase 2.5 COMPLETE (T013-T027). Phase 3 INITIATED. CLI refactored with nested subcommands (`gm monster`/`gm spell`). Configuration extended. Spell data model with JSON schema validation ready. Sample spell data creation in progress.
 
 ---
 
 ## 🔥 Priority Now
-- **Commit T021-T027 Implementation** 📋
-   - All Udonarium export modules complete and tested
-   - Documentation updated (DESIGN_GUIDE.md, README.md)
-   - Ready for git commit
+- **Phase 3: Spell System Implementation (T028-T045)** 📋
+   - CLI refactoring complete (nested subcommands: `gm monster`/`gm spell`)
+   - Configuration extended with spell paths support
+   - Spell data model created with JSON schema validation
+   - Ready for spell sample data creation and feature implementation
 
 ## 🚧 In Progress
+- [ ] T028 JSON Schema for spells - Conditional field validation — IN PROGRESS (kazuyasi)
+   - Status: Schema validation rules tested. Using if-then-allOf pattern for kind-based field selection
+   - Next: Create sample spell data using schema
 
 ---
 
-## Backlog (Phase 3 - System Abstraction)
-- [ ] T028 Phase 3: System abstraction - Design GameEntity trait
-- [ ] T029 Phase 3: Implement system-specific modules
-- [ ] T030 Phase 3: CLI system selection support (--system flag)
-- [ ] T031 Phase 3: Multi-system test coverage
+## Backlog (Phase 3 - Spell System & CLI Enhancement)
+- [ ] T029 Sample spell data creation (JSON) — kazuyasi
+   - Create 5-10 sample spells covering different categories (真語魔法, 操霊魔法, etc.)
+   - Test JSON against schema validation
+   - Include examples of all `kind` variants (value/value+/special for MP, value/value+/rank for Lv)
+
+- [ ] T030 Spell query module (search by name/level/school) — Claude
+   - Implement query::find_by_school(), find_by_level() for spells
+   - Add unit tests for spell search functionality
+   - Pattern: follow monster query module design
+
+- [ ] T031 Spell I/O module (load multiple spell files) — Claude
+   - Extend io.rs to support Spell deserialization
+   - Implement load_multiple_json_arrays() variant for spells
+   - Add error handling for invalid spell JSON
+
+- [ ] T032 Spell CLI commands: find/list — Claude
+   - Implement `gm spell find <name> [-l <level>] [-s <school>]`
+   - Implement `gm spell list <pattern>`
+   - Output format: similar to monster commands but without export options
+
+- [ ] T033 Chat palette generation for spells — Claude
+   - Design chat palette format for spells (1-2 line format per spec)
+   - Implement palette generation with dice rolls (2d+{stat} patterns)
+   - Handle variable references from spell data fields
+
+- [ ] T034 Spell CLI command: palette display — Claude
+   - Implement `gm spell palette <name> [-c|--copy]`
+   - Display formatted chat palette to stdout
+   - Optional: copy to clipboard functionality (using copypasta or similar crate)
+   - Return error if spell not found
+
+- [ ] T035 Test suite for spell functionality — Claude
+   - Unit tests for spell query module (20+ tests)
+   - Unit tests for spell palette generation (15+ tests)
+   - Integration tests for CLI spell commands (10+ tests)
+   - Target: 45+ new tests, all passing
+
+- [ ] T036 Documentation: Spell features in README.md — kazuyasi/Claude
+   - Add "Spell Management" section with usage examples
+   - Document spell palette output format
+   - Add spell query examples with filters
+
+- [ ] T037 Commit spell system Phase 3 — kazuyasi
+   - All spell functionality implemented and tested
+   - Documentation complete
+   - Ready for git commit
 
 ---
 
-## ✅ Done (Recent 10)
+## ✅ Done (Recent 15)
+- [x] T028a CLI Refactoring: Nested subcommand structure (gm monster/spell) — 2025-12-18
+       - Description: Refactored Commands enum with MonsterCommands and SpellCommands nested enums. Implemented monster/spell top-level commands. Maintained backward compatibility with direct find/list/select/add/delete for existing users. All existing functionality verified working.
+
+- [x] T028b Configuration: Spell path support — 2025-12-18
+       - Description: Extended config.rs with SpellsConfig enum supporting single/multiple spell files. Added resolve_spells_paths() method. Updated default.toml with spell configuration examples. Added 5 new config tests (load single/multiple spells, resolve paths). All 16 config tests passing.
+
+- [x] T028c Data Model: Spell struct implementation — 2025-12-18
+       - Description: Implemented Spell struct in core/lib.rs with fields: name, school, level, effect, target, cost, notes, extra. Includes proper serde support with Japanese field name handling. Ready for JSON deserialization.
+
+- [x] T028d JSON Schema: Magic spell schema with conditional field validation — 2025-12-18
+       - Description: Created comprehensive magic.json schema. Implemented if-then-allOf pattern for `kind`-based field validation. MP (value/value+/special), Lv (value/value+/rank), and 対象 (個別/エリア) now conditionally require specific fields only. Schema tested and verified with Python validator.
+
 - [x] T027 Documentation: Udonarium export examples in README.md — 2025-12-17
        - Description: Updated README.md and DESIGN_GUIDE.md with complete Udonarium export documentation. Added single-part and multi-part monster export examples, feature descriptions, and usage examples.
 - [x] T026 Unit and integration tests: Udonarium export (22 tests) — 2025-12-17
@@ -92,6 +150,13 @@
 - [x] T000 task.md format migration — 2025-09-14
 
 ---
+
+## 📋 Future Phases (Post Phase 3)
+- [ ] T038 Phase 4: Skill system implementation (流派特技)
+- [ ] T039 Phase 4: Fairy magic system implementation (妖精魔法)
+- [ ] T040 Phase 4: Chat palette export to clipboard
+- [ ] T041 Phase 4: Multi-system support (extend beyond SW2.5)
+- [ ] T042 Phase 4: Skill/Fairy magic CLI commands (gm skill find/list/palette)
 
 ## 🚮 Canceled
 - [ ] T007 Data analysis feature implementation (deemed unnecessary) — 2025-09-14

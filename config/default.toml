@@ -13,6 +13,14 @@ monsters = "playground/TRPG-JSON/data/sample/monsters_sample.json"
 # Example of multiple data files (relative to home directory):
 # monsters = ["playground/TRPG-JSON/data/sample/monsters_basic.json", "playground/TRPG-JSON/data/sample/monsters_advanced.json"]
 
+# Path to the spells data file(s) - Optional
+# If not specified, spell commands will not work
+# You can use:
+# - Single file: spells = "playground/TRPG-JSON/data/sample/spells.json"
+# - Multiple files: spells = ["playground/TRPG-JSON/data/sample/spells_part1.json", "playground/TRPG-JSON/data/sample/spells_part2.json"]
+# - Absolute path: spells = "/path/to/spells.json"
+# spells = "playground/TRPG-JSON/data/sample/spells.json"
+
 [system]
 # Current system (sw25, dnd, etc.)
 name = "sw25"

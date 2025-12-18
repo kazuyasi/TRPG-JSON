@@ -19,9 +19,22 @@ pub enum MonstersConfig {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(untagged)]
+pub enum SpellsConfig {
+    /// 単一ファイル
+    Single(String),
+    /// 複数ファイル
+    Multiple(Vec<String>),
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct DataConfig {
     #[serde(alias = "monsters")]
     pub monsters: MonstersConfig,
+
+    /// スペル（魔法）設定（オプション）
+    #[serde(default)]
+    pub spells: Option<SpellsConfig>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -51,6 +64,7 @@ impl Config {
         Config {
             data: DataConfig {
                 monsters: MonstersConfig::Single("data/SW2.5/monsters.json".to_string()),
+                spells: None,
             },
             system: Some(SystemConfig {
                 name: Some("sw25".to_string()),
@@ -100,6 +114,29 @@ impl Config {
         }
     }
 
+    /// スペルファイルの絶対パスを複数取得
+    ///
+    /// # 引数
+    /// * `base_path` - 基準パス（通常はホームディレクトリ）
+    ///   絶対パスの場合はそのまま使用、相対パスの場合は base_path から解決
+    ///
+    /// # 戻り値
+    /// * `Vec<PathBuf>` - 解決されたパスのリスト（スペル設定がない場合は空配列）
+    pub fn resolve_spells_paths(&self, base_path: Option<&Path>) -> Vec<PathBuf> {
+        match &self.data.spells {
+            Some(SpellsConfig::Single(path)) => {
+                vec![self.resolve_single_path(path, base_path)]
+            }
+            Some(SpellsConfig::Multiple(paths)) => {
+                paths
+                    .iter()
+                    .map(|path| self.resolve_single_path(path, base_path))
+                    .collect()
+            }
+            None => vec![],
+        }
+    }
+
     /// 単一パスを解決する（内部用ヘルパー）
     fn resolve_single_path(&self, path: &str, base_path: Option<&Path>) -> PathBuf {
         let data_path = Path::new(path);
@@ -141,6 +178,7 @@ name = "sw25"
             MonstersConfig::Multiple(_) => panic!("Expected single file"),
         }
         assert_eq!(config.system.unwrap().name.unwrap(), "sw25");
+        assert!(config.data.spells.is_none());
     }
 
     #[test]
@@ -182,6 +220,7 @@ name = "sw25"
         let config = Config {
             data: DataConfig {
                 monsters: MonstersConfig::Single("/absolute/path/monsters.json".to_string()),
+                spells: None,
             },
             system: None,
         };
@@ -195,6 +234,7 @@ name = "sw25"
         let config = Config {
             data: DataConfig {
                 monsters: MonstersConfig::Single("data/SW2.5/monsters.json".to_string()),
+                spells: None,
             },
             system: None,
         };
@@ -211,6 +251,7 @@ name = "sw25"
                     "data/SW2.5/monsters_part1.json".to_string(),
                     "data/SW2.5/monsters_part2.json".to_string(),
                 ]),
+                spells: None,
             },
             system: None,
         };
@@ -225,5 +266,84 @@ name = "sw25"
     fn test_load_nonexistent_file() {
         let result = Config::load("/nonexistent/config.toml");
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_load_config_with_spells() {
+        let mut file = NamedTempFile::new().expect("Failed to create temp file");
+        let config_content = r#"
+[data]
+monsters = "data/SW2.5/monsters.json"
+spells = "data/SW2.5/spells.json"
+
+[system]
+name = "sw25"
+"#;
+        writeln!(file, "{}", config_content).expect("Failed to write to temp file");
+
+        let config = Config::load(file.path()).expect("Failed to load config");
+        assert!(config.data.spells.is_some());
+        match config.data.spells {
+            Some(SpellsConfig::Single(path)) => assert_eq!(path, "data/SW2.5/spells.json"),
+            _ => panic!("Expected single spell file"),
+        }
+    }
+
+    #[test]
+    fn test_load_config_with_multiple_spells() {
+        let mut file = NamedTempFile::new().expect("Failed to create temp file");
+        let config_content = r#"
+[data]
+monsters = "data/SW2.5/monsters.json"
+spells = ["data/SW2.5/spells_part1.json", "data/SW2.5/spells_part2.json"]
+
+[system]
+name = "sw25"
+"#;
+        writeln!(file, "{}", config_content).expect("Failed to write to temp file");
+
+        let config = Config::load(file.path()).expect("Failed to load config");
+        assert!(config.data.spells.is_some());
+        match config.data.spells {
+            Some(SpellsConfig::Multiple(paths)) => {
+                assert_eq!(paths.len(), 2);
+                assert_eq!(paths[0], "data/SW2.5/spells_part1.json");
+                assert_eq!(paths[1], "data/SW2.5/spells_part2.json");
+            }
+            _ => panic!("Expected multiple spell files"),
+        }
+    }
+
+    #[test]
+    fn test_resolve_spells_paths() {
+        let config = Config {
+            data: DataConfig {
+                monsters: MonstersConfig::Single("data/SW2.5/monsters.json".to_string()),
+                spells: Some(SpellsConfig::Multiple(vec![
+                    "data/SW2.5/spells_part1.json".to_string(),
+                    "data/SW2.5/spells_part2.json".to_string(),
+                ])),
+            },
+            system: None,
+        };
+
+        let resolved = config.resolve_spells_paths(Some(Path::new("/repo")));
+        assert_eq!(resolved.len(), 2);
+        assert_eq!(resolved[0], PathBuf::from("/repo/data/SW2.5/spells_part1.json"));
+        assert_eq!(resolved[1], PathBuf::from("/repo/data/SW2.5/spells_part2.json"));
+    }
+
+    #[test]
+    fn test_resolve_spells_paths_empty_when_none() {
+        let config = Config {
+            data: DataConfig {
+                monsters: MonstersConfig::Single("data/SW2.5/monsters.json".to_string()),
+                spells: None,
+            },
+            system: None,
+        };
+
+        let resolved = config.resolve_spells_paths(Some(Path::new("/repo")));
+        assert!(resolved.is_empty());
     }
 }

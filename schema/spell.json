@@ -1,0 +1,359 @@
+{
+    "$schema": "http://json-schema.org/draft-04/schema",
+    "definitions": {
+        "Lv": {
+            "type": "object",
+            "properties": {
+                "kind": {
+                    "type" : "string",
+                    "enum": [
+                        "value",
+                        "value+",
+                        "rank"
+                    ]
+                },
+                "value": {
+                    "type": "integer",
+                    "default": 1,
+                    "minimum": 1,
+                    "maximum": 15
+                },
+                "value+": {
+                    "type": "integer",
+                    "default": 1,
+                    "minimum": 1
+                },
+                "rank": {
+                    "type": "integer",
+                    "default": 1,
+                    "minimum": 1
+                }
+            },
+            "required": ["kind"],
+            "allOf": [
+                {
+                    "if": {
+                        "properties": { "kind": { "const": "value" } }
+                    },
+                    "then": {
+                        "properties": {
+                            "kind": { "type": "string" },
+                            "value": { "type": "integer" }
+                        },
+                        "required": ["kind", "value"],
+                        "additionalProperties": false
+                    }
+                },
+                {
+                    "if": {
+                        "properties": { "kind": { "const": "value+" } }
+                    },
+                    "then": {
+                        "properties": {
+                            "kind": { "type": "string" },
+                            "value+": { "type": "integer" }
+                        },
+                        "required": ["kind", "value+"],
+                        "additionalProperties": false
+                    }
+                },
+                {
+                    "if": {
+                        "properties": { "kind": { "const": "rank" } }
+                    },
+                    "then": {
+                        "properties": {
+                            "kind": { "type": "string" },
+                            "rank": { "type": "integer" }
+                        },
+                        "required": ["kind", "rank"],
+                        "additionalProperties": false
+                    }
+                }
+            ]
+        },
+        "MP": {
+            "type": "object",
+            "properties": {
+                "kind": {
+                    "type" : "string",
+                    "enum": [
+                        "value",
+                        "value+",
+                        "special"
+                    ]
+                },
+                "value": {
+                    "type": "integer",
+                    "default": 1,
+                    "minimum": 1,
+                    "maximum": 100
+                },
+                "value+": {
+                    "type": "integer",
+                    "default": 1,
+                    "minimum": 1
+                },
+                "special" : {
+                    "type" : "string",
+                    "default" : "効果参照"
+                }
+            },
+            "required": ["kind"],
+            "allOf": [
+                {
+                    "if": {
+                        "properties": { "kind": { "const": "value" } }
+                    },
+                    "then": {
+                        "properties": {
+                            "kind": { "type": "string" },
+                            "value": { "type": "integer" }
+                        },
+                        "required": ["kind", "value"],
+                        "additionalProperties": false
+                    }
+                },
+                {
+                    "if": {
+                        "properties": { "kind": { "const": "value+" } }
+                    },
+                    "then": {
+                        "properties": {
+                            "kind": { "type": "string" },
+                            "value+": { "type": "integer" }
+                        },
+                        "required": ["kind", "value+"],
+                        "additionalProperties": false
+                    }
+                },
+                {
+                    "if": {
+                        "properties": { "kind": { "const": "special" } }
+                    },
+                    "then": {
+                        "properties": {
+                            "kind": { "type": "string" },
+                            "special": { "type": "string" }
+                        },
+                        "required": ["kind", "special"],
+                        "additionalProperties": false
+                    }
+                }
+            ]
+        },
+        "エリア末尾" : {
+            "type" : [ "string", "integer" ],
+            "enum": [
+                "空間",
+                "すべて",
+                3,
+                5,
+                10,
+                20
+            ]
+        },
+        "個別" : {
+            "type": "string",
+            "enum": [
+                "術者",
+                "1体",
+                "1体全",
+                "1体X",
+                "物体1つ",
+                "任意の地点",
+                "接触点"
+            ]
+        },
+        "エリア" : {
+            "properties": {
+                "value" : {
+                    "type": "string",
+                    "enum": [
+                        "1エリア",
+                        "2エリア",
+                        "3エリア",
+                        "全エリア"
+                    ]
+                },
+                "半径(m)" : {
+                    "type" :"integer",
+                    "default" : 5,
+                    "minimum": 1
+                },
+                "末尾": {
+                    "$ref": "#/definitions/エリア末尾"
+                }
+            }
+        },
+        "対象" : {
+            "type": "object",
+            "properties": {
+                "kind" : {
+                    "type" :"string",
+                    "enum": [
+                        "個別",
+                        "エリア"
+                    ]
+                },
+                "個別" : { "$ref": "#/definitions/個別" },
+                "エリア" : { "$ref": "#/definitions/エリア" }
+            },
+            "required": ["kind"],
+            "allOf": [
+                {
+                    "if": {
+                        "properties": { "kind": { "const": "個別" } }
+                    },
+                    "then": {
+                        "properties": {
+                            "kind": { "type": "string" },
+                            "個別": { "$ref": "#/definitions/個別" }
+                        },
+                        "required": ["kind", "個別"],
+                        "additionalProperties": false
+                    }
+                },
+                {
+                    "if": {
+                        "properties": { "kind": { "const": "エリア" } }
+                    },
+                    "then": {
+                        "properties": {
+                            "kind": { "type": "string" },
+                            "エリア": { "$ref": "#/definitions/エリア" }
+                        },
+                        "required": ["kind", "エリア"],
+                        "additionalProperties": false
+                    }
+                }
+            ]
+        }
+    },
+    "title": "魔法",
+    "type": "object",
+    "properties": {
+        "reference": {
+            "type": "array",
+            "items": {
+                "properties": {
+                    "book" : { 
+                        "type" : "string",
+                        "enum": [ "I", "II", "III" ]
+                    },
+                    "value" : { "type" : "integer" }
+                }
+            }
+        },
+
+        "Revision": {
+            "type" : "number",
+            "enum": [2.5, 2.0]
+        },
+
+        "category": {
+            "type": "string",
+            "enum": [
+                "真語魔法",
+                "操霊魔法",
+                "深智魔法",
+                "神聖魔法",
+                "魔動機術",
+                "妖精魔法",
+                "召異魔法",
+                "森羅魔法"
+            ]
+        },
+        "optionalCategory": {
+            "type" : ["null", "string"],
+            "enum": [
+                "基本",
+                "特殊"
+            ]
+        },
+        "god": { "type" : ["null", "string"] },
+
+        "Lv": {"$ref": "#/definitions/Lv"},
+
+        "補助" : { "type" :"boolean" },
+
+        "準備" : { "type" :"boolean" },
+
+        "犯罪" : { "type" :"boolean" },
+
+        "name": { "type": "string" },
+        
+        "MP": {"$ref": "#/definitions/MP"},
+
+        "対象": {"$ref": "#/definitions/対象"},
+        
+        "時間" : {
+            "properties": {
+                "value" : {
+                    "type" :[ "string" , "integer"],
+                    "enum": [ "一瞬", "永続", "その他", 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 12, 18 ]
+                },
+                "unit" : {  
+                    "type" : ["string" , "null"],
+                    "enum": [ "R", "時間", "日" ]
+                }
+            }
+        },
+        
+        "射程(m)": {
+            "type": "integer",
+            "default": 10,
+            "minimum": 1,
+            "maximum": 100
+        },
+        "形状" : {
+            "type" : ["string" , "null"],
+            "enum": [
+                "射撃",
+                "起点指定",
+                "貫通",
+                "突破"
+            ]
+        },
+        "抵抗" : {
+            "type" : "string",
+            "enum": [
+                "必中",
+                "半減",
+                "なし",
+                "任意",
+                "消滅"
+            ]
+        },
+        "属性" : {
+            "type" : [ "null" ,"string"],
+            "enum": [
+                "断空",
+                "衝撃",
+                "炎",
+                "水・氷",
+                "雷",
+                "土",
+                "風",
+                "毒",
+                "呪い",
+                "病気",
+                "純エネルギー"
+            ]
+        },
+
+        "効果" : { "type" : "string" },
+
+        "マギスフィア" : {
+            "type" : [ "null" ,"string"],
+            "enum": [
+                "小",
+                "中",
+                "大",
+                "大大"
+            ]
+        },
+
+        "オプション" : { "type" : [ "null" ,"string"] }
+    }
+}

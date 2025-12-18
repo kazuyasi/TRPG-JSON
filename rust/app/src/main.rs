@@ -19,12 +19,110 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Commands {
-    /// モンスターを検索する
+    /// モンスター関連コマンド
+    Monster {
+        #[command(subcommand)]
+        command: MonsterCommands,
+    },
+
+    /// スペル（魔法）関連コマンド
+    Spell {
+        #[command(subcommand)]
+        command: SpellCommands,
+    },
+
+    // 後方互換性用: 直接 find/list/select/add/delete を使用可能
+    /// モンスターを検索する（互換性のため直接サポート、gm monster find と同等）
     /// 
     /// 使用例:
     ///   gm find テスト           # 名前に「テスト」を含むモンスターを検索
     ///   gm find テスト -l 6      # 名前に「テスト」を含み、レベル6のモンスターを検索
     ///   gm find テスト -c 蛮族  # 名前に「テスト」を含み、カテゴリ「蛮族」のモンスターを検索
+    #[command(hide = true)]
+    Find {
+        /// 検索する名前（部分マッチ）
+        name: String,
+        
+        /// レベルで絞り込む（オプション）
+        #[arg(short = 'l', long)]
+        level: Option<i32>,
+        
+        /// カテゴリで絞り込む（オプション）
+        #[arg(short = 'c', long)]
+        category: Option<String>,
+    },
+    
+    /// 名前一覧を取得する（互換性のため直接サポート、gm monster list と同等）
+    /// 
+    /// 使用例:
+    ///   gm list テスト          # 名前に「テスト」を含むモンスターの一覧
+    #[command(hide = true)]
+    List {
+        /// 検索パターン（部分マッチ）
+        pattern: String,
+    },
+    
+    /// クエリでモンスターを検索し JSON 配列で返す（互換性のため直接サポート、gm monster select と同等）
+    /// 
+    /// 使用例:
+    ///   gm select -l 6          # レベル6のモンスターをすべて取得
+    ///   gm select -c 蛮族       # カテゴリ「蛮族」のモンスターをすべて取得
+    ///   gm select -l 6 -c 蛮族  # レベル6かつカテゴリ「蛮族」のモンスターを取得
+    ///   gm select -l 6 --export json --output results.json # 結果をJSONファイルにエクスポート
+    ///   gm select -l 6 --export sheets --output "Spreadsheet ID" # Google Sheetsにエクスポート
+    ///   gm select -l 6 --export udonarium --output monsters.zip # Udonarium形式にエクスポート
+    #[command(hide = true)]
+    Select {
+        /// 名前で検索（部分マッチ、オプション）
+        #[arg(short = 'n', long)]
+        name: Option<String>,
+        
+        /// レベルで絞り込む（オプション）
+        #[arg(short = 'l', long)]
+        level: Option<i32>,
+        
+        /// カテゴリで絞り込む（オプション）
+        #[arg(short = 'c', long)]
+        category: Option<String>,
+        
+        /// エクスポート形式（json, sheets, udonarium）
+        #[arg(long)]
+        export: Option<String>,
+        
+        /// エクスポート出力先（JSONの場合: ファイルパス、Sheetsの場合: スプレッドシートID、Udonariumの場合: ZIPファイルパス）
+        #[arg(long)]
+        output: Option<String>,
+    },
+    
+    /// モンスターを追加する（互換性のため直接サポート、gm monster add と同等）
+    /// 
+    /// 使用例:
+    ///   gm add monster.json      # monster.json からモンスターを追加
+    #[command(hide = true)]
+    Add {
+        /// JSON ファイルパス（単一モンスター JSON）
+        file: String,
+    },
+    
+    /// モンスターを削除する（互換性のため直接サポート、gm monster delete と同等）
+    /// 
+    /// 使用例:
+    ///   gm delete "モンスター名"  # 完全一致するモンスターを削除
+    #[command(hide = true)]
+    Delete {
+        /// 削除するモンスターの正確な名前
+        name: String,
+    },
+}
+
+#[derive(Subcommand)]
+enum MonsterCommands {
+    /// モンスターを検索する
+    /// 
+    /// 使用例:
+    ///   gm monster find テスト           # 名前に「テスト」を含むモンスターを検索
+    ///   gm monster find テスト -l 6      # 名前に「テスト」を含み、レベル6のモンスターを検索
+    ///   gm monster find テスト -c 蛮族  # 名前に「テスト」を含み、カテゴリ「蛮族」のモンスターを検索
     Find {
         /// 検索する名前（部分マッチ）
         name: String,
@@ -41,7 +139,7 @@ enum Commands {
     /// 名前一覧を取得する
     /// 
     /// 使用例:
-    ///   gm list テスト          # 名前に「テスト」を含むモンスターの一覧
+    ///   gm monster list テスト          # 名前に「テスト」を含むモンスターの一覧
     List {
         /// 検索パターン（部分マッチ）
         pattern: String,
@@ -50,12 +148,12 @@ enum Commands {
     /// クエリでモンスターを検索し JSON 配列で返す
     /// 
     /// 使用例:
-    ///   gm select -l 6          # レベル6のモンスターをすべて取得
-    ///   gm select -c 蛮族       # カテゴリ「蛮族」のモンスターをすべて取得
-    ///   gm select -l 6 -c 蛮族  # レベル6かつカテゴリ「蛮族」のモンスターを取得
-    ///   gm select -l 6 --export json --output results.json # 結果をJSONファイルにエクスポート
-    ///   gm select -l 6 --export sheets --output "Spreadsheet ID" # Google Sheetsにエクスポート
-    ///   gm select -l 6 --export udonarium --output monsters.zip # Udonarium形式にエクスポート
+    ///   gm monster select -l 6          # レベル6のモンスターをすべて取得
+    ///   gm monster select -c 蛮族       # カテゴリ「蛮族」のモンスターをすべて取得
+    ///   gm monster select -l 6 -c 蛮族  # レベル6かつカテゴリ「蛮族」のモンスターを取得
+    ///   gm monster select -l 6 --export json --output results.json # 結果をJSONファイルにエクスポート
+    ///   gm monster select -l 6 --export sheets --output "Spreadsheet ID" # Google Sheetsにエクスポート
+    ///   gm monster select -l 6 --export udonarium --output monsters.zip # Udonarium形式にエクスポート
     Select {
         /// 名前で検索（部分マッチ、オプション）
         #[arg(short = 'n', long)]
@@ -81,7 +179,7 @@ enum Commands {
     /// モンスターを追加する
     /// 
     /// 使用例:
-    ///   gm add monster.json      # monster.json からモンスターを追加
+    ///   gm monster add monster.json      # monster.json からモンスターを追加
     Add {
         /// JSON ファイルパス（単一モンスター JSON）
         file: String,
@@ -90,10 +188,55 @@ enum Commands {
     /// モンスターを削除する
     /// 
     /// 使用例:
-    ///   gm delete "モンスター名"  # 完全一致するモンスターを削除
+    ///   gm monster delete "モンスター名"  # 完全一致するモンスターを削除
     Delete {
         /// 削除するモンスターの正確な名前
         name: String,
+    },
+}
+
+#[derive(Subcommand)]
+enum SpellCommands {
+    /// スペルを検索する
+    /// 
+    /// 使用例:
+    ///   gm spell find ファイア           # 名前に「ファイア」を含むスペルを検索
+    ///   gm spell find ファイア -l 2      # 名前に「ファイア」を含み、レベル2のスペルを検索
+    ///   gm spell find ファイア -s 火系  # 名前に「ファイア」を含み、系統「火系」のスペルを検索
+    Find {
+        /// 検索する名前（部分マッチ）
+        name: String,
+        
+        /// レベルで絞り込む（オプション）
+        #[arg(short = 'l', long)]
+        level: Option<i32>,
+        
+        /// 系統で絞り込む（オプション）
+        #[arg(short = 's', long)]
+        school: Option<String>,
+    },
+    
+    /// スペル名一覧を取得する
+    /// 
+    /// 使用例:
+    ///   gm spell list ファイア          # 名前に「ファイア」を含むスペルの一覧
+    List {
+        /// 検索パターン（部分マッチ）
+        pattern: String,
+    },
+    
+    /// スペルのチャットパレットを表示/コピー
+    /// 
+    /// 使用例:
+    ///   gm spell palette "ファイアボール"      # チャットパレットを表示
+    ///   gm spell palette "ファイアボール" -c   # チャットパレットをクリップボードにコピー
+    Palette {
+        /// スペル名（完全マッチ）
+        name: String,
+        
+        /// クリップボードにコピー（オプション）
+        #[arg(short = 'c', long)]
+        copy: bool,
     },
 }
 
@@ -106,38 +249,91 @@ fn main() {
     // ホームディレクトリを基準にパスを解決
     // パスが絶対パスの場合はそのまま使用、相対パスの場合はホームディレクトリから解決
     let home_dir = dirs::home_dir();
-    let data_paths = cfg.resolve_monsters_paths(home_dir.as_deref());
+    let monster_paths = cfg.resolve_monsters_paths(home_dir.as_deref());
+    let spell_paths = cfg.resolve_spells_paths(home_dir.as_deref());
     
-    // パスが存在するかチェック
-    for data_path in &data_paths {
+    // モンスターパスが存在するかチェック
+    for data_path in &monster_paths {
         if !data_path.exists() {
-            eprintln!("エラー: データファイルが見つかりません: {}", data_path.display());
+            eprintln!("エラー: モンスターデータファイルが見つかりません: {}", data_path.display());
             process::exit(1);
         }
     }
 
+    // スペルパスが存在するかチェック（スペルコマンド使用時のみ）
+    for data_path in &spell_paths {
+        if !data_path.exists() {
+            eprintln!("警告: スペルデータファイルが見つかりません: {}", data_path.display());
+        }
+    }
+
     // パスを文字列に変換
-    let data_path_strs: Vec<String> = data_paths
+    let monster_path_strs: Vec<String> = monster_paths
+        .iter()
+        .map(|p| p.to_string_lossy().to_string())
+        .collect();
+
+    let spell_path_strs: Vec<String> = spell_paths
         .iter()
         .map(|p| p.to_string_lossy().to_string())
         .collect();
 
     match &cli.command {
+        Some(Commands::Monster { command }) => {
+            match command {
+                MonsterCommands::Find { name, level, category } => {
+                    handle_find_command(&monster_path_strs, name, *level, category.as_deref());
+                }
+                MonsterCommands::List { pattern } => {
+                    handle_list_command(&monster_path_strs, pattern);
+                }
+                MonsterCommands::Select { name, level, category, export: export_format, output } => {
+                    handle_select_command(&monster_path_strs, name.as_deref(), *level, category.as_deref(), export_format.as_deref(), output.as_deref());
+                }
+                MonsterCommands::Add { file } => {
+                    handle_add_command(&monster_path_strs, file);
+                }
+                MonsterCommands::Delete { name } => {
+                    handle_delete_command(&monster_path_strs, name);
+                }
+            }
+        }
+
+        Some(Commands::Spell { command }) => {
+            // スペルコマンド用ハンドラー（将来実装）
+            match command {
+                SpellCommands::Find { name: _, level: _, school: _ } => {
+                    eprintln!("エラー: gm spell find はまだ実装されていません");
+                    process::exit(1);
+                }
+                SpellCommands::List { pattern: _ } => {
+                    eprintln!("エラー: gm spell list はまだ実装されていません");
+                    process::exit(1);
+                }
+                SpellCommands::Palette { name: _, copy: _ } => {
+                    eprintln!("エラー: gm spell palette はまだ実装されていません");
+                    process::exit(1);
+                }
+            }
+        }
+
+        // 後方互換性: 直接コマンドを使用可能
         Some(Commands::Find { name, level, category }) => {
-            handle_find_command(&data_path_strs, name, *level, category.as_deref());
+            handle_find_command(&monster_path_strs, name, *level, category.as_deref());
         }
         Some(Commands::List { pattern }) => {
-            handle_list_command(&data_path_strs, pattern);
+            handle_list_command(&monster_path_strs, pattern);
         }
         Some(Commands::Select { name, level, category, export: export_format, output }) => {
-            handle_select_command(&data_path_strs, name.as_deref(), *level, category.as_deref(), export_format.as_deref(), output.as_deref());
+            handle_select_command(&monster_path_strs, name.as_deref(), *level, category.as_deref(), export_format.as_deref(), output.as_deref());
         }
         Some(Commands::Add { file }) => {
-            handle_add_command(&data_path_strs, file);
+            handle_add_command(&monster_path_strs, file);
         }
         Some(Commands::Delete { name }) => {
-            handle_delete_command(&data_path_strs, name);
+            handle_delete_command(&monster_path_strs, name);
         }
+
         None => {
             eprintln!("gm: サブコマンドを指定してください (--help で確認できます)");
             process::exit(1);
