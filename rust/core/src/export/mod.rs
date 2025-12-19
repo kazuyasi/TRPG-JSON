@@ -4,6 +4,7 @@ use thiserror::Error;
 pub mod auth;
 pub mod google_sheets;
 pub mod json;
+pub mod palette;
 pub mod sheets;
 pub mod sheets_api;
 pub mod udonarium;

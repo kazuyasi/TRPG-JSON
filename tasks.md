@@ -21,20 +21,27 @@
    - Next: Implement palette generation (T033) with補助フラグ support
 
 ## 🚧 In Progress
-- [ ] T032.5b Chat palette specification translation & implementation plan — IN PROGRESS
-    - Status: Awaiting T032.5a completion
-    - Owner: Claude
-    - Task: Translate finalized specification to implementation requirements
-    - Output: Detailed implementation checklist + unit test specifications (20+ tests)
-    - Blockers: None
-    - Next: T033 (palette generation module implementation)
+- [ ] T033 Chat palette generation for spells — READY TO START
+     - Status: Implementation plan complete, ready to begin coding
+     - Owner: Claude
+     - Task: Implement palette.rs module with補助フラグ conditional logic
+     - Reference Docs: SPELL_PALETTE_IMPLEMENTATION.md + SPELL_PALETTE_TESTS.md
+     - Expected: 28 tests passing, all 10 functions implemented
+     - Blockers: None
+     - Next: After T033, start T034 (CLI palette command)
 
-- [ ] T033 Chat palette generation for spells — BLOCKED (awaiting T032.5b)
-    - Status: Planning blocked until implementation plan is finalized
-    - Owner: Claude
-    - Task: Implement palette.rs module with補助フラグ conditional logic
-    - Dependencies: T032.5b (implementation plan)
-    - Next: Implement palette.rs after T032.5b completion
+- [x] T033 Chat palette generation for spells — 2025-12-19
+     - Status: COMPLETE ✅
+     - Owner: Claude + kazuyasi (collaborative)
+     - Task: Implement palette.rs module with補助フラグ conditional logic
+     - Completed:
+       * Helper functions: format_mp(), format_target(), format_duration() ✅
+       * Generator functions: generate_support_palette(), generate_regular_palette() ✅
+       * Entry point: generate_spell_palette() ✅
+       * 28 unit + integration tests (all PASSED) ✅
+       * Error constants: 9個 (kazuyasi実装 + Claude追加) ✅
+     - Test results: 49 passed; 0 failed
+     - Lines of code: ~400 (functions + tests)
 
 ---
 
@@ -72,15 +79,18 @@
      - All spell search commands (find/list/palette) verified working
      - Ready for T032.5b implementation planning
 
-- [ ] T032.5b Chat palette specification translation & implementation plan — Claude
-     - Status: Awaiting T032.5a completion
-     - Task: Translate finalized specification to implementation requirements
-     - Output: Detailed implementation checklist covering:
-       1. Data field extraction logic from Spell struct
-       2. Conditional logic for補助フラグ (true/false branching)
-       3. Output format generation (single-line format)
-       4. Error handling for missing/invalid fields
-     - Deliverable: Implementation plan document + unit test specifications (20+ tests)
+- [x] T032.5b Chat palette specification translation & implementation plan — 2025-12-19
+      - Status: COMPLETE
+      - Task: Translate finalized specification to implementation requirements
+      - Output: Detailed implementation checklist covering:
+        1. Data field extraction logic from Spell struct
+        2. Conditional logic for補助フラグ (true/false branching)
+        3. Output format generation (single-line format)
+        4. Error handling for missing/invalid fields
+      - Deliverable: Implementation plan document + unit test specifications (28 tests)
+      - Documents Created:
+        * SPELL_PALETTE_IMPLEMENTATION.md (8 parts: spec, checklist, error handling, tests)
+        * SPELL_PALETTE_TESTS.md (28 tests across 8 categories with full specifications)
 
 - [ ] T033 Chat palette generation for spells — Claude (T032.5b dependency)
     - Implement palette.rs module with補助フラグ conditional logic
@@ -101,20 +111,42 @@
    - Integration tests for CLI spell commands (10+ tests)
    - Total: 25+ new tests targeting palette feature
 
-- [ ] T036 Documentation: Spell features in README.md — kazuyasi/Claude
-   - Add "Spell Management" section with usage examples
-   - Document spell palette output format (補助/通常 patterns)
-   - Add spell query examples with filters
-   - Update with chat palette command examples
+- [ ] T035.5 Spell select command: Query by category and level — Claude (Low Priority)
+    - Implement `gm spell select -l <level> -c <category>` command
+    - Similar to monster select but for spells
+    - Support filters: -l (level), -c (category)
+    - Return JSON array of matching spells
+    - Unit tests: 10+ for spell select command
+    - Effort: Low (building on existing spell query functions)
+
+- [ ] T036 Documentation: README.md update — kazuyasi/Claude (Low Priority)
+    - Update "Basic Commands" section to show monster subcommand syntax
+      - Change `gm find` → `gm monster find`
+      - Change `gm list` → `gm list`
+      - Change `gm select` → `gm monster select`
+      - Change `gm add` → `gm monster add`
+      - Change `gm delete` → `gm monster delete`
+    - Add new "Spell Management" section with usage examples:
+      - `gm spell find/list/select` command examples
+      - Document spell select filters (-l level, -c category)
+      - Document spell palette output format (補助/通常 patterns)
+      - Add spell query examples with filters
+    - Add chat palette command examples (after T033 completion)
 
 - [ ] T037 Commit spell system Phase 3 — kazuyasi
-   - All spell functionality implemented and tested
-   - Documentation complete (DESIGN_GUIDE.md + README.md)
-   - Ready for git commit
+    - All spell functionality implemented and tested
+    - Documentation complete (DESIGN_GUIDE.md + README.md)
+    - Ready for git commit
 
 ---
 
 ## ✅ Done (Recent 15)
+- [x] T033 Chat palette generation for spells — 2025-12-19
+        - Description: Implemented palette.rs module with 7 functions: format_mp(), format_target(), format_duration(), format_magic_category() (kazuyasi), generate_support_palette(), generate_regular_palette(), generate_spell_palette(). 28 comprehensive tests covering MP/target/duration/category formatting, support/regular/entry-point palette generation, and integration tests. All tests passing (49/49). Support for both support spells (補助=true) and regular spells (補助=false) with correct output formats and dice roll handling.
+
+- [x] T032.5b Chat palette specification translation & implementation plan — 2025-12-19
+        - Description: Translated DESIGN_GUIDE.md spell palette specification into detailed implementation plan. Created SPELL_PALETTE_IMPLEMENTATION.md with 10 function definitions, error handling for 8+ scenarios, and implementation checklist. Created SPELL_PALETTE_TESTS.md with 28 unit/integration tests across 8 categories (MP formatting, target formatting, duration formatting, magic category, support/regular spell generation, entry point, integration). Ready for T033 palette.rs implementation.
+
 - [x] T032.5a Chat palette specification review & revision — 2025-12-19
         - Description: Finalized spell chat palette specification in DESIGN_GUIDE.md. Translated section to English/Japanese mixed format following documentation rules. Clarified MP field structure (value/value+/special). Marked {行使修正} as literal output for dicebot replacement. Verified all spell search commands (find/list/palette) work correctly. Ready for T032.5b implementation planning.
 
