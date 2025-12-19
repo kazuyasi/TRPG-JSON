@@ -2,46 +2,59 @@
 
 ## 🧭 Meta
 - Project: TRPG-JSON
-- Last Updated: 2025-12-19 JST (T032 complete; Phase 3 spell CLI & palette design)
-- Responsibilities: kazuyasi (specification/approval/sample data) / Claude (proposal/implementation/testing)
-- Status: Phase 2.5 COMPLETE (T013-T027). Phase 3 IN PROGRESS (T028-T032 complete). Spell system core implementation done (query, I/O, CLI find/list). Chat palette specification documented in DESIGN_GUIDE.md. Ready for palette generation implementation.
+- Last Updated: 2025-12-19 JST (T033-T036.5 complete; Phase 3 implementation and documentation complete)
+- Responsibilities: kazuyasi (specification/approval/git operations) / Claude (proposal/implementation/testing)
+- Status: Phase 2.5 COMPLETE (T013-T027). Phase 3 COMPLETE (T028-T036.5 done). Spell system fully implemented with chat palette generation, CLI commands, comprehensive test suite, documentation, and all I/O tests fixed. Ready for T037 (final commit).
 
 ---
 
 ## 🔥 Priority Now
-- **Phase 3: Spell System Implementation (T033-T037)** 📋
+- **Phase 3: Spell System Implementation (T033-T037)** 📋 READY FOR FINAL COMMIT
    - ✅ CLI refactoring complete (nested subcommands: `gm monster`/`gm spell`)
    - ✅ Configuration extended with spell paths support
    - ✅ Spell data model created with JSON schema validation
-   - ✅ Sample spell data created & validated (9 spells, all schema-compliant)
+   - ✅ Sample spell data created & validated (9 spells, all schema-compliant, aligned with schema)
    - ✅ Query module implemented (20+ tests passing)
-   - ✅ I/O module implemented (10+ tests passing)
-   - ✅ CLI commands implemented: `gm spell find/list` working
-   - 🔄 Chat palette specification documented in DESIGN_GUIDE.md
-   - Next: Implement palette generation (T033) with補助フラグ support
+   - ✅ I/O module implemented (ALL tests passing, 49/49 ✅)
+   - ✅ CLI commands implemented: `gm spell find/list/palette` all working
+   - ✅ Chat palette generation with補助フラグ support fully implemented (28 tests)
+   - ✅ Spell palette CLI command with clipboard support (T034 complete)
+   - ✅ Spell CLI integration test suite (10 tests, 18 total app tests passing)
+   - ✅ Documentation: README.md updated with new syntax and Spell Management section (T036)
+   - ✅ I/O tests fixed: Multiple spell file loading tests now passing (T036.5)
+   - ✅ Release build: SUCCESS
+   - Next: T037 (final Phase 3 commit by kazuyasi)
 
 ## 🚧 In Progress
-- [ ] T033 Chat palette generation for spells — READY TO START
-     - Status: Implementation plan complete, ready to begin coding
-     - Owner: Claude
-     - Task: Implement palette.rs module with補助フラグ conditional logic
-     - Reference Docs: SPELL_PALETTE_IMPLEMENTATION.md + SPELL_PALETTE_TESTS.md
-     - Expected: 28 tests passing, all 10 functions implemented
-     - Blockers: None
-     - Next: After T033, start T034 (CLI palette command)
+- [ ] T037 Commit spell system Phase 3 — READY FOR kazuyasi
+      - Status: All implementation, testing, and documentation complete
+      - Owner: kazuyasi (git operations)
+      - Task: Final git commit for Phase 3
+      - Blockers: None
+      - Changes to commit:
+        * README.md (T036): Updated command syntax and added Spell Management section
+        * io.rs (T036.5): Fixed spell I/O multiple file loading tests
+        * tasks.md: Updated task tracking and completion status
+      - Expected: All tests pass, release build succeeds
 
 - [x] T033 Chat palette generation for spells — 2025-12-19
-     - Status: COMPLETE ✅
-     - Owner: Claude + kazuyasi (collaborative)
-     - Task: Implement palette.rs module with補助フラグ conditional logic
-     - Completed:
-       * Helper functions: format_mp(), format_target(), format_duration() ✅
-       * Generator functions: generate_support_palette(), generate_regular_palette() ✅
-       * Entry point: generate_spell_palette() ✅
-       * 28 unit + integration tests (all PASSED) ✅
-       * Error constants: 9個 (kazuyasi実装 + Claude追加) ✅
-     - Test results: 49 passed; 0 failed
-     - Lines of code: ~400 (functions + tests)
+      - Status: COMPLETE ✅
+      - Owner: Claude + kazuyasi (collaborative)
+      - Task: Implement palette.rs module with補助フラグ conditional logic
+      - Completed:
+        * Helper functions: format_mp(), format_target(), format_duration() ✅
+        * Generator functions: generate_support_palette(), generate_regular_palette() ✅
+        * Entry point: generate_spell_palette() ✅
+        * 28 unit + integration tests (all PASSED) ✅
+        * Error constants: 9個 (kazuyasi実装 + Claude追加) ✅
+      - Test results: 49 passed; 0 failed
+      - Lines of code: ~400 (functions + tests)
+
+- [x] T034 Spell CLI command: palette display — 2025-12-19
+      - Status: COMPLETE ✅
+
+- [x] T035 Spell CLI integration test suite — 2025-12-19
+      - Status: COMPLETE ✅
 
 ---
 
@@ -92,55 +105,60 @@
         * SPELL_PALETTE_IMPLEMENTATION.md (8 parts: spec, checklist, error handling, tests)
         * SPELL_PALETTE_TESTS.md (28 tests across 8 categories with full specifications)
 
-- [ ] T033 Chat palette generation for spells — Claude (T032.5b dependency)
-    - Implement palette.rs module with補助フラグ conditional logic
-    - Support for補助=true (no dice rolls) format
-    - Support for補助=false (with dice roll commands) format
-    - Handle judgment stat selection based on対象/抵抗 patterns
-    - Unit tests: 20+ for palette generation logic
-    - Dependencies: T032.5a (spec finalized) → T032.5b (implementation plan)
 
-- [ ] T034 Spell CLI command: palette display — Claude
-   - Implement `gm spell palette <name>` with formatted output
-   - Display multi-line palette for regular spells, single-line for support spells
-   - Optional: copy to clipboard functionality (--copy flag)
-   - Integration test with T033 palette generation
 
-- [ ] T035 Test suite for spell functionality — Claude
-   - Unit tests for palette generation (15+ tests)
-   - Integration tests for CLI spell commands (10+ tests)
-   - Total: 25+ new tests targeting palette feature
+- [x] T036 Documentation: README.md update — 2025-12-19
+      - Status: COMPLETE ✅
+      - Task: Updated README.md with new command syntax and Spell Management section
+      - Completed:
+        * Refactored "Basic Commands" → "Basic Monster Commands" ✅
+        * Updated all monster commands: `gm find` → `gm monster find`, etc. ✅
+        * Added comprehensive "Spell Management" section ✅
+        * Documented spell search commands (find/list/palette) with examples ✅
+        * Documented spell palette output format (補助/通常 patterns) ✅
+        * Explained magic category formatting rules ✅
+        * Updated all export examples to `gm monster select` syntax ✅
+      - Impact: README fully up-to-date with Phase 3 implementation
+
+- [x] T036.5 Fix spell I/O multiple file loading tests — 2025-12-19
+      - Status: COMPLETE ✅
+      - Location: rust/core/src/io.rs (lines 746-821)
+      - Fixed tests: 2 (test_load_multiple_spells_json_arrays, test_load_multiple_spells_json_arrays_with_empty_file)
+      - Root cause: Test JSON used old field names (School/Lv/Target/Cost)
+      - Solution: Updated test JSON data to match actual Spell struct definition
+        1. Changed "School" → "category"
+        2. Changed flat "Lv" → { "kind": "value", "value": N }
+        3. Changed flat "MP"/"Cost" → { "kind": "value", "value": N }
+        4. Changed "Target" → "対象" with proper nested structure
+      - Test results: Both tests now PASS ✅
+      - Release build: SUCCESS ✅
+      - All I/O tests: 49/49 PASS ✅
 
 - [ ] T035.5 Spell select command: Query by category and level — Claude (Low Priority)
-    - Implement `gm spell select -l <level> -c <category>` command
-    - Similar to monster select but for spells
-    - Support filters: -l (level), -c (category)
-    - Return JSON array of matching spells
-    - Unit tests: 10+ for spell select command
-    - Effort: Low (building on existing spell query functions)
-
-- [ ] T036 Documentation: README.md update — kazuyasi/Claude (Low Priority)
-    - Update "Basic Commands" section to show monster subcommand syntax
-      - Change `gm find` → `gm monster find`
-      - Change `gm list` → `gm list`
-      - Change `gm select` → `gm monster select`
-      - Change `gm add` → `gm monster add`
-      - Change `gm delete` → `gm monster delete`
-    - Add new "Spell Management" section with usage examples:
-      - `gm spell find/list/select` command examples
-      - Document spell select filters (-l level, -c category)
-      - Document spell palette output format (補助/通常 patterns)
-      - Add spell query examples with filters
-    - Add chat palette command examples (after T033 completion)
+     - Implement `gm spell select -l <level> -c <category>` command
+     - Similar to monster select but for spells
+     - Support filters: -l (level), -c (category)
+     - Return JSON array of matching spells
+     - Unit tests: 10+ for spell select command
+     - Effort: Low (building on existing spell query functions)
 
 - [ ] T037 Commit spell system Phase 3 — kazuyasi
-    - All spell functionality implemented and tested
-    - Documentation complete (DESIGN_GUIDE.md + README.md)
-    - Ready for git commit
+     - Status: READY FOR COMMIT ✅
+     - All spell functionality implemented and tested ✅
+     - Documentation complete (README.md + DESIGN_GUIDE.md) ✅
+     - All tests passing (212/212 core tests, 18/18 app tests) ✅
+     - Release build successful ✅
+     - Ready for final git commit
 
 ---
 
-## ✅ Done (Recent 15)
+## ✅ Done (Recent 18)
+- [x] T035 Spell CLI integration test suite — 2025-12-19
+        - Description: Added 10 comprehensive spell functionality tests in app/src/main.rs. Tests cover spell search (by name exact/partial, by category, multi-filter), palette generation (support/regular/area targets), data persistence, and schema compliance. All 18 app tests passing (8 export + 10 spell tests). Test data paths fixed for cross-directory execution.
+
+- [x] T034 Spell CLI command: palette display — 2025-12-19
+        - Description: Implemented `gm spell palette <name> [-c/--copy]` command with full integration. Added copy_to_clipboard() helper supporting macOS (pbcopy), Linux (xclip), and Windows (clip). Integrated palette.rs generate_spell_palette() into CLI. Sample spell data aligned with schema requirements (射程/末尾 values compliant). All tests passing; release build successful.
+
 - [x] T033 Chat palette generation for spells — 2025-12-19
         - Description: Implemented palette.rs module with 7 functions: format_mp(), format_target(), format_duration(), format_magic_category() (kazuyasi), generate_support_palette(), generate_regular_palette(), generate_spell_palette(). 28 comprehensive tests covering MP/target/duration/category formatting, support/regular/entry-point palette generation, and integration tests. All tests passing (49/49). Support for both support spells (補助=true) and regular spells (補助=false) with correct output formats and dice roll handling.
 
@@ -249,6 +267,20 @@
 
 ## 🚮 Canceled
 - [ ] T007 Data analysis feature implementation (deemed unnecessary) — 2025-09-14
+
+---
+
+## ⚠️ Known Issues & Tech Debt
+
+### ✅ RESOLVED: I/O Tests - Spell Multiple File Loading (T036.5)
+- **Location**: `rust/core/src/io.rs` - `test_load_multiple_spells_json_arrays*` (2 tests)
+- **Status**: ✅ FIXED (2025-12-19)
+- **Resolution Details**: 
+  - Root cause: Test JSON used outdated field names (School, flat Lv/MP, Target)
+  - Fix: Updated test data to match actual Spell struct schema with proper nesting
+  - Test results: Both tests now PASS ✅
+  - Impact: All 49 I/O tests passing, 212/212 core tests passing
+- **Notes**: Schema compliance now verified. Spell I/O operations fully tested and working.
 
 ---
 

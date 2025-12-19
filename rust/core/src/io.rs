@@ -742,83 +742,83 @@ mod tests {
          assert!(result.is_ok(), "空配列の出力は成功するべき");
      }
 
-     #[test]
-     fn test_load_multiple_spells_json_arrays() {
-         let mut file1 = NamedTempFile::new().expect("Failed to create temp file 1");
-         let mut file2 = NamedTempFile::new().expect("Failed to create temp file 2");
+      #[test]
+      fn test_load_multiple_spells_json_arrays() {
+          let mut file1 = NamedTempFile::new().expect("Failed to create temp file 1");
+          let mut file2 = NamedTempFile::new().expect("Failed to create temp file 2");
 
-         let json_data1 = r#"[
-             {
-                 "name": "Magic_47438",
-                 "School": "MagicCat_1",
-                 "Lv": 9,
-                 "effect": "EffectDescription_41410",
-                 "Target": "1体全",
-                 "Cost": "86"
-             }
-         ]"#;
+          let json_data1 = r#"[
+              {
+                  "name": "Magic_47438",
+                  "category": "MagicCat_1",
+                  "Lv": { "kind": "value", "value": 9 },
+                  "MP": { "kind": "value", "value": 86 },
+                  "effect": "EffectDescription_41410",
+                  "対象": { "kind": "個別", "個別": "1体全" }
+              }
+          ]"#;
 
-         let json_data2 = r#"[
-             {
-                 "name": "Magic_33778",
-                 "School": "MagicCat_2",
-                 "Lv": 13,
-                 "effect": "EffectDescription_75723",
-                 "Target": "1エリア",
-                 "Cost": "15"
-             },
-             {
-                 "name": "Magic_83071",
-                 "School": "MagicCat_2",
-                 "Lv": 3,
-                 "effect": "EffectDescription_37348",
-                 "Target": "接触点",
-                 "Cost": "72"
-             }
-         ]"#;
+          let json_data2 = r#"[
+              {
+                  "name": "Magic_33778",
+                  "category": "MagicCat_2",
+                  "Lv": { "kind": "value", "value": 13 },
+                  "MP": { "kind": "value", "value": 15 },
+                  "effect": "EffectDescription_75723",
+                  "対象": { "kind": "エリア", "エリア": { "value": "1エリア" } }
+              },
+              {
+                  "name": "Magic_83071",
+                  "category": "MagicCat_2",
+                  "Lv": { "kind": "value", "value": 3 },
+                  "MP": { "kind": "value", "value": 72 },
+                  "effect": "EffectDescription_37348",
+                  "対象": { "kind": "個別", "個別": "接触点" }
+              }
+          ]"#;
 
-         writeln!(file1, "{}", json_data1).expect("Failed to write to file 1");
-         writeln!(file2, "{}", json_data2).expect("Failed to write to file 2");
+          writeln!(file1, "{}", json_data1).expect("Failed to write to file 1");
+          writeln!(file2, "{}", json_data2).expect("Failed to write to file 2");
 
-         let paths = [file1.path(), file2.path()];
-         let result = load_multiple_spells_json_arrays(&paths);
-         assert!(result.is_ok(), "複数ファイルのロードが失敗しました");
+          let paths = [file1.path(), file2.path()];
+          let result = load_multiple_spells_json_arrays(&paths);
+          assert!(result.is_ok(), "複数ファイルのロードが失敗しました");
 
-         let spells = result.unwrap();
-         assert_eq!(spells.len(), 3, "3つのスペルがロードされるべき");
-         assert_eq!(spells[0].name, "Magic_47438");
-         assert_eq!(spells[1].name, "Magic_33778");
-         assert_eq!(spells[2].name, "Magic_83071");
-     }
+          let spells = result.unwrap();
+          assert_eq!(spells.len(), 3, "3つのスペルがロードされるべき");
+          assert_eq!(spells[0].name, "Magic_47438");
+          assert_eq!(spells[1].name, "Magic_33778");
+          assert_eq!(spells[2].name, "Magic_83071");
+      }
 
-     #[test]
-     fn test_load_multiple_spells_json_arrays_with_empty_file() {
-         let mut file1 = NamedTempFile::new().expect("Failed to create temp file 1");
-         let mut file2 = NamedTempFile::new().expect("Failed to create temp file 2");
+      #[test]
+      fn test_load_multiple_spells_json_arrays_with_empty_file() {
+          let mut file1 = NamedTempFile::new().expect("Failed to create temp file 1");
+          let mut file2 = NamedTempFile::new().expect("Failed to create temp file 2");
 
-         writeln!(file1, "[]").expect("Failed to write to file 1");
+          writeln!(file1, "[]").expect("Failed to write to file 1");
 
-         let json_data2 = r#"[
-             {
-                 "name": "Magic_47438",
-                 "School": "MagicCat_1",
-                 "Lv": 9,
-                 "effect": "EffectDescription_41410",
-                 "Target": "1体全",
-                 "Cost": "86"
-             }
-         ]"#;
+          let json_data2 = r#"[
+              {
+                  "name": "Magic_47438",
+                  "category": "MagicCat_1",
+                  "Lv": { "kind": "value", "value": 9 },
+                  "MP": { "kind": "value", "value": 86 },
+                  "effect": "EffectDescription_41410",
+                  "対象": { "kind": "個別", "個別": "1体全" }
+              }
+          ]"#;
 
-         writeln!(file2, "{}", json_data2).expect("Failed to write to file 2");
+          writeln!(file2, "{}", json_data2).expect("Failed to write to file 2");
 
-         let paths = [file1.path(), file2.path()];
-         let result = load_multiple_spells_json_arrays(&paths);
-         assert!(result.is_ok());
+          let paths = [file1.path(), file2.path()];
+          let result = load_multiple_spells_json_arrays(&paths);
+          assert!(result.is_ok());
 
-         let spells = result.unwrap();
-         assert_eq!(spells.len(), 1, "1つのスペルがロードされるべき");
-         assert_eq!(spells[0].name, "Magic_47438");
-     }
+          let spells = result.unwrap();
+          assert_eq!(spells.len(), 1, "1つのスペルがロードされるべき");
+          assert_eq!(spells[0].name, "Magic_47438");
+      }
 
      #[test]
      fn test_load_multiple_spells_json_arrays_missing_file() {
