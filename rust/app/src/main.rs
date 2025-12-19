@@ -229,9 +229,10 @@ enum SpellCommands {
     /// 
     /// 使用例:
     ///   gm spell palette "ファイアボール"      # チャットパレットを表示
+    ///   gm spell palette "ファイア"           # 部分マッチで検索して表示
     ///   gm spell palette "ファイアボール" -c   # チャットパレットをクリップボードにコピー
     Palette {
-        /// スペル名（完全マッチ）
+        /// スペル名（部分マッチ対応）
         name: String,
         
         /// クリップボードにコピー（オプション）
@@ -769,10 +770,17 @@ fn handle_spell_palette_command(data_paths: &[String], name: &str, copy: bool) {
         }
     };
 
-    // 完全マッチで検索
-    match query::spell_find_by_exact_name(&spells, name) {
-        Some(spell) => {
-            // チャットパレットを生成
+    // 部分マッチで検索（find と同じ動作）
+    let results = query::spell_find_by_name(&spells, name);
+    
+    match results.len() {
+        0 => {
+            eprintln!("エラー: スペル '{}' が見つかりません", name);
+            process::exit(1);
+        }
+        1 => {
+            // 1件の場合はそのスペルのパレットを生成
+            let spell = results[0];
             match export::palette::generate_spell_palette(&spell) {
                 Ok(palette) => {
                     // 出力
@@ -797,9 +805,56 @@ fn handle_spell_palette_command(data_paths: &[String], name: &str, copy: bool) {
                 }
             }
         }
-        None => {
-            eprintln!("エラー: スペル '{}' が見つかりません", name);
-            process::exit(1);
+        n => {
+            // 複数件の場合、最初のマッチを使用
+            if let Some(exact_match) = results.iter().find(|s| s.name == name) {
+                // 完全一致がある場合はそれを使用
+                let spell = exact_match;
+                match export::palette::generate_spell_palette(&spell) {
+                    Ok(palette) => {
+                        println!("{}", palette);
+                        
+                        if copy {
+                            match copy_to_clipboard(&palette) {
+                                Ok(_) => {
+                                    eprintln!("✓ チャットパレットをクリップボードにコピーしました");
+                                }
+                                Err(e) => {
+                                    eprintln!("警告: クリップボードへのコピーに失敗しました: {}", e);
+                                }
+                            }
+                        }
+                    }
+                    Err(e) => {
+                        eprintln!("エラー: チャットパレット生成に失敗しました: {}", e);
+                        process::exit(1);
+                    }
+                }
+            } else {
+                // 完全一致がない場合、最初のマッチを使用
+                eprintln!("警告: {} 件のスペルが見つかりました。最初のマッチを表示します", n);
+                let spell = results[0];
+                match export::palette::generate_spell_palette(&spell) {
+                    Ok(palette) => {
+                        println!("{}", palette);
+                        
+                        if copy {
+                            match copy_to_clipboard(&palette) {
+                                Ok(_) => {
+                                    eprintln!("✓ チャットパレットをクリップボードにコピーしました");
+                                }
+                                Err(e) => {
+                                    eprintln!("警告: クリップボードへのコピーに失敗しました: {}", e);
+                                }
+                            }
+                        }
+                    }
+                    Err(e) => {
+                        eprintln!("エラー: チャットパレット生成に失敗しました: {}", e);
+                        process::exit(1);
+                    }
+                }
+            }
         }
     }
 }
@@ -1169,6 +1224,58 @@ mod tests {
             
             // Verify effect field exists
             assert!(spell.extra.get("効果").is_some(), "Effect field missing for {}", spell.name);
+        }
+    }
+
+    #[test]
+    fn test_spell_palette_partial_name_match_single() {
+        let spells = io::load_spells_json_array("../../data/sample/spells_sample.json")
+            .expect("Failed to load spell sample data");
+        
+        // Find spell by partial name: "Magic_33778" (full name)
+        let results = query::spell_find_by_name(&spells, "Magic_33778");
+        assert_eq!(results.len(), 1);
+        
+        // Generate palette
+        let palette = export::palette::generate_spell_palette(results[0])
+            .expect("Failed to generate palette");
+        
+        // Verify palette generated successfully
+        assert!(palette.contains("Magic_33778"));
+    }
+
+    #[test]
+    fn test_spell_palette_partial_name_match_multiple() {
+        let spells = io::load_spells_json_array("../../data/sample/spells_sample.json")
+            .expect("Failed to load spell sample data");
+        
+        // Find spells by partial name: "Magic" (partial match)
+        let results = query::spell_find_by_name(&spells, "Magic");
+        assert!(results.len() > 1);
+        
+        // First match should have a valid palette
+        let palette = export::palette::generate_spell_palette(results[0])
+            .expect("Failed to generate palette");
+        
+        // Verify palette generated
+        assert!(!palette.is_empty());
+    }
+
+    #[test]
+    fn test_spell_palette_exact_match_priority() {
+        let spells = io::load_spells_json_array("../../data/sample/spells_sample.json")
+            .expect("Failed to load spell sample data");
+        
+        // Find by partial name
+        let results = query::spell_find_by_name(&spells, "Magic");
+        
+        // Find exact match
+        if let Some(exact_match) = results.iter().find(|s| s.name == "Magic_47438") {
+            let palette = export::palette::generate_spell_palette(&exact_match)
+                .expect("Failed to generate palette");
+            
+            // Verify exact match palette
+            assert!(palette.contains("Magic_47438"));
         }
     }
 }
