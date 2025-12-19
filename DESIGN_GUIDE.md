@@ -771,6 +771,10 @@ Spell Name / MP:X / 対象:Y / 射程:Z / 時間:T / Effect Description
   - `value`: Fixed MP cost
   - `value+`: Minimum MP cost (output as "3～" etc.)
   - `special`: Special consumption (output string as-is)
+- `射程` OR `射程(m)`: Range information (either field name is acceptable)
+  - Flexible field naming to accommodate different data sources
+  - Output value as-is regardless of field name used
+  - Example: `射程` value "10m(起点指定)" or `射程(m)` value "10"
 - `対象` fields: Target information (see separate section)
 - `category`: Magic category name derivation (see separate section)
 - `効果`: Effect description, output as-is

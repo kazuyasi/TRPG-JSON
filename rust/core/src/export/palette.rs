@@ -129,6 +129,29 @@ fn format_target(spell: &Spell) -> Result<String, String> {
     }
 }
 
+/// 射程をフォーマットする
+/// 
+/// Spell.extra["射程"] または Spell.extra["射程(m)"] から射程情報を抽出
+/// "射程"を優先、なければ"射程(m)"にフォールバック
+/// 値をそのまま出力（変換なし）
+fn format_range(spell: &Spell) -> Result<String, String> {
+    // "射程"フィールドを優先チェック
+    if let Some(range) = spell.extra.get("射程") {
+        if let Some(r) = range.as_str() {
+            return Ok(r.to_string());
+        }
+    }
+    
+    // "射程(m)"フィールドにフォールバック
+    if let Some(range) = spell.extra.get("射程(m)") {
+        if let Some(r) = range.as_str() {
+            return Ok(r.to_string());
+        }
+    }
+    
+    Err(ERR_MISSING_RANGE.to_string())
+}
+
 /// 時間をフォーマットする
 /// 
 /// Spell.extra["時間"] から時間情報を抽出
@@ -171,10 +194,7 @@ fn generate_support_palette(spell: &Spell) -> Result<String, String> {
     let mp = format_mp(spell)?;
     let target = format_target(spell)?;
     let duration = format_duration(spell)?;
-    
-    let range = spell.extra.get("射程")
-        .and_then(|v| v.as_str())
-        .ok_or_else(|| ERR_MISSING_RANGE.to_string())?;
+    let range = format_range(spell)?;
     
     let effect = spell.extra.get("効果")
         .and_then(|v| v.as_str())
@@ -199,10 +219,7 @@ fn generate_regular_palette(spell: &Spell) -> Result<String, String> {
     let mp = format_mp(spell)?;
     let target = format_target(spell)?;
     let duration = format_duration(spell)?;
-    
-    let range = spell.extra.get("射程")
-        .and_then(|v| v.as_str())
-        .ok_or_else(|| ERR_MISSING_RANGE.to_string())?;
+    let range = format_range(spell)?;
     
     let effect = spell.extra.get("効果")
         .and_then(|v| v.as_str())
@@ -476,6 +493,76 @@ mod tests {
     fn test_magic_category_1char() {
         let school = "禅";
         assert_eq!(format_magic_category(school), "禅");
+    }
+
+    // ========================================================================
+    // Range Format Tests (5)
+    // ========================================================================
+
+    /// 射程フォーマット: 「射程」フィールド（基本）
+    #[test]
+    fn test_range_format_with_seishou_field() {
+        let mut extra = std::collections::HashMap::new();
+        extra.insert("射程".to_string(), serde_json::json!("接触"));
+        let spell = Spell {
+            name: "テスト".to_string(),
+            category: "魔法".to_string(),
+            extra,
+        };
+        assert_eq!(format_range(&spell), Ok("接触".to_string()));
+    }
+
+    /// 射程フォーマット: 「射程」フィールド（複雑な値）
+    #[test]
+    fn test_range_format_with_seishou_field_complex() {
+        let mut extra = std::collections::HashMap::new();
+        extra.insert("射程".to_string(), serde_json::json!("10m(起点指定)"));
+        let spell = Spell {
+            name: "テスト".to_string(),
+            category: "魔法".to_string(),
+            extra,
+        };
+        assert_eq!(format_range(&spell), Ok("10m(起点指定)".to_string()));
+    }
+
+    /// 射程フォーマット: 「射程(m)」フィールド（フォールバック）
+    #[test]
+    fn test_range_format_with_seishou_m_field() {
+        let mut extra = std::collections::HashMap::new();
+        extra.insert("射程(m)".to_string(), serde_json::json!("20"));
+        let spell = Spell {
+            name: "テスト".to_string(),
+            category: "魔法".to_string(),
+            extra,
+        };
+        assert_eq!(format_range(&spell), Ok("20".to_string()));
+    }
+
+    /// 射程フォーマット: 「射程」優先（両方フィールドがある場合）
+    #[test]
+    fn test_range_format_prefers_seishou() {
+        let mut extra = std::collections::HashMap::new();
+        extra.insert("射程".to_string(), serde_json::json!("接触"));
+        extra.insert("射程(m)".to_string(), serde_json::json!("20"));
+        let spell = Spell {
+            name: "テスト".to_string(),
+            category: "魔法".to_string(),
+            extra,
+        };
+        // 「射程」を優先
+        assert_eq!(format_range(&spell), Ok("接触".to_string()));
+    }
+
+    /// 射程フォーマット: エラー（両方のフィールドが欠落）
+    #[test]
+    fn test_range_format_error_missing_both() {
+        let extra = std::collections::HashMap::new();
+        let spell = Spell {
+            name: "テスト".to_string(),
+            category: "魔法".to_string(),
+            extra,
+        };
+        assert!(format_range(&spell).is_err());
     }
 
     // ========================================================================
@@ -785,5 +872,53 @@ mod tests {
         assert!(result.contains("日本語呪い"));
         assert!(result.contains("任意の標的"));
         assert!(result.contains("対象に日本語の呪いを与える。特に危険な技能。"));
+    }
+
+    /// 統合テスト: 「射程(m)」フィールド使用（サポート呪文）
+    #[test]
+    fn test_palette_with_seishou_m_field_support() {
+        let mut extra = std::collections::HashMap::new();
+        extra.insert("補助".to_string(), serde_json::json!(true));
+        extra.insert("MP".to_string(), serde_json::json!({"value": 3}));
+        extra.insert("対象".to_string(), serde_json::json!({
+            "kind": "個別",
+            "個別": "任意の地点"
+        }));
+        extra.insert("射程(m)".to_string(), serde_json::json!("30"));  // 「射程(m)」を使用
+        extra.insert("時間".to_string(), serde_json::json!({"value": "一瞬"}));
+        extra.insert("効果".to_string(), serde_json::json!("光源を生成する。"));
+
+        let spell = Spell {
+            name: "ライト".to_string(),
+            category: "".to_string(),
+            extra,
+        };
+        let result = generate_spell_palette(&spell).unwrap();
+        assert!(result.contains("ライト"));
+        assert!(result.contains("射程:30"));  // 「射程(m)」の値が使われること
+    }
+
+    /// 統合テスト: 「射程(m)」フィールド使用（通常呪文）
+    #[test]
+    fn test_palette_with_seishou_m_field_regular() {
+        let mut extra = std::collections::HashMap::new();
+        extra.insert("補助".to_string(), serde_json::json!(false));
+        extra.insert("MP".to_string(), serde_json::json!({"value": 10}));
+        extra.insert("対象".to_string(), serde_json::json!({
+            "kind": "個別",
+            "個別": "1体"
+        }));
+        extra.insert("射程(m)".to_string(), serde_json::json!("50"));  // 「射程(m)」を使用
+        extra.insert("時間".to_string(), serde_json::json!({"value": "一瞬"}));
+        extra.insert("効果".to_string(), serde_json::json!("テスト効果"));
+
+        let spell = Spell {
+            name: "テスト".to_string(),
+            category: "神聖".to_string(),
+            extra,
+        };
+        let result = generate_spell_palette(&spell).unwrap();
+        assert!(result.contains("射程:50"));  // 「射程(m)」の値が使われること
+        assert!(result.contains("神聖魔法"));
     }
 }

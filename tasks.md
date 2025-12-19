@@ -142,6 +142,33 @@
      - Unit tests: 10+ for spell select command
      - Effort: Low (building on existing spell query functions)
 
+- [ ] T038 Spell palette: Support partial name matching & flexible range field — Claude (Low Priority)
+     - Status: Enhancement based on specification clarifications
+     - Owner: Claude
+     - Task: Modify `gm spell palette` command with 2 improvements:
+     
+     **1. Partial name matching:**
+     - Current behavior: Exact name match only (returns error if not found)
+     - Requested behavior: Partial name match like `gm spell find` command
+     - Implementation:
+       1. Refactor palette command to use spell_find_by_name() for name resolution
+       2. Handle multiple matches: return error with suggestions or first match
+       3. Add tests for partial match scenarios
+     
+     **2. Flexible range field handling (射程):**
+     - Current: Assumes exact field name "射程"
+     - Required: Support both "射程" and "射程(m)" field names
+     - Implementation:
+       1. Add format_range() helper function
+       2. Check for "射程" field first, fallback to "射程(m)"
+       3. Output value as-is (no transformation)
+       4. Add tests for both field name variations
+     
+     - DESIGN_GUIDE.md: Updated with flexible range field documentation
+     - Impact: Better data source compatibility, UX consistency
+     - Estimated tests: 5-10 for partial matching + 3-5 for range field variations
+     - Effort: Low (reuse existing query logic + simple field detection)
+
 - [ ] T037 Commit spell system Phase 3 — kazuyasi
      - Status: READY FOR COMMIT ✅
      - All spell functionality implemented and tested ✅
@@ -293,3 +320,16 @@
 - No CSV export (JSON is preferred for data interchange)
 - Export is user-triggered (manual), no automation needed
 - OAuth 2.0: One-time setup for Google Sheets, credentials stored locally
+
+### Spell Palette Range Field Specification
+- **Issue**: Palette output includes "射程" field but implementation assumes exact field match
+- **Clarification**: Either "射程" or "射程(m)" is acceptable - no exact field name requirement
+- **Impact**: Sample data validation and palette generation should accept either format
+- **Status**: ✅ DESIGN_GUIDE.md updated (line 774); T038 will implement flexible range field detection
+- **Implementation**: format_range() helper to check both "射程" and "射程(m)" field names
+
+### Spell Palette Search Behavior
+- **Current**: `gm spell palette <name>` requires exact spell name match
+- **Requested**: Change to partial/fuzzy name matching (like `gm spell find`)
+- **Impact**: Better user experience, consistent with find/list command behavior
+- **Status**: ⏳ Planned for T038 implementation (combined with range field enhancement)
