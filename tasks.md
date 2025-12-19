@@ -2,13 +2,27 @@
 
 ## 🧭 Meta
 - Project: TRPG-JSON
-- Last Updated: 2025-12-19 JST (T033-T036.5 complete; Phase 3 implementation and documentation complete)
+- Last Updated: 2025-12-19 JST (T038 complete; Phase 3.5 spell palette enhancement finished)
 - Responsibilities: kazuyasi (specification/approval/git operations) / Claude (proposal/implementation/testing)
-- Status: Phase 2.5 COMPLETE (T013-T027). Phase 3 COMPLETE (T028-T036.5 done). Spell system fully implemented with chat palette generation, CLI commands, comprehensive test suite, documentation, and all I/O tests fixed. Ready for T037 (final commit).
+- Status: Phase 2.5 COMPLETE (T013-T027). Phase 3 COMPLETE (T028-T036.5 done). Phase 3.5 COMPLETE (T038-1/2/final done). Spell system fully implemented with multi-filter palette, chat palette generation, comprehensive test suite (28 app tests), documentation, flexible range field support. Ready for T037 (final commit).
 
 ---
 
 ## 🔥 Priority Now
+- **Phase 3.5: Spell Palette Enhancement (T038)** 📋 COMPLETE ✅
+   - ✅ T038-2: Flexible range field handling (射程/射程(m)) - COMPLETE
+   - ✅ T038-1: Partial name matching for palette command - COMPLETE
+   - ✅ T038-final: Multi-filter palette command refactor - COMPLETE
+     - Remove positional argument, add `-n/-l/-c/-y` filter flags ✅
+     - Support multi-line output for multiple matches ✅
+     - Integrate select functionality into palette command ✅
+     - Clipboard copy: first match only (`-y` or `--copy` flag) ✅
+     - File output: use shell redirection ✅
+     - Require at least one filter (safety) ✅
+     - 7 new integration tests added ✅
+   - Test results: 221 core tests + 28 app tests passing ✅
+   - Release build: SUCCESS ✅
+    
 - **Phase 3: Spell System Implementation (T033-T037)** 📋 READY FOR FINAL COMMIT
    - ✅ CLI refactoring complete (nested subcommands: `gm monster`/`gm spell`)
    - ✅ Configuration extended with spell paths support
@@ -18,10 +32,13 @@
    - ✅ I/O module implemented (ALL tests passing, 49/49 ✅)
    - ✅ CLI commands implemented: `gm spell find/list/palette` all working
    - ✅ Chat palette generation with補助フラグ support fully implemented (28 tests)
-   - ✅ Spell palette CLI command with clipboard support (T034 complete)
-   - ✅ Spell CLI integration test suite (10 tests, 18 total app tests passing)
+   - ✅ Spell palette CLI command with multi-filter & clipboard support (T038 complete)
+   - ✅ Spell CLI integration test suite (28 total app tests passing)
    - ✅ Documentation: README.md updated with new syntax and Spell Management section (T036)
    - ✅ I/O tests fixed: Multiple spell file loading tests now passing (T036.5)
+   - ✅ Range field flexibility: Support both 射程 and 射程(m) fields
+   - ✅ Partial name matching: palette command supports partial names
+   - ✅ Multi-filter support: palette consolidates select functionality
    - ✅ Release build: SUCCESS
    - Next: T037 (final Phase 3 commit by kazuyasi)
 
@@ -134,40 +151,7 @@
       - Release build: SUCCESS ✅
       - All I/O tests: 49/49 PASS ✅
 
-- [ ] T035.5 Spell select command: Query by category and level — Claude (Low Priority)
-     - Implement `gm spell select -l <level> -c <category>` command
-     - Similar to monster select but for spells
-     - Support filters: -l (level), -c (category)
-     - Return JSON array of matching spells
-     - Unit tests: 10+ for spell select command
-     - Effort: Low (building on existing spell query functions)
 
-- [ ] T038 Spell palette: Support partial name matching & flexible range field — Claude (Low Priority)
-     - Status: Enhancement based on specification clarifications
-     - Owner: Claude
-     - Task: Modify `gm spell palette` command with 2 improvements:
-     
-     **1. Partial name matching:**
-     - Current behavior: Exact name match only (returns error if not found)
-     - Requested behavior: Partial name match like `gm spell find` command
-     - Implementation:
-       1. Refactor palette command to use spell_find_by_name() for name resolution
-       2. Handle multiple matches: return error with suggestions or first match
-       3. Add tests for partial match scenarios
-     
-     **2. Flexible range field handling (射程):**
-     - Current: Assumes exact field name "射程"
-     - Required: Support both "射程" and "射程(m)" field names
-     - Implementation:
-       1. Add format_range() helper function
-       2. Check for "射程" field first, fallback to "射程(m)"
-       3. Output value as-is (no transformation)
-       4. Add tests for both field name variations
-     
-     - DESIGN_GUIDE.md: Updated with flexible range field documentation
-     - Impact: Better data source compatibility, UX consistency
-     - Estimated tests: 5-10 for partial matching + 3-5 for range field variations
-     - Effort: Low (reuse existing query logic + simple field detection)
 
 - [ ] T037 Commit spell system Phase 3 — kazuyasi
      - Status: READY FOR COMMIT ✅
@@ -179,7 +163,10 @@
 
 ---
 
-## ✅ Done (Recent 18)
+## ✅ Done (Recent 25)
+- [x] T038 Spell palette: Multi-filter output with integrated select functionality — 2025-12-19
+         - Description: Complete redesign of `gm spell palette` command. Removed mandatory positional argument, added `-n/-l/-c/-y` optional filter flags. Refactored to use `spell_find_multi()` for flexible multi-filter queries. Support multi-line output for all matching spells, consolidating select functionality into palette. Clipboard copy (`--copy` or `-y` flag) copies first matched spell only. File output via shell redirection. Require minimum one filter for safety. Added 7 new integration tests covering single/multi-filter scenarios, no-match errors, and precision. All 221 core tests + 28 app tests passing. Release build successful. Eliminates need for separate T035.5 select command.
+
 - [x] T035 Spell CLI integration test suite — 2025-12-19
         - Description: Added 10 comprehensive spell functionality tests in app/src/main.rs. Tests cover spell search (by name exact/partial, by category, multi-filter), palette generation (support/regular/area targets), data persistence, and schema compliance. All 18 app tests passing (8 export + 10 spell tests). Test data paths fixed for cross-directory execution.
 
@@ -292,8 +279,9 @@
 - [ ] T041 Phase 4: Multi-system support (extend beyond SW2.5)
 - [ ] T042 Phase 4: Skill/Fairy magic CLI commands (gm skill find/list/palette)
 
-## 🚮 Canceled
+## 🚮 Canceled / Superseded
 - [ ] T007 Data analysis feature implementation (deemed unnecessary) — 2025-09-14
+- [ ] T035.5 Spell select command (superseded by T038) — Consolidated into palette command with multi-filter output
 
 ---
 

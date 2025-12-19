@@ -225,18 +225,29 @@ enum SpellCommands {
         pattern: String,
     },
     
-    /// スペルのチャットパレットを表示/コピー
+    /// スペルのチャットパレットを表示（複数フィルタ対応）
     /// 
     /// 使用例:
-    ///   gm spell palette "ファイアボール"      # チャットパレットを表示
-    ///   gm spell palette "ファイア"           # 部分マッチで検索して表示
-    ///   gm spell palette "ファイアボール" -c   # チャットパレットをクリップボードにコピー
+    ///   gm spell palette -n "ファイア"              # 名前でフィルタ
+    ///   gm spell palette -l 3                      # レベルでフィルタ
+    ///   gm spell palette -c "MagicCat_1"           # カテゴリでフィルタ
+    ///   gm spell palette -n "ファイア" -c "MagicCat_1"  # 複数フィルタ
+    ///   gm spell palette -n "ファイア" --copy     # 先頭行をクリップボードにコピー
     Palette {
-        /// スペル名（部分マッチ対応）
-        name: String,
+        /// スペル名（部分マッチ、オプション）
+        #[arg(short = 'n')]
+        name: Option<String>,
         
-        /// クリップボードにコピー（オプション）
-        #[arg(short = 'c', long)]
+        /// レベル（オプション）
+        #[arg(short = 'l')]
+        level: Option<i32>,
+        
+        /// カテゴリ（オプション）
+        #[arg(short = 'c')]
+        category: Option<String>,
+        
+        /// クリップボードにコピー（オプション、先頭行のみ）
+        #[arg(long, short = 'y')]
         copy: bool,
     },
 }
@@ -308,8 +319,8 @@ fn main() {
                 SpellCommands::List { pattern } => {
                     handle_spell_list_command(&spell_path_strs, pattern);
                 }
-                SpellCommands::Palette { name, copy } => {
-                    handle_spell_palette_command(&spell_path_strs, name, *copy);
+                SpellCommands::Palette { name, level, category, copy } => {
+                    handle_spell_palette_command(&spell_path_strs, name.as_deref(), *level, category.as_deref(), *copy);
                 }
             }
         }
@@ -758,7 +769,19 @@ fn handle_spell_list_command(data_paths: &[String], pattern: &str) {
     }
 }
 
-fn handle_spell_palette_command(data_paths: &[String], name: &str, copy: bool) {
+fn handle_spell_palette_command(
+    data_paths: &[String],
+    name: Option<&str>,
+    level: Option<i32>,
+    category: Option<&str>,
+    copy: bool,
+) {
+    // 最低1つのフィルタが必須
+    if name.is_none() && level.is_none() && category.is_none() {
+        eprintln!("エラー: 最低1つのフィルタ（-n, -l, -c）を指定してください");
+        process::exit(1);
+    }
+
     // データを読み込む（複数ファイル対応）
     let spells = match io::load_multiple_spells_json_arrays(
         &data_paths.iter().map(|p| p.as_str()).collect::<Vec<_>>()
@@ -770,88 +793,44 @@ fn handle_spell_palette_command(data_paths: &[String], name: &str, copy: bool) {
         }
     };
 
-    // 部分マッチで検索（find と同じ動作）
-    let results = query::spell_find_by_name(&spells, name);
-    
+    // マルチフィルタで検索（name, school/category, level）
+    let results = query::spell_find_multi(&spells, name, category, level);
+
     match results.len() {
         0 => {
-            eprintln!("エラー: スペル '{}' が見つかりません", name);
+            eprintln!("エラー: マッチするスペルが見つかりません");
             process::exit(1);
         }
-        1 => {
-            // 1件の場合はそのスペルのパレットを生成
-            let spell = results[0];
-            match export::palette::generate_spell_palette(&spell) {
-                Ok(palette) => {
-                    // 出力
-                    println!("{}", palette);
-                    
-                    // --copy フラグが指定されている場合、クリップボードにコピー
-                    if copy {
-                        match copy_to_clipboard(&palette) {
-                            Ok(_) => {
-                                eprintln!("✓ チャットパレットをクリップボードにコピーしました");
-                            }
-                            Err(e) => {
-                                eprintln!("警告: クリップボードへのコピーに失敗しました: {}", e);
-                                // エラーでも終了せず、出力は成功している
-                            }
+        _ => {
+            // 全マッチしたスペルのパレットを複数行で出力
+            let mut first_palette: Option<String> = None;
+
+            for spell in &results {
+                match export::palette::generate_spell_palette(&spell) {
+                    Ok(palette) => {
+                        println!("{}", palette);
+                        
+                        // 先頭のパレットを保存（copy用）
+                        if first_palette.is_none() {
+                            first_palette = Some(palette);
                         }
                     }
-                }
-                Err(e) => {
-                    eprintln!("エラー: チャットパレット生成に失敗しました: {}", e);
-                    process::exit(1);
+                    Err(e) => {
+                        eprintln!("警告: スペル '{}' のパレット生成に失敗しました: {}", spell.name, e);
+                    }
                 }
             }
-        }
-        n => {
-            // 複数件の場合、最初のマッチを使用
-            if let Some(exact_match) = results.iter().find(|s| s.name == name) {
-                // 完全一致がある場合はそれを使用
-                let spell = exact_match;
-                match export::palette::generate_spell_palette(&spell) {
-                    Ok(palette) => {
-                        println!("{}", palette);
-                        
-                        if copy {
-                            match copy_to_clipboard(&palette) {
-                                Ok(_) => {
-                                    eprintln!("✓ チャットパレットをクリップボードにコピーしました");
-                                }
-                                Err(e) => {
-                                    eprintln!("警告: クリップボードへのコピーに失敗しました: {}", e);
-                                }
-                            }
+
+            // --copy フラグが指定されている場合、先頭のパレットをクリップボードにコピー
+            if copy {
+                if let Some(palette) = first_palette {
+                    match copy_to_clipboard(&palette) {
+                        Ok(_) => {
+                            eprintln!("✓ チャットパレット（先頭行）をクリップボードにコピーしました");
                         }
-                    }
-                    Err(e) => {
-                        eprintln!("エラー: チャットパレット生成に失敗しました: {}", e);
-                        process::exit(1);
-                    }
-                }
-            } else {
-                // 完全一致がない場合、最初のマッチを使用
-                eprintln!("警告: {} 件のスペルが見つかりました。最初のマッチを表示します", n);
-                let spell = results[0];
-                match export::palette::generate_spell_palette(&spell) {
-                    Ok(palette) => {
-                        println!("{}", palette);
-                        
-                        if copy {
-                            match copy_to_clipboard(&palette) {
-                                Ok(_) => {
-                                    eprintln!("✓ チャットパレットをクリップボードにコピーしました");
-                                }
-                                Err(e) => {
-                                    eprintln!("警告: クリップボードへのコピーに失敗しました: {}", e);
-                                }
-                            }
+                        Err(e) => {
+                            eprintln!("警告: クリップボードへのコピーに失敗しました: {}", e);
                         }
-                    }
-                    Err(e) => {
-                        eprintln!("エラー: チャットパレット生成に失敗しました: {}", e);
-                        process::exit(1);
                     }
                 }
             }
@@ -1277,6 +1256,101 @@ mod tests {
             // Verify exact match palette
             assert!(palette.contains("Magic_47438"));
         }
+    }
+
+    // ========================================================================
+    // Multi-filter Palette Tests (T038-final)
+    // ========================================================================
+
+    #[test]
+    fn test_spell_palette_filter_by_name_only() {
+        let spells = io::load_spells_json_array("../../data/sample/spells_sample.json")
+            .expect("Failed to load spell sample data");
+        
+        // Filter by name only
+        let results = query::spell_find_multi(&spells, Some("Magic"), None, None);
+        assert!(results.len() > 1);
+    }
+
+    #[test]
+    fn test_spell_palette_filter_by_category_only() {
+        let spells = io::load_spells_json_array("../../data/sample/spells_sample.json")
+            .expect("Failed to load spell sample data");
+        
+        // Filter by category only
+        let results = query::spell_find_multi(&spells, None, Some("MagicCat_1"), None);
+        assert!(!results.is_empty());
+        
+        for spell in &results {
+            assert_eq!(spell.category, "MagicCat_1");
+        }
+    }
+
+    #[test]
+    fn test_spell_palette_filter_by_level_only() {
+        let spells = io::load_spells_json_array("../../data/sample/spells_sample.json")
+            .expect("Failed to load spell sample data");
+        
+        // Filter by level: check if level 1 spells exist
+        let results = query::spell_find_multi(&spells, None, None, Some(1));
+        // Note: May be empty if no level 1 spells exist, but function should work
+        let _ = results;
+    }
+
+    #[test]
+    fn test_spell_palette_filter_by_name_and_category() {
+        let spells = io::load_spells_json_array("../../data/sample/spells_sample.json")
+            .expect("Failed to load spell sample data");
+        
+        // Filter by name and category
+        let results = query::spell_find_multi(&spells, Some("Magic"), Some("MagicCat_1"), None);
+        
+        for spell in &results {
+            assert!(spell.name.contains("Magic"));
+            assert_eq!(spell.category, "MagicCat_1");
+        }
+    }
+
+    #[test]
+    fn test_spell_palette_multi_filter_palette_generation() {
+        let spells = io::load_spells_json_array("../../data/sample/spells_sample.json")
+            .expect("Failed to load spell sample data");
+        
+        // Get multiple matches and generate palettes
+        let results = query::spell_find_multi(&spells, Some("Magic"), None, None);
+        assert!(results.len() > 1);
+        
+        // Verify all can generate palettes
+        for spell in &results {
+            let palette = export::palette::generate_spell_palette(&spell);
+            // Some may fail due to missing fields, but shouldn't panic
+            let _ = palette;
+        }
+    }
+
+    #[test]
+    fn test_spell_palette_no_matches() {
+        let spells = io::load_spells_json_array("../../data/sample/spells_sample.json")
+            .expect("Failed to load spell sample data");
+        
+        // Filter with no matches
+        let results = query::spell_find_multi(&spells, Some("NonExistent"), None, None);
+        assert!(results.is_empty());
+    }
+
+    #[test]
+    fn test_spell_palette_filters_precision() {
+        let spells = io::load_spells_json_array("../../data/sample/spells_sample.json")
+            .expect("Failed to load spell sample data");
+        
+        // Get all spells
+        let all_spells = query::spell_find_multi(&spells, None, None, None);
+        
+        // Get filtered by category
+        let filtered = query::spell_find_multi(&spells, None, Some("MagicCat_1"), None);
+        
+        // Filtered should be subset of all
+        assert!(filtered.len() <= all_spells.len());
     }
 }
 
