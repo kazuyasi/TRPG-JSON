@@ -19,7 +19,7 @@ monsters = "playground/TRPG-JSON/data/sample/monsters_sample.json"
 # - Single file: spells = "playground/TRPG-JSON/data/sample/spells.json"
 # - Multiple files: spells = ["playground/TRPG-JSON/data/sample/spells_part1.json", "playground/TRPG-JSON/data/sample/spells_part2.json"]
 # - Absolute path: spells = "/path/to/spells.json"
-# spells = "playground/TRPG-JSON/data/sample/spells.json"
+spells = "playground/TRPG-JSON/data/sample/spells_sample.json"
 
 [system]
 # Current system (sw25, dnd, etc.)

@@ -1,4 +1,4 @@
-use crate::Monster;
+use crate::{Monster, Spell};
 use std::fs;
 use std::path::Path;
 
@@ -108,6 +108,105 @@ pub fn load_multiple_json_arrays<P: AsRef<Path>>(paths: &[P]) -> Result<Vec<Mons
     }
     
     Ok(all_monsters)
+}
+
+// ============================================================================
+// Spell I/O Functions
+// ============================================================================
+
+/// JSONファイルから Spell 配列をロード
+/// 
+/// # 引数
+/// * `path` - 読み込むファイルのパス（JSON配列のみ受け入れ）
+///
+/// # 戻り値
+/// * `Ok(Vec<Spell>)` - ロードされたスペルのリスト
+/// * `Err(IoError)` - 読み込みまたはパースに失敗した場合
+///
+/// # エラー
+/// - ファイルが読み込めない場合は `IoError::FileRead`
+/// - JSONが無効な場合は `IoError::JsonParse`
+/// - ルート要素が配列でない場合は `IoError::InvalidFormat`
+pub fn load_spells_json_array<P: AsRef<Path>>(path: P) -> Result<Vec<Spell>, IoError> {
+    // ファイルを読み込む
+    let content = fs::read_to_string(path)?;
+
+    // JSONをパース
+    let value: serde_json::Value = serde_json::from_str(&content)?;
+
+    // ルート要素が配列であることを確認
+    match value.as_array() {
+        Some(arr) => {
+            // 配列の各要素をSpellにデシリアライズ
+            let mut spells = Vec::new();
+            for (idx, item) in arr.iter().enumerate() {
+                let spell: Spell = serde_json::from_value(item.clone())
+                    .map_err(|e| {
+                        // エラーメッセージを含む新しいエラーを作成
+                        let msg = format!("インデックス{}のスペルデータが無効: {}", idx, e);
+                        IoError::InvalidFormat(msg)
+                    })?;
+                spells.push(spell);
+            }
+            Ok(spells)
+        }
+        None => Err(IoError::InvalidFormat(
+            "JSONのルート要素が配列ではありません".to_string(),
+        )),
+    }
+}
+
+/// Spell 配列を JSON として標準出力に出力
+///
+/// # 引数
+/// * `spells` - 出力するスペルのスライス
+///
+/// # 戻り値
+/// * `Ok(())` - 出力に成功した場合
+/// * `Err(IoError)` - 出力に失敗した場合
+pub fn save_spells_json_array_stdout(spells: &[Spell]) -> Result<(), IoError> {
+    let json = serde_json::to_string_pretty(spells)?;
+    println!("{}", json);
+    Ok(())
+}
+
+/// Spell 配列を JSON ファイルに保存
+///
+/// # 引数
+/// * `path` - 保存先ファイルのパス
+/// * `spells` - 保存するスペルのスライス
+///
+/// # 戻り値
+/// * `Ok(())` - 保存に成功した場合
+/// * `Err(IoError)` - 保存に失敗した場合
+pub fn save_spells_json_array_file<P: AsRef<Path>>(path: P, spells: &[Spell]) -> Result<(), IoError> {
+    let json = serde_json::to_string_pretty(spells)?;
+    fs::write(path, json)?;
+    Ok(())
+}
+
+/// 複数の JSON ファイルから Spell 配列をロードして統合
+/// 
+/// # 引数
+/// * `paths` - 読み込むファイルのパスのリスト
+///
+/// # 戻り値
+/// * `Ok(Vec<Spell>)` - ロードされたすべてのスペルのリスト
+/// * `Err(IoError)` - 読み込みまたはパースに失敗した場合（最初のエラーで中止）
+///
+/// # エラー
+/// - ファイルが読み込めない場合は `IoError::FileRead`
+/// - JSONが無効な場合は `IoError::JsonParse`
+/// - ルート要素が配列でない場合は `IoError::InvalidFormat`
+pub fn load_multiple_spells_json_arrays<P: AsRef<Path>>(paths: &[P]) -> Result<Vec<Spell>, IoError> {
+    let mut all_spells = Vec::new();
+    
+    for path in paths {
+        let spells = load_spells_json_array(path)?;
+        all_spells.extend(spells);
+    }
+    
+    Ok(all_spells)
 }
 
 #[cfg(test)]
@@ -517,20 +616,224 @@ mod tests {
         assert_eq!(monsters[0].name, "単一モンスター");
     }
 
-    #[test]
-    fn test_load_multiple_json_arrays_missing_file() {
-        let mut file1 = NamedTempFile::new().expect("Failed to create temp file");
-        writeln!(file1, "[]").expect("Failed to write to file");
+     #[test]
+     fn test_load_multiple_json_arrays_missing_file() {
+         let mut file1 = NamedTempFile::new().expect("Failed to create temp file");
+         writeln!(file1, "[]").expect("Failed to write to file");
+ 
+         let paths = [file1.path(), std::path::Path::new("/nonexistent/file.json")];
+         let result = load_multiple_json_arrays(&paths);
+         assert!(result.is_err(), "存在しないファイルがあるため、エラーが発生するべき");
+ 
+         match result {
+             Err(IoError::FileRead(_)) => {
+                 // 期待通り
+             }
+             _ => panic!("FileReadエラーが期待される"),
+         }
+     }
 
-        let paths = [file1.path(), std::path::Path::new("/nonexistent/file.json")];
-        let result = load_multiple_json_arrays(&paths);
-        assert!(result.is_err(), "存在しないファイルがあるため、エラーが発生するべき");
+     // ========================================================================
+     // Spell I/O Tests
+     // ========================================================================
 
-        match result {
-            Err(IoError::FileRead(_)) => {
-                // 期待通り
-            }
-            _ => panic!("FileReadエラーが期待される"),
-        }
-    }
-}
+     #[test]
+      fn test_load_spells_valid_json_array() {
+          let mut file = NamedTempFile::new().expect("Failed to create temp file");
+
+          let json_data = r#"[
+              {
+                  "name": "Magic_47438",
+                  "category": "MagicCat_1",
+                  "Lv": { "kind": "value", "value": 9 },
+                  "MP": { "kind": "value", "value": 86 },
+                  "effect": "EffectDescription_41410",
+                  "対象": { "kind": "個別", "個別": "1体全" }
+              },
+              {
+                  "name": "Magic_33778",
+                  "category": "MagicCat_2",
+                  "Lv": { "kind": "value", "value": 13 },
+                  "MP": { "kind": "value", "value": 15 },
+                  "effect": "EffectDescription_75723",
+                  "対象": { "kind": "エリア", "エリア": { "value": "1エリア" } }
+              }
+          ]"#;
+
+          writeln!(file, "{}", json_data).expect("Failed to write to temp file");
+
+          let result = load_spells_json_array(file.path());
+          assert!(result.is_ok(), "ロードが失敗しました");
+
+          let spells = result.unwrap();
+          assert_eq!(spells.len(), 2, "2つのスペルがロードされるべき");
+          assert_eq!(spells[0].name, "Magic_47438");
+          assert_eq!(spells[1].name, "Magic_33778");
+      }
+
+     #[test]
+     fn test_load_spells_empty_array() {
+         let mut file = NamedTempFile::new().expect("Failed to create temp file");
+         writeln!(file, "[]").expect("Failed to write to temp file");
+
+         let result = load_spells_json_array(file.path());
+         assert!(result.is_ok());
+
+         let spells = result.unwrap();
+         assert_eq!(spells.len(), 0);
+     }
+
+     #[test]
+     fn test_load_spells_invalid_json() {
+         let mut file = NamedTempFile::new().expect("Failed to create temp file");
+         writeln!(file, "{{invalid json}}").expect("Failed to write to temp file");
+
+         let result = load_spells_json_array(file.path());
+         assert!(result.is_err());
+
+         match result {
+             Err(IoError::JsonParse(_)) => {
+                 // 期待通り
+             }
+             _ => panic!("JsonParseエラーが期待される"),
+         }
+     }
+
+     #[test]
+     fn test_load_spells_non_array_root() {
+         let mut file = NamedTempFile::new().expect("Failed to create temp file");
+
+         let json_data = r#"{
+             "name": "Magic_47438",
+             "School": "MagicCat_1",
+             "Lv": 9
+         }"#;
+
+         writeln!(file, "{}", json_data).expect("Failed to write to temp file");
+
+         let result = load_spells_json_array(file.path());
+         assert!(result.is_err());
+
+         match result {
+             Err(IoError::InvalidFormat(_)) => {
+                 // 期待通り
+             }
+             _ => panic!("InvalidFormatエラーが期待される"),
+         }
+     }
+
+     #[test]
+     fn test_load_spells_nonexistent_file() {
+         let result = load_spells_json_array("/nonexistent/path/to/spells.json");
+         assert!(result.is_err());
+
+         match result {
+             Err(IoError::FileRead(_)) => {
+                 // 期待通り
+             }
+             _ => panic!("FileReadエラーが期待される"),
+         }
+     }
+
+     #[test]
+     fn test_save_spells_json_array_stdout() {
+         let spells = vec![];
+         let result = save_spells_json_array_stdout(&spells);
+         assert!(result.is_ok(), "空配列の出力は成功するべき");
+     }
+
+     #[test]
+     fn test_load_multiple_spells_json_arrays() {
+         let mut file1 = NamedTempFile::new().expect("Failed to create temp file 1");
+         let mut file2 = NamedTempFile::new().expect("Failed to create temp file 2");
+
+         let json_data1 = r#"[
+             {
+                 "name": "Magic_47438",
+                 "School": "MagicCat_1",
+                 "Lv": 9,
+                 "effect": "EffectDescription_41410",
+                 "Target": "1体全",
+                 "Cost": "86"
+             }
+         ]"#;
+
+         let json_data2 = r#"[
+             {
+                 "name": "Magic_33778",
+                 "School": "MagicCat_2",
+                 "Lv": 13,
+                 "effect": "EffectDescription_75723",
+                 "Target": "1エリア",
+                 "Cost": "15"
+             },
+             {
+                 "name": "Magic_83071",
+                 "School": "MagicCat_2",
+                 "Lv": 3,
+                 "effect": "EffectDescription_37348",
+                 "Target": "接触点",
+                 "Cost": "72"
+             }
+         ]"#;
+
+         writeln!(file1, "{}", json_data1).expect("Failed to write to file 1");
+         writeln!(file2, "{}", json_data2).expect("Failed to write to file 2");
+
+         let paths = [file1.path(), file2.path()];
+         let result = load_multiple_spells_json_arrays(&paths);
+         assert!(result.is_ok(), "複数ファイルのロードが失敗しました");
+
+         let spells = result.unwrap();
+         assert_eq!(spells.len(), 3, "3つのスペルがロードされるべき");
+         assert_eq!(spells[0].name, "Magic_47438");
+         assert_eq!(spells[1].name, "Magic_33778");
+         assert_eq!(spells[2].name, "Magic_83071");
+     }
+
+     #[test]
+     fn test_load_multiple_spells_json_arrays_with_empty_file() {
+         let mut file1 = NamedTempFile::new().expect("Failed to create temp file 1");
+         let mut file2 = NamedTempFile::new().expect("Failed to create temp file 2");
+
+         writeln!(file1, "[]").expect("Failed to write to file 1");
+
+         let json_data2 = r#"[
+             {
+                 "name": "Magic_47438",
+                 "School": "MagicCat_1",
+                 "Lv": 9,
+                 "effect": "EffectDescription_41410",
+                 "Target": "1体全",
+                 "Cost": "86"
+             }
+         ]"#;
+
+         writeln!(file2, "{}", json_data2).expect("Failed to write to file 2");
+
+         let paths = [file1.path(), file2.path()];
+         let result = load_multiple_spells_json_arrays(&paths);
+         assert!(result.is_ok());
+
+         let spells = result.unwrap();
+         assert_eq!(spells.len(), 1, "1つのスペルがロードされるべき");
+         assert_eq!(spells[0].name, "Magic_47438");
+     }
+
+     #[test]
+     fn test_load_multiple_spells_json_arrays_missing_file() {
+         let mut file1 = NamedTempFile::new().expect("Failed to create temp file");
+         writeln!(file1, "[]").expect("Failed to write to file");
+
+         let paths = [file1.path(), std::path::Path::new("/nonexistent/spells.json")];
+         let result = load_multiple_spells_json_arrays(&paths);
+         assert!(result.is_err(), "存在しないファイルがあるため、エラーが発生するべき");
+
+         match result {
+             Err(IoError::FileRead(_)) => {
+                 // 期待通り
+             }
+             _ => panic!("FileReadエラーが期待される"),
+         }
+     }
+ }

@@ -300,19 +300,15 @@ fn main() {
         }
 
         Some(Commands::Spell { command }) => {
-            // スペルコマンド用ハンドラー（将来実装）
             match command {
-                SpellCommands::Find { name: _, level: _, school: _ } => {
-                    eprintln!("エラー: gm spell find はまだ実装されていません");
-                    process::exit(1);
+                SpellCommands::Find { name, level, school } => {
+                    handle_spell_find_command(&spell_path_strs, name, *level, school.as_deref());
                 }
-                SpellCommands::List { pattern: _ } => {
-                    eprintln!("エラー: gm spell list はまだ実装されていません");
-                    process::exit(1);
+                SpellCommands::List { pattern } => {
+                    handle_spell_list_command(&spell_path_strs, pattern);
                 }
-                SpellCommands::Palette { name: _, copy: _ } => {
-                    eprintln!("エラー: gm spell palette はまだ実装されていません");
-                    process::exit(1);
+                SpellCommands::Palette { name, copy } => {
+                    handle_spell_palette_command(&spell_path_strs, name, *copy);
                 }
             }
         }
@@ -664,6 +660,142 @@ fn find_config_file() -> String {
 
     // 見つからない場合はデフォルトを返す
     "config/default.toml".to_string()
+}
+
+// ============================================================================
+// Spell Command Handlers
+// ============================================================================
+
+fn handle_spell_find_command(data_paths: &[String], name: &str, level: Option<i32>, school: Option<&str>) {
+    // データを読み込む（複数ファイル対応）
+    let spells = match io::load_multiple_spells_json_arrays(
+        &data_paths.iter().map(|p| p.as_str()).collect::<Vec<_>>()
+    ) {
+        Ok(s) => s,
+        Err(e) => {
+            eprintln!("エラー: {}", e);
+            process::exit(1);
+        }
+    };
+
+    // 検索を実行
+    let results = query::spell_find_multi(&spells, Some(name), school, level);
+
+    // 結果を処理
+    match results.len() {
+        0 => {
+            eprintln!("エラー: マッチするスペルが見つかりません");
+            process::exit(1);
+        }
+        1 => {
+            // 1件の場合は JSON で出力
+            if let Err(e) = io::save_spells_json_array_stdout(&results.iter().map(|&s| s.clone()).collect::<Vec<_>>()) {
+                eprintln!("エラー: JSON 出力に失敗しました: {}", e);
+                process::exit(1);
+            }
+        }
+        n => {
+            // 複数件の場合は件数を出力
+            println!("{} 件のスペルが見つかりました", n);
+            
+            // 完全一致するスペルがあればそのデータを出力
+            if let Some(exact_match) = results.iter().find(|s| s.name == name) {
+                let exact_spell = (*exact_match).clone();
+                if let Err(e) = io::save_spells_json_array_stdout(&[exact_spell]) {
+                    eprintln!("エラー: JSON 出力に失敗しました: {}", e);
+                    process::exit(1);
+                }
+            }
+        }
+    }
+}
+
+fn handle_spell_list_command(data_paths: &[String], pattern: &str) {
+    // データを読み込む（複数ファイル対応）
+    let spells = match io::load_multiple_spells_json_arrays(
+        &data_paths.iter().map(|p| p.as_str()).collect::<Vec<_>>()
+    ) {
+        Ok(s) => s,
+        Err(e) => {
+            eprintln!("エラー: {}", e);
+            process::exit(1);
+        }
+    };
+
+    // 検索を実行
+    let results = query::spell_find_by_name(&spells, pattern);
+
+    // 結果を処理
+    match results.len() {
+        0 => {
+            eprintln!("エラー: マッチするスペルが見つかりません");
+            process::exit(1);
+        }
+        1 => {
+            // 1件の場合は JSON で出力
+            if let Err(e) = io::save_spells_json_array_stdout(&results.iter().map(|&s| s.clone()).collect::<Vec<_>>()) {
+                eprintln!("エラー: JSON 出力に失敗しました: {}", e);
+                process::exit(1);
+            }
+        }
+         n => {
+             // 複数件の場合は名前一覧を出力
+             println!("{}個のスペルが見つかりました:", n);
+             for spell in &results {
+                 println!("  - {} ({})", spell.name, spell.category);
+             }
+            
+            // 完全一致するスペルがあればそのデータを出力
+            if let Some(exact_match) = results.iter().find(|s| s.name == pattern) {
+                let exact_spell = (*exact_match).clone();
+                if let Err(e) = io::save_spells_json_array_stdout(&[exact_spell]) {
+                    eprintln!("エラー: JSON 出力に失敗しました: {}", e);
+                    process::exit(1);
+                }
+            }
+        }
+    }
+}
+
+fn handle_spell_palette_command(data_paths: &[String], name: &str, _copy: bool) {
+    // データを読み込む（複数ファイル対応）
+    let spells = match io::load_multiple_spells_json_arrays(
+        &data_paths.iter().map(|p| p.as_str()).collect::<Vec<_>>()
+    ) {
+        Ok(s) => s,
+        Err(e) => {
+            eprintln!("エラー: {}", e);
+            process::exit(1);
+        }
+    };
+
+    // 完全マッチで検索
+    match query::spell_find_by_exact_name(&spells, name) {
+        Some(spell) => {
+            // チャットパレット情報を出力
+            // TODO: 詳細なチャットパレット生成ロジックは T033で実装
+            let category = &spell.category;
+            println!("スペル: {} ({})", spell.name, category);
+            
+            // 効果情報を extra から取得（スキーマに準拠した構造）
+            if let Some(lv_obj) = spell.extra.get("Lv") {
+                println!("  Lv: {}", lv_obj);
+            }
+            if let Some(mp_obj) = spell.extra.get("MP") {
+                println!("  MP: {}", mp_obj);
+            }
+            if let Some(effect_desc) = spell.extra.get("effect") {
+                println!("  効果: {}", effect_desc);
+            }
+            if let Some(target_obj) = spell.extra.get("対象") {
+                println!("  対象: {}", target_obj);
+            }
+        }
+        None => {
+            eprintln!("エラー: スペル '{}' が見つかりません", name);
+            process::exit(1);
+        }
+    }
 }
 
 #[cfg(test)]

@@ -725,6 +725,86 @@ gm export --export udonarium --output /path/to/monsters.zip
 - numberResource elements use `currentValue` attribute for convenience
 - Data transformation handles empty/null values as "-" where appropriate
 
+## Spell Chat Palette Format
+
+### Design Principles
+- **Output format**: Text-based chat palette (one command per line)
+- **Support spell flag**: `補助 == true` or `補助 == false` determines output content
+- **Dice rolls**: Not required for support spells; required for regular spells
+- **Field mapping**: TRPG-JSON Spell → Chat palette text format
+
+### Support Spells (`補助 == true`)
+**Output format:**
+```
+Spell Name / MP:X / 対象:Y / 射程:Z / 時間:T / Effect Description
+```
+
+**Examples:**
+```
+ライト / MP:3 / 対象:任意の地点 / 射程:10m(起点指定) / 光源を生成する。
+魔法解除 / MP:8 / 対象:魔法1つ / 射程:接触 / 魔法を打ち消す。
+```
+
+**Characteristics:**
+- No dice rolls
+- Spell information confirmation format
+- Target and effect are primary information
+
+### Regular Spells (`補助 == false`)
+**Output format:**
+```
+2d+{Magic Category}+{行使修正}  Spell Name / MP:X / 対象:Y / 射程:Z / 時間:T / 効果
+```
+
+**Examples:**
+```
+2d+{神聖魔法}+{行使判定} ゴッド・ジャッジメント / MP:15 / 対象:1エリア(半径4mすべて) / 射程:術者 / 時間:一瞬 / 物理的に神の捌きを下す。
+```
+
+**Characteristics:**
+- Dice rolls required (category serves as the judgment check name)
+- `{行使修正}` is literal output (replaced by dicebot system at runtime)
+
+### Schema Field References
+- `name`: Spell name
+- `MP.value` OR `MP.value+` OR `MP.special`: MP consumption (exactly one exists)
+  - `value`: Fixed MP cost
+  - `value+`: Minimum MP cost (output as "3～" etc.)
+  - `special`: Special consumption (output string as-is)
+- `対象` fields: Target information (see separate section)
+- `category`: Magic category name derivation (see separate section)
+- `効果`: Effect description, output as-is
+- `時間` fields: Duration information (see separate section)
+
+#### Magic Category Name
+**When `category` is NOT exactly 2 full-width characters:**
+- Magic category → `category` as-is
+- Example: If `category` is "ハイテクノロジー", magic category is "ハイテクノロジー"
+
+**When `category` IS exactly 2 full-width characters:**
+- Magic category → `category` + "魔法"
+- Example: If `category` is "妖精", magic category is "妖精魔法"
+
+#### 対象 (Target)
+**When `対象.kind == "個別"`:**
+- Output: `対象.個別` as-is
+- Example: If `対象.個別` is "1体全", output "1体全"
+
+**When `対象.kind == "エリア"`:**
+- Output format: `対象.value`(半径`対象.半径(m)`m`対象.末尾`)
+- Example: If `対象.value` is "2エリア", `対象.半径(m)` is "10", `対象.末尾` is "空間", output "2エリア(半径10m空間)"
+
+#### 時間 (Duration)
+**When `時間.value` is a string:**
+- Output: `時間.value` as-is
+- Example: If `時間.value` is "一瞬", output "一瞬"
+
+**When `時間.value` is an integer:**
+- Output: `時間.value` + `時間.unit`
+- Example: If `時間.value` is "3" and `時間.unit` is "年", output "3年"
+
+---
+
 ## Google Sheets Export Format
 
 ### Design Principles

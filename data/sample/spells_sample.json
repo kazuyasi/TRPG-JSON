@@ -1,0 +1,284 @@
+[
+  {
+    "reference": [
+      {
+        "book": "BookRef_Y",
+        "value": 91
+      }
+    ],
+    "category": "MagicCat_1",
+    "Lv": {
+      "kind": "value",
+      "value": 9
+    },
+    "name": "Magic_47438",
+    "MP": {
+      "kind": "value",
+      "value": 86
+    },
+    "対象": {
+      "kind": "個別",
+      "個別": "1体全"
+    },
+    "時間": {
+      "value": 12
+    },
+    "形状": "貫通",
+    "抵抗": "なし",
+    "属性": "精神効果",
+    "効果": "EffectDescription_41410"
+  },
+  {
+    "reference": [
+      {
+        "book": "BookRef_Y",
+        "value": 122
+      }
+    ],
+    "category": "MagicCat_2",
+    "optionalCategory": "水・氷",
+    "Lv": {
+      "kind": "value",
+      "value": 13
+    },
+    "name": "Magic_33778",
+    "MP": {
+      "kind": "value",
+      "value": 15
+    },
+    "対象": {
+      "kind": "エリア",
+      "エリア": {
+        "value": "1エリア",
+        "半径(m)": 35,
+        "末尾": 10
+      }
+    },
+    "準備": true,
+    "時間": {
+      "value": 2
+    },
+    "形状": "起点指定",
+    "抵抗": "必中",
+    "効果": "EffectDescription_75723"
+  },
+  {
+    "reference": [
+      {
+        "book": "BookRef_Y",
+        "value": 125
+      }
+    ],
+    "category": "MagicCat_2",
+    "optionalCategory": "風",
+    "god": "Deity_A",
+    "Lv": {
+      "kind": "value",
+      "value": 3
+    },
+    "name": "Magic_83071",
+    "MP": {
+      "kind": "value",
+      "value": 72
+    },
+    "対象": {
+      "kind": "個別",
+      "個別": "接触点"
+    },
+    "時間": {
+      "value": 12,
+      "unit": "分"
+    },
+    "射程": "術者",
+    "射程(m)": 48,
+    "形状": "起点指定",
+    "抵抗": "消滅",
+    "属性": "病気",
+    "効果": "EffectDescription_37348"
+  },
+  {
+    "reference": [
+      {
+        "book": "BookRef_Y",
+        "value": 91
+      }
+    ],
+    "category": "MagicCat_1",
+    "Lv": {
+      "kind": "value",
+      "value": 7
+    },
+    "name": "Magic_16470",
+    "MP": {
+      "kind": "value",
+      "value": 40
+    },
+    "対象": {
+      "kind": "個別",
+      "個別": "弾丸"
+    },
+    "時間": {
+      "value": 10,
+      "unit": "分"
+    },
+    "射程": "接触",
+    "射程(m)": 19,
+    "形状": "起点指定",
+    "抵抗": "必中",
+    "効果": "EffectDescription_32293",
+    "マギスフィア": "大大"
+  },
+  {
+    "reference": [
+      {
+        "book": "BookRef_Y",
+        "value": 10
+      }
+    ],
+    "category": "MagicCat_2",
+    "Lv": {
+      "kind": "value",
+      "value": 7
+    },
+    "name": "Magic_88250",
+    "MP": {
+      "kind": "value",
+      "value": 82
+    },
+    "対象": {
+      "kind": "個別",
+      "個別": "魔法1つ"
+    },
+    "補助": true,
+    "時間": {
+      "value": 6,
+      "unit": "日"
+    },
+    "射程(m)": 23,
+    "抵抗": "なし",
+    "効果": "EffectDescription_14305"
+  },
+  {
+    "reference": [
+      {
+        "book": "BookRef_X",
+        "value": 150
+      }
+    ],
+    "category": "MagicCat_3",
+    "Lv": {
+      "kind": "value",
+      "value": 10
+    },
+    "name": "Magic_10271",
+    "MP": {
+      "kind": "value",
+      "value": 26
+    },
+    "対象": {
+      "kind": "個別",
+      "個別": "物体1つ"
+    },
+    "準備": true,
+    "犯罪": true,
+     "時間": {
+       "value": "一瞬"
+     },
+    "射程(m)": 48,
+    "形状": "射撃",
+    "抵抗": "短縮",
+    "効果": "EffectDescription_42412"
+  },
+  {
+    "reference": [
+      {
+        "book": "BookRef_X",
+        "value": 104
+      }
+    ],
+    "category": "MagicCat_1",
+    "Lv": {
+      "kind": "value",
+      "value": 13
+    },
+    "name": "Magic_53493",
+    "MP": {
+      "kind": "value+",
+      "value+": 95
+    },
+    "対象": {
+      "kind": "個別",
+      "個別": "1体X"
+    },
+    "時間": {
+      "value": 10,
+      "unit": "分"
+    },
+    "射程(m)": 43,
+    "形状": "貫通",
+    "抵抗": "半減",
+    "効果": "EffectDescription_49758"
+  },
+   {
+     "reference": [
+       {
+         "book": "BookRef_Z",
+         "value": 52
+       }
+     ],
+     "category": "MagicCat_3",
+     "Lv": {
+       "kind": "rank",
+       "rank": 2
+     },
+     "name": "Magic_22924",
+     "MP": {
+       "kind": "value",
+       "value": 46
+     },
+     "対象": {
+       "kind": "個別",
+       "個別": "接触点"
+     },
+     "時間": {
+       "value": 2,
+       "unit": "分"
+     },
+     "射程(m)": 26,
+     "形状": "射撃",
+     "抵抗": "消滅",
+     "効果": "EffectDescription_89106"
+   },
+   {
+     "reference": [
+       {
+         "book": "BookRef_Z",
+         "value": 88
+       }
+     ],
+     "category": "MagicCat_2",
+     "optionalCategory": "特殊",
+     "god": "Deity_B",
+     "Lv": {
+       "kind": "value",
+       "value": 5
+     },
+     "name": "Magic_65432",
+     "MP": {
+       "kind": "value",
+       "value": 55
+     },
+     "対象": {
+       "kind": "個別",
+       "個別": "1体"
+     },
+     "時間": {
+       "value": "一瞬"
+     },
+     "射程(m)": 30,
+     "形状": "起点指定",
+      "抵抗": "任意",
+      "属性": "純エネルギー",
+      "効果": "EffectDescription_12345"
+   }
+ ]

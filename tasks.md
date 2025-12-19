@@ -2,77 +2,134 @@
 
 ## 🧭 Meta
 - Project: TRPG-JSON
-- Last Updated: 2025-12-18 JST (T028 in progress; Phase 3 spell system kickoff)
+- Last Updated: 2025-12-19 JST (T032 complete; Phase 3 spell CLI & palette design)
 - Responsibilities: kazuyasi (specification/approval/sample data) / Claude (proposal/implementation/testing)
-- Status: Phase 2.5 COMPLETE (T013-T027). Phase 3 INITIATED. CLI refactored with nested subcommands (`gm monster`/`gm spell`). Configuration extended. Spell data model with JSON schema validation ready. Sample spell data creation in progress.
+- Status: Phase 2.5 COMPLETE (T013-T027). Phase 3 IN PROGRESS (T028-T032 complete). Spell system core implementation done (query, I/O, CLI find/list). Chat palette specification documented in DESIGN_GUIDE.md. Ready for palette generation implementation.
 
 ---
 
 ## 🔥 Priority Now
-- **Phase 3: Spell System Implementation (T028-T045)** 📋
-   - CLI refactoring complete (nested subcommands: `gm monster`/`gm spell`)
-   - Configuration extended with spell paths support
-   - Spell data model created with JSON schema validation
-   - Ready for spell sample data creation and feature implementation
+- **Phase 3: Spell System Implementation (T033-T037)** 📋
+   - ✅ CLI refactoring complete (nested subcommands: `gm monster`/`gm spell`)
+   - ✅ Configuration extended with spell paths support
+   - ✅ Spell data model created with JSON schema validation
+   - ✅ Sample spell data created & validated (9 spells, all schema-compliant)
+   - ✅ Query module implemented (20+ tests passing)
+   - ✅ I/O module implemented (10+ tests passing)
+   - ✅ CLI commands implemented: `gm spell find/list` working
+   - 🔄 Chat palette specification documented in DESIGN_GUIDE.md
+   - Next: Implement palette generation (T033) with補助フラグ support
 
 ## 🚧 In Progress
-- [ ] T028 JSON Schema for spells - Conditional field validation — IN PROGRESS (kazuyasi)
-   - Status: Schema validation rules tested. Using if-then-allOf pattern for kind-based field selection
-   - Next: Create sample spell data using schema
+- [ ] T032.5b Chat palette specification translation & implementation plan — IN PROGRESS
+    - Status: Awaiting T032.5a completion
+    - Owner: Claude
+    - Task: Translate finalized specification to implementation requirements
+    - Output: Detailed implementation checklist + unit test specifications (20+ tests)
+    - Blockers: None
+    - Next: T033 (palette generation module implementation)
+
+- [ ] T033 Chat palette generation for spells — BLOCKED (awaiting T032.5b)
+    - Status: Planning blocked until implementation plan is finalized
+    - Owner: Claude
+    - Task: Implement palette.rs module with補助フラグ conditional logic
+    - Dependencies: T032.5b (implementation plan)
+    - Next: Implement palette.rs after T032.5b completion
 
 ---
 
 ## Backlog (Phase 3 - Spell System & CLI Enhancement)
-- [ ] T029 Sample spell data creation (JSON) — kazuyasi
-   - Create 5-10 sample spells covering different categories (真語魔法, 操霊魔法, etc.)
-   - Test JSON against schema validation
-   - Include examples of all `kind` variants (value/value+/special for MP, value/value+/rank for Lv)
+- [x] T029 Sample spell data creation (JSON) — 2025-12-19
+   - Created 9 sample spells covering different categories (MagicCat_1, MagicCat_2, MagicCat_3)
+   - Validated against JSON schema - all compliant
+   - Includes examples of all `kind` variants (value/value+/rank for Lv, value/value+ for MP)
+   - Fixed: 「一瞬」 unit removal, 属性 値修正
 
-- [ ] T030 Spell query module (search by name/level/school) — Claude
-   - Implement query::find_by_school(), find_by_level() for spells
-   - Add unit tests for spell search functionality
-   - Pattern: follow monster query module design
+- [x] T030 Spell query module (search by name/level/school) — 2025-12-19
+   - Implemented spell_find_by_name(), spell_find_by_school(), spell_find_by_level()
+   - Added spell_find_multi() for combined filters
+   - Added spell_find_by_exact_name() for exact matching
+   - 20 unit tests implemented and passing
 
-- [ ] T031 Spell I/O module (load multiple spell files) — Claude
-   - Extend io.rs to support Spell deserialization
-   - Implement load_multiple_json_arrays() variant for spells
-   - Add error handling for invalid spell JSON
+- [x] T031 Spell I/O module (load multiple spell files) — 2025-12-19
+   - Extended io.rs with load_spells_json_array() for single file loading
+   - Implemented load_multiple_spells_json_arrays() for multiple files
+   - Added save_spells_json_array_stdout() for output
+   - 10 unit tests implemented and passing
 
-- [ ] T032 Spell CLI commands: find/list — Claude
-   - Implement `gm spell find <name> [-l <level>] [-s <school>]`
-   - Implement `gm spell list <pattern>`
-   - Output format: similar to monster commands but without export options
+- [x] T032 Spell CLI commands: find/list/palette — 2025-12-19
+    - Implemented `gm spell find <name> [-l <level>] [-s <school>]` with multi-filter support
+    - Implemented `gm spell list <pattern>` with name matching
+    - Implemented `gm spell palette <name>` showing basic spell info
+    - All commands working and tested; release build successful
 
-- [ ] T033 Chat palette generation for spells — Claude
-   - Design chat palette format for spells (1-2 line format per spec)
-   - Implement palette generation with dice rolls (2d+{stat} patterns)
-   - Handle variable references from spell data fields
+- [x] T032.5a Chat palette specification review & revision — 2025-12-19
+     - Reviewed and finalized specification in DESIGN_GUIDE.md (728-802行)
+     - Clarified MP field structure: exactly one of value/value+/special exists
+     - Marked {行使修正} as literal output for dicebot replacement
+     - Kept field names in backticks untranslated per documentation rules
+     - Confirmed input/output data remain in Japanese
+     - All spell search commands (find/list/palette) verified working
+     - Ready for T032.5b implementation planning
+
+- [ ] T032.5b Chat palette specification translation & implementation plan — Claude
+     - Status: Awaiting T032.5a completion
+     - Task: Translate finalized specification to implementation requirements
+     - Output: Detailed implementation checklist covering:
+       1. Data field extraction logic from Spell struct
+       2. Conditional logic for補助フラグ (true/false branching)
+       3. Output format generation (single-line format)
+       4. Error handling for missing/invalid fields
+     - Deliverable: Implementation plan document + unit test specifications (20+ tests)
+
+- [ ] T033 Chat palette generation for spells — Claude (T032.5b dependency)
+    - Implement palette.rs module with補助フラグ conditional logic
+    - Support for補助=true (no dice rolls) format
+    - Support for補助=false (with dice roll commands) format
+    - Handle judgment stat selection based on対象/抵抗 patterns
+    - Unit tests: 20+ for palette generation logic
+    - Dependencies: T032.5a (spec finalized) → T032.5b (implementation plan)
 
 - [ ] T034 Spell CLI command: palette display — Claude
-   - Implement `gm spell palette <name> [-c|--copy]`
-   - Display formatted chat palette to stdout
-   - Optional: copy to clipboard functionality (using copypasta or similar crate)
-   - Return error if spell not found
+   - Implement `gm spell palette <name>` with formatted output
+   - Display multi-line palette for regular spells, single-line for support spells
+   - Optional: copy to clipboard functionality (--copy flag)
+   - Integration test with T033 palette generation
 
 - [ ] T035 Test suite for spell functionality — Claude
-   - Unit tests for spell query module (20+ tests)
-   - Unit tests for spell palette generation (15+ tests)
+   - Unit tests for palette generation (15+ tests)
    - Integration tests for CLI spell commands (10+ tests)
-   - Target: 45+ new tests, all passing
+   - Total: 25+ new tests targeting palette feature
 
 - [ ] T036 Documentation: Spell features in README.md — kazuyasi/Claude
    - Add "Spell Management" section with usage examples
-   - Document spell palette output format
+   - Document spell palette output format (補助/通常 patterns)
    - Add spell query examples with filters
+   - Update with chat palette command examples
 
 - [ ] T037 Commit spell system Phase 3 — kazuyasi
    - All spell functionality implemented and tested
-   - Documentation complete
+   - Documentation complete (DESIGN_GUIDE.md + README.md)
    - Ready for git commit
 
 ---
 
 ## ✅ Done (Recent 15)
+- [x] T032.5a Chat palette specification review & revision — 2025-12-19
+        - Description: Finalized spell chat palette specification in DESIGN_GUIDE.md. Translated section to English/Japanese mixed format following documentation rules. Clarified MP field structure (value/value+/special). Marked {行使修正} as literal output for dicebot replacement. Verified all spell search commands (find/list/palette) work correctly. Ready for T032.5b implementation planning.
+
+- [x] T032 Spell CLI commands: find/list/palette (partial) — 2025-12-19
+        - Description: Implemented all three spell CLI commands with working functionality. `gm spell find` supports multi-filter search (-l level, -s school). `gm spell list` shows matching spells with metadata. `gm spell palette` displays spell information. Release build successful. Ready for next phase (palette generation refinement).
+
+- [x] T031 Spell I/O module (load multiple spell files) — 2025-12-19
+       - Description: Extended io.rs with Spell-specific I/O functions. Implemented load_spells_json_array() for single/multiple file loading, save_spells_json_array_stdout() for output. All 10 tests passing. Spell data now fully loadable from JSON files.
+
+- [x] T030 Spell query module (search by name/level/school) — 2025-12-19
+       - Description: Implemented spell_find_by_name(), spell_find_by_school(), spell_find_by_level(), spell_find_multi() for combined filtering, spell_find_by_exact_name() for exact matching. All 20 query tests passing. Pattern matches Monster query module design.
+
+- [x] T029 Sample spell data creation (JSON) & validation — 2025-12-19
+       - Description: Created 9 sample spells covering MagicCat_1/2/3 categories with all kind variants (value/value+/rank for Lv, value/value+ for MP). Fixed schema compliance issues (「一瞬」unit removal, 属性 value correction). JSON schema validation: all spells pass. Sample data ready for testing.
+
 - [x] T028a CLI Refactoring: Nested subcommand structure (gm monster/spell) — 2025-12-18
        - Description: Refactored Commands enum with MonsterCommands and SpellCommands nested enums. Implemented monster/spell top-level commands. Maintained backward compatibility with direct find/list/select/add/delete for existing users. All existing functionality verified working.
 

@@ -96,35 +96,17 @@ pub struct Monster {
 }
 
 /// スペル（魔法）データ
+/// スキーマ: schema/spell_array.json
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Spell {
     /// スペル名
     pub name: String,
 
-    /// 系統（火系、氷系など）
-    #[serde(rename = "School")]
-    pub school: String,
+    /// カテゴリ（MagicCat_1 など）
+    pub category: String,
 
-    /// レベル
-    #[serde(rename = "Lv")]
-    pub level: i32,
-
-    /// 効果
-    pub effect: String,
-
-    /// 対象
-    #[serde(rename = "Target", default)]
-    pub target: String,
-
-    /// 消費（MP、精力点など）
-    #[serde(rename = "Cost", default)]
-    pub cost: String,
-
-    /// その他の情報（範囲、持続時間、補助発動など）
-    #[serde(default)]
-    pub notes: String,
-
-    // 未知のフィールドを受け入れる
+    // 複雑なフィールド: Lv（値と種別）, MP（値と種別）, 対象（個別 or エリア）
+    // すべてを汎用 Value として受け入れる
     #[serde(flatten)]
     pub extra: HashMap<String, serde_json::Value>,
 }
