@@ -134,11 +134,16 @@ fn format_target(spell: &Spell) -> Result<String, String> {
 /// Spell.extra["射程"] または Spell.extra["射程(m)"] から射程情報を抽出
 /// "射程"を優先、なければ"射程(m)"にフォールバック
 /// 値をそのまま出力（変換なし）
+/// 文字列または整数の両方に対応
 fn format_range(spell: &Spell) -> Result<String, String> {
     // "射程"フィールドを優先チェック
     if let Some(range) = spell.extra.get("射程") {
         if let Some(r) = range.as_str() {
             return Ok(r.to_string());
+        }
+        // 文字列でなくても、as_i64()で試す
+        if let Some(i) = range.as_i64() {
+            return Ok(i.to_string());
         }
     }
     
@@ -146,6 +151,10 @@ fn format_range(spell: &Spell) -> Result<String, String> {
     if let Some(range) = spell.extra.get("射程(m)") {
         if let Some(r) = range.as_str() {
             return Ok(r.to_string());
+        }
+        // 文字列でなくても、as_i64()で試す
+        if let Some(i) = range.as_i64() {
+            return Ok(i.to_string());
         }
     }
     
@@ -563,6 +572,32 @@ mod tests {
             extra,
         };
         assert!(format_range(&spell).is_err());
+    }
+
+    /// 射程フォーマット: 「射程(m)」が整数型
+    #[test]
+    fn test_range_format_with_seishou_m_integer() {
+        let mut extra = std::collections::HashMap::new();
+        extra.insert("射程(m)".to_string(), serde_json::json!(30));
+        let spell = Spell {
+            name: "テスト".to_string(),
+            category: "魔法".to_string(),
+            extra,
+        };
+        assert_eq!(format_range(&spell), Ok("30".to_string()));
+    }
+
+    /// 射程フォーマット: 「射程」が整数型
+    #[test]
+    fn test_range_format_with_seishou_integer() {
+        let mut extra = std::collections::HashMap::new();
+        extra.insert("射程".to_string(), serde_json::json!(50));
+        let spell = Spell {
+            name: "テスト".to_string(),
+            category: "魔法".to_string(),
+            extra,
+        };
+        assert_eq!(format_range(&spell), Ok("50".to_string()));
     }
 
     // ========================================================================
