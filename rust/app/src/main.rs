@@ -1004,5 +1004,172 @@ mod tests {
         let error_msg = result.err().unwrap().to_string();
         assert!(error_msg.contains("Invalid spreadsheet ID") || error_msg.contains("invalid"));
     }
+
+    // ========================================================================
+    // Spell CLI Integration Tests (T035)
+    // ========================================================================
+
+    #[test]
+    fn test_spell_find_by_name_single_match() {
+        // Load spells from sample data (using relative path from workspace root)
+        let spells = io::load_spells_json_array("../../data/sample/spells_sample.json")
+            .expect("Failed to load spell sample data");
+        
+        // Find by exact name
+        let result = query::spell_find_by_exact_name(&spells, "Magic_47438");
+        assert!(result.is_some());
+        
+        let spell = result.unwrap();
+        assert_eq!(spell.name, "Magic_47438");
+        assert_eq!(spell.category, "MagicCat_1");
+    }
+
+    #[test]
+    fn test_spell_find_by_name_no_match() {
+        let spells = io::load_spells_json_array("../../data/sample/spells_sample.json")
+            .expect("Failed to load spell sample data");
+        
+        let result = query::spell_find_by_exact_name(&spells, "NonExistentSpell");
+        assert!(result.is_none());
+    }
+
+    #[test]
+    fn test_spell_find_by_category() {
+        let spells = io::load_spells_json_array("../../data/sample/spells_sample.json")
+            .expect("Failed to load spell sample data");
+        
+        // Find spells by category
+        let results = query::spell_find_by_school(&spells, "MagicCat_1");
+        assert!(!results.is_empty());
+        
+        // All results should match the category
+        for spell in results {
+            assert_eq!(spell.category, "MagicCat_1");
+        }
+    }
+
+    #[test]
+    fn test_spell_find_partial_match() {
+        let spells = io::load_spells_json_array("../../data/sample/spells_sample.json")
+            .expect("Failed to load spell sample data");
+        
+        // Find spells with partial name match
+        let results = query::spell_find_by_name(&spells, "Magic");
+        assert!(!results.is_empty());
+        
+        // All results should contain "Magic"
+        for spell in results {
+            assert!(spell.name.contains("Magic"));
+        }
+    }
+
+    #[test]
+    fn test_spell_palette_generation_support_spell() {
+        let spells = io::load_spells_json_array("../../data/sample/spells_sample.json")
+            .expect("Failed to load spell sample data");
+        
+        // Find support spell (Magic_88250 has 補助: true)
+        let spell = query::spell_find_by_exact_name(&spells, "Magic_88250")
+            .expect("Support spell not found");
+        
+        // Generate palette
+        let palette = export::palette::generate_spell_palette(&spell)
+            .expect("Failed to generate palette");
+        
+        // Verify support spell format (no dice roll)
+        assert!(!palette.contains("2d+"));
+        assert!(palette.contains("Magic_88250"));
+        assert!(palette.contains("MP:"));
+    }
+
+    #[test]
+    fn test_spell_palette_generation_regular_spell() {
+        let spells = io::load_spells_json_array("../../data/sample/spells_sample.json")
+            .expect("Failed to load spell sample data");
+        
+        // Find regular spell (Magic_47438 has no 補助 flag)
+        let spell = query::spell_find_by_exact_name(&spells, "Magic_47438")
+            .expect("Regular spell not found");
+        
+        // Generate palette
+        let palette = export::palette::generate_spell_palette(&spell)
+            .expect("Failed to generate palette");
+        
+        // Verify regular spell format (with dice roll)
+        assert!(palette.starts_with("2d+"));
+        assert!(palette.contains("{行使修正}"));
+        assert!(palette.contains("Magic_47438"));
+        assert!(palette.contains("MP:"));
+    }
+
+    #[test]
+    fn test_spell_palette_generation_area_target() {
+        let spells = io::load_spells_json_array("../../data/sample/spells_sample.json")
+            .expect("Failed to load spell sample data");
+        
+        // Find spell with area target (Magic_33778)
+        let spell = query::spell_find_by_exact_name(&spells, "Magic_33778")
+            .expect("Spell with area target not found");
+        
+        // Generate palette
+        let palette = export::palette::generate_spell_palette(&spell)
+            .expect("Failed to generate palette");
+        
+        // Verify area target format
+        assert!(palette.contains("1エリア"));
+        assert!(palette.contains("半径"));
+        assert!(palette.contains("m"));
+    }
+
+    #[test]
+    fn test_spell_multi_filter_query() {
+        let spells = io::load_spells_json_array("../../data/sample/spells_sample.json")
+            .expect("Failed to load spell sample data");
+        
+        // Multi-filter: school only (name, school, level)
+        let results = query::spell_find_multi(&spells, None, Some("MagicCat_2"), None);
+        assert!(!results.is_empty());
+        
+        for spell in &results {
+            assert_eq!(spell.category, "MagicCat_2");
+        }
+    }
+
+    #[test]
+    fn test_spell_data_persistence() {
+        // Load spells from sample data
+        let spells = io::load_spells_json_array("../../data/sample/spells_sample.json")
+            .expect("Failed to load spell sample data");
+        
+        // Verify all required spells are present
+        let spell_names = vec![
+            "Magic_47438", "Magic_33778", "Magic_83071", "Magic_16470",
+            "Magic_88250", "Magic_10271", "Magic_53493", "Magic_22924",
+            "Magic_65432"
+        ];
+        
+        for name in spell_names {
+            let result = query::spell_find_by_exact_name(&spells, name);
+            assert!(result.is_some(), "Spell {} not found", name);
+        }
+    }
+
+    #[test]
+    fn test_spell_schema_compliance() {
+        let spells = io::load_spells_json_array("../../data/sample/spells_sample.json")
+            .expect("Failed to load spell sample data");
+        
+        // Verify all spells have required fields
+        for spell in spells {
+            assert!(!spell.name.is_empty(), "Spell name is empty");
+            assert!(!spell.category.is_empty(), "Spell category is empty");
+            
+            // Verify MP field exists
+            assert!(spell.extra.get("MP").is_some(), "MP field missing for {}", spell.name);
+            
+            // Verify effect field exists
+            assert!(spell.extra.get("効果").is_some(), "Effect field missing for {}", spell.name);
+        }
+    }
 }
 
