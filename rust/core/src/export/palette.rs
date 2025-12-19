@@ -88,17 +88,40 @@ fn format_target(spell: &Spell) -> Result<String, String> {
             Ok(individual.to_string())
         }
         "エリア" => {
-            let value = target_obj.get("value")
+            // スキーマに合わせて、エリア対象は {"エリア": {...}} の形式
+            let area_obj = target_obj.get("エリア")
+                .and_then(|v| v.as_object())
+                .ok_or_else(|| ERR_MISSING_TARGET.to_string())?;
+            
+            let value = area_obj.get("value")
                 .and_then(|v| v.as_str())
                 .ok_or_else(|| ERR_MISSING_TARGET.to_string())?;
             
-            let radius_m = target_obj.get("半径(m)")
-                .and_then(|v| v.as_str())
-                .ok_or_else(|| ERR_MISSING_TARGET.to_string())?;
+            // 半径(m)は整数または文字列の可能性がある
+            let radius_m = if let Some(v) = area_obj.get("半径(m)") {
+                if let Some(i) = v.as_i64() {
+                    i.to_string()
+                } else if let Some(s) = v.as_str() {
+                    s.to_string()
+                } else {
+                    return Err(ERR_MISSING_TARGET.to_string());
+                }
+            } else {
+                return Err(ERR_MISSING_TARGET.to_string());
+            };
             
-            let suffix = target_obj.get("末尾")
-                .and_then(|v| v.as_str())
-                .ok_or_else(|| ERR_MISSING_TARGET.to_string())?;
+            // 末尾は文字列または整数の可能性がある
+            let suffix = if let Some(v) = area_obj.get("末尾") {
+                if let Some(s) = v.as_str() {
+                    s.to_string()
+                } else if let Some(i) = v.as_i64() {
+                    i.to_string()
+                } else {
+                    return Err(ERR_MISSING_TARGET.to_string());
+                }
+            } else {
+                return Err(ERR_MISSING_TARGET.to_string());
+            };
             
             Ok(format!("{}(半径{}m{})", value, radius_m, suffix))
         }
@@ -323,16 +346,18 @@ mod tests {
         let mut extra = std::collections::HashMap::new();
         extra.insert("対象".to_string(), serde_json::json!({
             "kind": "エリア",
-            "value": "1エリア",
-            "半径(m)": "5",
-            "末尾": "内"
+            "エリア": {
+                "value": "1エリア",
+                "半径(m)": 5,
+                "末尾": "すべて"
+            }
         }));
         let spell = Spell {
             name: "テスト".to_string(),
             category: "魔法".to_string(),
             extra,
         };
-        assert_eq!(format_target(&spell), Ok("1エリア(半径5m内)".to_string()));
+        assert_eq!(format_target(&spell), Ok("1エリア(半径5mすべて)".to_string()));
     }
 
     /// 対象フォーマット: エリア（複合）
@@ -341,9 +366,11 @@ mod tests {
         let mut extra = std::collections::HashMap::new();
         extra.insert("対象".to_string(), serde_json::json!({
             "kind": "エリア",
-            "value": "2エリア",
-            "半径(m)": "10",
-            "末尾": "空間"
+            "エリア": {
+                "value": "2エリア",
+                "半径(m)": 10,
+                "末尾": "空間"
+            }
         }));
         let spell = Spell {
             name: "テスト".to_string(),
@@ -465,7 +492,7 @@ mod tests {
             "kind": "個別",
             "個別": "任意の地点"
         }));
-        extra.insert("射程".to_string(), serde_json::json!("10m(起点指定)"));
+        extra.insert("射程".to_string(), serde_json::json!("術者"));
         extra.insert("時間".to_string(), serde_json::json!({"value": "一瞬"}));
         extra.insert("効果".to_string(), serde_json::json!("光源を生成する。"));
 
@@ -538,9 +565,11 @@ mod tests {
         extra.insert("MP".to_string(), serde_json::json!({"value": 15}));
         extra.insert("対象".to_string(), serde_json::json!({
             "kind": "エリア",
-            "value": "1エリア",
-            "半径(m)": "4",
-            "末尾": "すべて"
+            "エリア": {
+                "value": "1エリア",
+                "半径(m)": 4,
+                "末尾": "すべて"
+            }
         }));
         extra.insert("射程".to_string(), serde_json::json!("術者"));
         extra.insert("時間".to_string(), serde_json::json!({"value": "一瞬"}));
@@ -687,11 +716,13 @@ mod tests {
         extra.insert("MP".to_string(), serde_json::json!({"value": 8}));
         extra.insert("対象".to_string(), serde_json::json!({
             "kind": "エリア",
-            "value": "3エリア",
-            "半径(m)": "6",
-            "末尾": "内"
+            "エリア": {
+                "value": "3エリア",
+                "半径(m)": 6,
+                "末尾": "空間"
+            }
         }));
-        extra.insert("射程".to_string(), serde_json::json!("20m"));
+        extra.insert("射程".to_string(), serde_json::json!("術者"));
         extra.insert("時間".to_string(), serde_json::json!({"value": "一瞬"}));
         extra.insert("効果".to_string(), serde_json::json!("妖精の祝福を与える。"));
 
@@ -703,7 +734,7 @@ mod tests {
         let result = generate_spell_palette(&spell).unwrap();
         assert!(result.contains("妖精魔法"));
         assert!(result.contains("フェアリーズブレッシング"));
-        assert!(result.contains("3エリア(半径6m内)"));
+        assert!(result.contains("3エリア(半径6m空間)"));
     }
 
     /// 統合テスト: サンプル呪文2（神聖魔法）
@@ -716,7 +747,7 @@ mod tests {
             "kind": "個別",
             "個別": "1体"
         }));
-        extra.insert("射程".to_string(), serde_json::json!("30m"));
+        extra.insert("射程".to_string(), serde_json::json!("術者"));
         extra.insert("時間".to_string(), serde_json::json!({"value": 5, "unit": "ラウンド"}));
         extra.insert("効果".to_string(), serde_json::json!("神聖な力で対象を強化する。"));
 
@@ -741,7 +772,7 @@ mod tests {
             "kind": "個別",
             "個別": "任意の標的"
         }));
-        extra.insert("射程".to_string(), serde_json::json!("目視範囲"));
+        extra.insert("射程".to_string(), serde_json::json!("接触"));
         extra.insert("時間".to_string(), serde_json::json!({"value": "永続"}));
         extra.insert("効果".to_string(), serde_json::json!("対象に日本語の呪いを与える。特に危険な技能。"));
 

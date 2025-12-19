@@ -757,7 +757,7 @@ fn handle_spell_list_command(data_paths: &[String], pattern: &str) {
     }
 }
 
-fn handle_spell_palette_command(data_paths: &[String], name: &str, _copy: bool) {
+fn handle_spell_palette_command(data_paths: &[String], name: &str, copy: bool) {
     // データを読み込む（複数ファイル対応）
     let spells = match io::load_multiple_spells_json_arrays(
         &data_paths.iter().map(|p| p.as_str()).collect::<Vec<_>>()
@@ -772,29 +772,100 @@ fn handle_spell_palette_command(data_paths: &[String], name: &str, _copy: bool) 
     // 完全マッチで検索
     match query::spell_find_by_exact_name(&spells, name) {
         Some(spell) => {
-            // チャットパレット情報を出力
-            // TODO: 詳細なチャットパレット生成ロジックは T033で実装
-            let category = &spell.category;
-            println!("スペル: {} ({})", spell.name, category);
-            
-            // 効果情報を extra から取得（スキーマに準拠した構造）
-            if let Some(lv_obj) = spell.extra.get("Lv") {
-                println!("  Lv: {}", lv_obj);
-            }
-            if let Some(mp_obj) = spell.extra.get("MP") {
-                println!("  MP: {}", mp_obj);
-            }
-            if let Some(effect_desc) = spell.extra.get("effect") {
-                println!("  効果: {}", effect_desc);
-            }
-            if let Some(target_obj) = spell.extra.get("対象") {
-                println!("  対象: {}", target_obj);
+            // チャットパレットを生成
+            match export::palette::generate_spell_palette(&spell) {
+                Ok(palette) => {
+                    // 出力
+                    println!("{}", palette);
+                    
+                    // --copy フラグが指定されている場合、クリップボードにコピー
+                    if copy {
+                        match copy_to_clipboard(&palette) {
+                            Ok(_) => {
+                                eprintln!("✓ チャットパレットをクリップボードにコピーしました");
+                            }
+                            Err(e) => {
+                                eprintln!("警告: クリップボードへのコピーに失敗しました: {}", e);
+                                // エラーでも終了せず、出力は成功している
+                            }
+                        }
+                    }
+                }
+                Err(e) => {
+                    eprintln!("エラー: チャットパレット生成に失敗しました: {}", e);
+                    process::exit(1);
+                }
             }
         }
         None => {
             eprintln!("エラー: スペル '{}' が見つかりません", name);
             process::exit(1);
         }
+    }
+}
+
+/// クリップボードに文字列をコピーする
+/// 
+/// # 説明
+/// System クリップボードに指定された文字列をコピーします。
+/// xclip (Linux) または pbcopy (macOS) または clip (Windows) が必要です。
+fn copy_to_clipboard(text: &str) -> std::io::Result<()> {
+    use std::process::Command;
+    
+    #[cfg(target_os = "macos")]
+    {
+        let mut child = Command::new("pbcopy")
+            .stdin(std::process::Stdio::piped())
+            .spawn()?;
+        
+        if let Some(mut stdin) = child.stdin.take() {
+            use std::io::Write;
+            stdin.write_all(text.as_bytes())?;
+        }
+        
+        child.wait()?;
+        Ok(())
+    }
+    
+    #[cfg(target_os = "linux")]
+    {
+        let mut child = Command::new("xclip")
+            .arg("-selection")
+            .arg("clipboard")
+            .stdin(std::process::Stdio::piped())
+            .spawn()?;
+        
+        if let Some(mut stdin) = child.stdin.take() {
+            use std::io::Write;
+            stdin.write_all(text.as_bytes())?;
+        }
+        
+        child.wait()?;
+        Ok(())
+    }
+    
+    #[cfg(target_os = "windows")]
+    {
+        let mut child = Command::new("cmd")
+            .args(&["/C", "clip"])
+            .stdin(std::process::Stdio::piped())
+            .spawn()?;
+        
+        if let Some(mut stdin) = child.stdin.take() {
+            use std::io::Write;
+            stdin.write_all(text.as_bytes())?;
+        }
+        
+        child.wait()?;
+        Ok(())
+    }
+    
+    #[cfg(not(any(target_os = "macos", target_os = "linux", target_os = "windows")))]
+    {
+        Err(std::io::Error::new(
+            std::io::ErrorKind::Other,
+            "Clipboard functionality is not supported on this platform"
+        ))
     }
 }
 
