@@ -30,89 +30,6 @@ enum Commands {
         #[command(subcommand)]
         command: SpellCommands,
     },
-
-    // 後方互換性用: 直接 find/list/select/add/delete を使用可能
-    /// モンスターを検索する（互換性のため直接サポート、gm monster find と同等）
-    /// 
-    /// 使用例:
-    ///   gm find テスト           # 名前に「テスト」を含むモンスターを検索
-    ///   gm find テスト -l 6      # 名前に「テスト」を含み、レベル6のモンスターを検索
-    ///   gm find テスト -c 蛮族  # 名前に「テスト」を含み、カテゴリ「蛮族」のモンスターを検索
-    #[command(hide = true)]
-    Find {
-        /// 検索する名前（部分マッチ）
-        name: String,
-        
-        /// レベルで絞り込む（オプション）
-        #[arg(short = 'l', long)]
-        level: Option<i32>,
-        
-        /// カテゴリで絞り込む（オプション）
-        #[arg(short = 'c', long)]
-        category: Option<String>,
-    },
-    
-    /// 名前一覧を取得する（互換性のため直接サポート、gm monster list と同等）
-    /// 
-    /// 使用例:
-    ///   gm list テスト          # 名前に「テスト」を含むモンスターの一覧
-    #[command(hide = true)]
-    List {
-        /// 検索パターン（部分マッチ）
-        pattern: String,
-    },
-    
-    /// クエリでモンスターを検索し JSON 配列で返す（互換性のため直接サポート、gm monster select と同等）
-    /// 
-    /// 使用例:
-    ///   gm select -l 6          # レベル6のモンスターをすべて取得
-    ///   gm select -c 蛮族       # カテゴリ「蛮族」のモンスターをすべて取得
-    ///   gm select -l 6 -c 蛮族  # レベル6かつカテゴリ「蛮族」のモンスターを取得
-    ///   gm select -l 6 --export json --output results.json # 結果をJSONファイルにエクスポート
-    ///   gm select -l 6 --export sheets --output "Spreadsheet ID" # Google Sheetsにエクスポート
-    ///   gm select -l 6 --export udonarium --output monsters.zip # Udonarium形式にエクスポート
-    #[command(hide = true)]
-    Select {
-        /// 名前で検索（部分マッチ、オプション）
-        #[arg(short = 'n', long)]
-        name: Option<String>,
-        
-        /// レベルで絞り込む（オプション）
-        #[arg(short = 'l', long)]
-        level: Option<i32>,
-        
-        /// カテゴリで絞り込む（オプション）
-        #[arg(short = 'c', long)]
-        category: Option<String>,
-        
-        /// エクスポート形式（json, sheets, udonarium）
-        #[arg(long)]
-        export: Option<String>,
-        
-        /// エクスポート出力先（JSONの場合: ファイルパス、Sheetsの場合: スプレッドシートID、Udonariumの場合: ZIPファイルパス）
-        #[arg(long)]
-        output: Option<String>,
-    },
-    
-    /// モンスターを追加する（互換性のため直接サポート、gm monster add と同等）
-    /// 
-    /// 使用例:
-    ///   gm add monster.json      # monster.json からモンスターを追加
-    #[command(hide = true)]
-    Add {
-        /// JSON ファイルパス（単一モンスター JSON）
-        file: String,
-    },
-    
-    /// モンスターを削除する（互換性のため直接サポート、gm monster delete と同等）
-    /// 
-    /// 使用例:
-    ///   gm delete "モンスター名"  # 完全一致するモンスターを削除
-    #[command(hide = true)]
-    Delete {
-        /// 削除するモンスターの正確な名前
-        name: String,
-    },
 }
 
 #[derive(Subcommand)]
@@ -323,23 +240,6 @@ fn main() {
                     handle_spell_palette_command(&spell_path_strs, name.as_deref(), *level, school.as_deref(), *copy);
                 }
             }
-        }
-
-        // 後方互換性: 直接コマンドを使用可能
-        Some(Commands::Find { name, level, category }) => {
-            handle_find_command(&monster_path_strs, name, *level, category.as_deref());
-        }
-        Some(Commands::List { pattern }) => {
-            handle_list_command(&monster_path_strs, pattern);
-        }
-        Some(Commands::Select { name, level, category, export: export_format, output }) => {
-            handle_select_command(&monster_path_strs, name.as_deref(), *level, category.as_deref(), export_format.as_deref(), output.as_deref());
-        }
-        Some(Commands::Add { file }) => {
-            handle_add_command(&monster_path_strs, file);
-        }
-        Some(Commands::Delete { name }) => {
-            handle_delete_command(&monster_path_strs, name);
         }
 
         None => {
