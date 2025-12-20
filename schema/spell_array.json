@@ -36,10 +36,10 @@
             "name": {
                 "type": "string"
             },
-            "category": {
+            "school": {
                 "type": "string"
             },
-            "optionalCategory": {
+            "schoolVariant": {
                 "type": [
                     "string",
                     "null"

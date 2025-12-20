@@ -61,7 +61,7 @@ gm spell find "spell name"
 # Search by level
 gm spell find "spell name" -l 5
 
-# Search by school/category
+# Search by school
 gm spell find "spell name" -s "神聖"
 
 # Combine multiple filters
@@ -74,7 +74,7 @@ gm spell list "pattern"
 gm spell palette "spell name"
 
 # Copy spell palette to clipboard (macOS/Linux/Windows)
-gm spell palette "spell name" -c
+gm spell palette "spell name" -y
 # or
 gm spell palette "spell name" --copy
 ```
@@ -101,7 +101,7 @@ gm spell palette "ライト"
 # Output: ライト / MP:3 / 対象:任意の地点 / 射程:10m(起点指定) / 時間:一瞬 / 光源を生成する。
 
 # Generate palette for regular spell (with copy to clipboard)
-gm spell palette "ゴッド・ジャッジメント" --copy
+gm spell palette "ゴッド・ジャッジメント" -y
 # Output: 2d+{神聖魔法}+{行使修正}  ゴッド・ジャッジメント / MP:15 / 対象:1エリア(半径4m) / 射程:術者 / 時間:一瞬 / ...
 ```
 

@@ -6,7 +6,7 @@
         "value": 91
       }
     ],
-    "category": "MagicCat_1",
+    "school": "MagicCat_1",
     "Lv": {
       "kind": "value",
       "value": 9
@@ -38,8 +38,8 @@
         "value": 122
       }
     ],
-    "category": "MagicCat_2",
-    "optionalCategory": "水・氷",
+    "school": "MagicCat_2",
+    "schoolVariant": "水・氷",
     "Lv": {
       "kind": "value",
       "value": 13
@@ -75,9 +75,9 @@
         "value": 125
       }
     ],
-    "category": "MagicCat_2",
-    "optionalCategory": "風",
-    "god": "Deity_A",
+     "school": "MagicCat_2",
+     "schoolVariant": "風",
+     "god": "Deity_A",
     "Lv": {
       "kind": "value",
       "value": 3
@@ -109,7 +109,7 @@
         "value": 91
       }
     ],
-    "category": "MagicCat_1",
+    "school": "MagicCat_1",
     "Lv": {
       "kind": "value",
       "value": 7
@@ -141,7 +141,7 @@
         "value": 10
       }
     ],
-    "category": "MagicCat_2",
+    "school": "MagicCat_2",
     "Lv": {
       "kind": "value",
       "value": 7
@@ -172,7 +172,7 @@
         "value": 150
       }
     ],
-    "category": "MagicCat_3",
+    "school": "MagicCat_3",
     "Lv": {
       "kind": "value",
       "value": 10
@@ -204,7 +204,7 @@
         "value": 104
       }
     ],
-    "category": "MagicCat_1",
+    "school": "MagicCat_1",
     "Lv": {
       "kind": "value",
       "value": 13
@@ -235,7 +235,7 @@
         "value": 52
       }
     ],
-    "category": "MagicCat_3",
+    "school": "MagicCat_3",
     "Lv": {
       "kind": "rank",
       "rank": 2
@@ -266,9 +266,9 @@
         "value": 88
       }
     ],
-    "category": "MagicCat_2",
-    "optionalCategory": "特殊",
-    "god": "Deity_B",
+     "school": "MagicCat_2",
+     "schoolVariant": "特殊",
+     "god": "Deity_B",
     "Lv": {
       "kind": "value",
       "value": 5

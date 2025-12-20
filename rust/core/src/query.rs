@@ -80,7 +80,7 @@ pub fn spell_find_by_name<'a>(spells: &'a [Spell], name: &str) -> Vec<&'a Spell>
 pub fn spell_find_by_school<'a>(spells: &'a [Spell], school: &str) -> Vec<&'a Spell> {
     spells
         .iter()
-        .filter(|s| s.category == school)
+        .filter(|s| s.school == school)
         .collect()
 }
 
@@ -126,9 +126,9 @@ pub fn spell_find_multi<'a>(
                     return false;
                 }
             }
-            // カテゴリ（系統）フィルタ
+            // 系統フィルタ
             if let Some(sch) = school {
-                if s.category != sch {
+                if s.school != sch {
                     return false;
                 }
             }
@@ -420,49 +420,49 @@ mod tests {
      // Spell Query Tests
      // ========================================================================
 
-      fn sample_spells() -> Vec<Spell> {
-          let json_data = r#"[
-              {
-                  "name": "Magic_47438",
-                  "category": "MagicCat_1",
-                  "Lv": { "kind": "value", "value": 9 },
-                  "MP": { "kind": "value", "value": 86 },
-                  "effect": "EffectDescription_41410",
-                  "対象": { "kind": "個別", "個別": "1体全" }
-              },
-              {
-                  "name": "Magic_33778",
-                  "category": "MagicCat_2",
-                  "Lv": { "kind": "value", "value": 13 },
-                  "MP": { "kind": "value", "value": 15 },
-                  "effect": "EffectDescription_75723",
-                  "対象": { "kind": "エリア", "エリア": { "value": "1エリア", "半径(m)": 35 } }
-              },
-              {
-                  "name": "Magic_83071",
-                  "category": "MagicCat_2",
-                  "Lv": { "kind": "value", "value": 3 },
-                  "MP": { "kind": "value", "value": 72 },
-                  "effect": "EffectDescription_37348",
-                  "対象": { "kind": "個別", "個別": "接触点" }
-              },
-              {
-                  "name": "Magic_16470",
-                  "category": "MagicCat_1",
-                  "Lv": { "kind": "value", "value": 7 },
-                  "MP": { "kind": "value", "value": 40 },
-                  "effect": "EffectDescription_32293",
-                  "対象": { "kind": "個別", "個別": "弾丸" }
-              },
-              {
-                  "name": "Magic_88250",
-                  "category": "MagicCat_2",
-                  "Lv": { "kind": "value", "value": 7 },
-                  "MP": { "kind": "value", "value": 82 },
-                  "effect": "EffectDescription_14305",
-                  "対象": { "kind": "個別", "個別": "魔法1つ" }
-              }
-          ]"#;
+       fn sample_spells() -> Vec<Spell> {
+           let json_data = r#"[
+               {
+                   "name": "Magic_47438",
+                   "school": "MagicCat_1",
+                   "Lv": { "kind": "value", "value": 9 },
+                   "MP": { "kind": "value", "value": 86 },
+                   "effect": "EffectDescription_41410",
+                   "対象": { "kind": "個別", "個別": "1体全" }
+               },
+               {
+                   "name": "Magic_33778",
+                   "school": "MagicCat_2",
+                   "Lv": { "kind": "value", "value": 13 },
+                   "MP": { "kind": "value", "value": 15 },
+                   "effect": "EffectDescription_75723",
+                   "対象": { "kind": "エリア", "エリア": { "value": "1エリア", "半径(m)": 35 } }
+               },
+               {
+                   "name": "Magic_83071",
+                   "school": "MagicCat_2",
+                   "Lv": { "kind": "value", "value": 3 },
+                   "MP": { "kind": "value", "value": 72 },
+                   "effect": "EffectDescription_37348",
+                   "対象": { "kind": "個別", "個別": "接触点" }
+               },
+               {
+                   "name": "Magic_16470",
+                   "school": "MagicCat_1",
+                   "Lv": { "kind": "value", "value": 7 },
+                   "MP": { "kind": "value", "value": 40 },
+                   "effect": "EffectDescription_32293",
+                   "対象": { "kind": "個別", "個別": "弾丸" }
+               },
+               {
+                   "name": "Magic_88250",
+                   "school": "MagicCat_2",
+                   "Lv": { "kind": "value", "value": 7 },
+                   "MP": { "kind": "value", "value": 82 },
+                   "effect": "EffectDescription_14305",
+                   "対象": { "kind": "個別", "個別": "魔法1つ" }
+               }
+           ]"#;
 
           serde_json::from_str(json_data).expect("Failed to parse sample spells")
       }
@@ -494,7 +494,7 @@ mod tests {
          let spells = sample_spells();
          let results = spell_find_by_school(&spells, "MagicCat_1");
          assert_eq!(results.len(), 2); // Magic_47438, Magic_16470
-         assert!(results.iter().all(|s| s.category == "MagicCat_1"));
+         assert!(results.iter().all(|s| s.school == "MagicCat_1"));
      }
 
      #[test]
@@ -502,7 +502,7 @@ mod tests {
          let spells = sample_spells();
          let results = spell_find_by_school(&spells, "MagicCat_2");
          assert_eq!(results.len(), 3); // Magic_33778, Magic_83071, Magic_88250
-         assert!(results.iter().all(|s| s.category == "MagicCat_2"));
+         assert!(results.iter().all(|s| s.school == "MagicCat_2"));
      }
 
      #[test]
@@ -560,7 +560,7 @@ mod tests {
          let spells = sample_spells();
          let results = spell_find_multi(&spells, Some("47438"), Some("MagicCat_1"), None);
          assert_eq!(results.len(), 1); // Magic_47438 MagicCat_1
-         assert!(results.iter().all(|s| s.category == "MagicCat_1"));
+         assert!(results.iter().all(|s| s.school == "MagicCat_1"));
      }
 
      #[test]

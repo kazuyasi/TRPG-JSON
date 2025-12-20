@@ -641,24 +641,24 @@ mod tests {
       fn test_load_spells_valid_json_array() {
           let mut file = NamedTempFile::new().expect("Failed to create temp file");
 
-          let json_data = r#"[
-              {
-                  "name": "Magic_47438",
-                  "category": "MagicCat_1",
-                  "Lv": { "kind": "value", "value": 9 },
-                  "MP": { "kind": "value", "value": 86 },
-                  "effect": "EffectDescription_41410",
-                  "対象": { "kind": "個別", "個別": "1体全" }
-              },
-              {
-                  "name": "Magic_33778",
-                  "category": "MagicCat_2",
-                  "Lv": { "kind": "value", "value": 13 },
-                  "MP": { "kind": "value", "value": 15 },
-                  "effect": "EffectDescription_75723",
-                  "対象": { "kind": "エリア", "エリア": { "value": "1エリア" } }
-              }
-          ]"#;
+           let json_data = r#"[
+               {
+                   "name": "Magic_47438",
+                   "school": "MagicCat_1",
+                   "Lv": { "kind": "value", "value": 9 },
+                   "MP": { "kind": "value", "value": 86 },
+                   "effect": "EffectDescription_41410",
+                   "対象": { "kind": "個別", "個別": "1体全" }
+               },
+               {
+                   "name": "Magic_33778",
+                   "school": "MagicCat_2",
+                   "Lv": { "kind": "value", "value": 13 },
+                   "MP": { "kind": "value", "value": 15 },
+                   "effect": "EffectDescription_75723",
+                   "対象": { "kind": "エリア", "エリア": { "value": "1エリア" } }
+               }
+           ]"#;
 
           writeln!(file, "{}", json_data).expect("Failed to write to temp file");
 
@@ -747,29 +747,29 @@ mod tests {
           let mut file1 = NamedTempFile::new().expect("Failed to create temp file 1");
           let mut file2 = NamedTempFile::new().expect("Failed to create temp file 2");
 
-          let json_data1 = r#"[
-              {
-                  "name": "Magic_47438",
-                  "category": "MagicCat_1",
-                  "Lv": { "kind": "value", "value": 9 },
-                  "MP": { "kind": "value", "value": 86 },
-                  "effect": "EffectDescription_41410",
-                  "対象": { "kind": "個別", "個別": "1体全" }
-              }
-          ]"#;
+           let json_data1 = r#"[
+               {
+                   "name": "Magic_47438",
+                   "school": "MagicCat_1",
+                   "Lv": { "kind": "value", "value": 9 },
+                   "MP": { "kind": "value", "value": 86 },
+                   "effect": "EffectDescription_41410",
+                   "対象": { "kind": "個別", "個別": "1体全" }
+               }
+           ]"#;
 
-          let json_data2 = r#"[
-              {
-                  "name": "Magic_33778",
-                  "category": "MagicCat_2",
-                  "Lv": { "kind": "value", "value": 13 },
-                  "MP": { "kind": "value", "value": 15 },
-                  "effect": "EffectDescription_75723",
-                  "対象": { "kind": "エリア", "エリア": { "value": "1エリア" } }
-              },
-              {
-                  "name": "Magic_83071",
-                  "category": "MagicCat_2",
+           let json_data2 = r#"[
+               {
+                   "name": "Magic_33778",
+                   "school": "MagicCat_2",
+                   "Lv": { "kind": "value", "value": 13 },
+                   "MP": { "kind": "value", "value": 15 },
+                   "effect": "EffectDescription_75723",
+                   "対象": { "kind": "エリア", "エリア": { "value": "1エリア" } }
+               },
+               {
+                   "name": "Magic_83071",
+                   "school": "MagicCat_2",
                   "Lv": { "kind": "value", "value": 3 },
                   "MP": { "kind": "value", "value": 72 },
                   "effect": "EffectDescription_37348",
@@ -798,18 +798,18 @@ mod tests {
 
           writeln!(file1, "[]").expect("Failed to write to file 1");
 
-          let json_data2 = r#"[
-              {
-                  "name": "Magic_47438",
-                  "category": "MagicCat_1",
-                  "Lv": { "kind": "value", "value": 9 },
-                  "MP": { "kind": "value", "value": 86 },
-                  "effect": "EffectDescription_41410",
-                  "対象": { "kind": "個別", "個別": "1体全" }
-              }
-          ]"#;
+           let json_data2 = r#"[
+               {
+                   "name": "Magic_47438",
+                   "school": "MagicCat_1",
+                   "Lv": { "kind": "value", "value": 9 },
+                   "MP": { "kind": "value", "value": 86 },
+                   "effect": "EffectDescription_41410",
+                   "対象": { "kind": "個別", "個別": "1体全" }
+               }
+           ]"#;
 
-          writeln!(file2, "{}", json_data2).expect("Failed to write to file 2");
+           writeln!(file2, "{}", json_data2).expect("Failed to write to file 2");
 
           let paths = [file1.path(), file2.path()];
           let result = load_multiple_spells_json_arrays(&paths);

@@ -272,12 +272,121 @@
 
 ---
 
+## 📋 Backlog (Phase 3.6 - Level/Rank System Clarification)
+- [ ] T038.6 Level field specification: Define Lv schema rules — kazuyasi
+      - Status: Design phase - core specification clarification
+      - Owner: kazuyasi (specification authority)
+      - Task: Formally define Lv schema constraints and semantics across all entity types
+      
+      **Context:**
+      - Current schema allows 3 mutually exclusive `Lv.kind` variants:
+        1. `Lv.kind: "value"` with `value: integer` (固定レベル)
+        2. `Lv.kind: "value+"` with `value+: integer` (下限レベル)
+        3. `Lv.kind: "rank"` with `rank: integer` (ランク)
+      - Current usage:
+        * Spells: `Lv.kind: "value"` only
+        * Skills (planned): `Lv.value+` for "level 5以上で習得" etc.
+        * Rank systems: `Lv.rank` for "rank-based progression"
+      - Question: Are all 3 variants universally applicable, or entity-specific?
+      
+      **Specification tasks:**
+      1. Define clear semantics for each Lv variant:
+         - `value`: When/why used? (e.g., fixed acquisition level)
+         - `value+`: When/why used? (e.g., minimum requirement for skills)
+         - `rank`: When/why used? (e.g., rank-based systems)
+      2. Establish entity-specific constraints:
+         - What Lv kinds are allowed for Spells?
+         - What Lv kinds are allowed for Skills?
+         - What Lv kinds are allowed for other entities?
+      3. Clarify mutual exclusivity:
+         - Confirm only ONE of value/value+/rank can exist per entity
+         - Document rationale for mutual exclusivity
+      4. Define value ranges and validation rules for each variant
+      5. Document in DESIGN_GUIDE.md with examples for each variant
+      
+      **Deliverables:**
+      - DESIGN_GUIDE.md section: "Level Field (Lv) Specification" (400-600 words)
+      - Clear rules for each Lv.kind variant
+      - Entity-type constraints (which kinds apply to which entities)
+      - Examples: spell, skill, and rank-based systems
+      - Validation rules for min/max values per variant
+      
+      **Impact:**
+      - Establishes canonical Lv schema rules across all entity types
+      - Guides implementation of level-based filtering and sorting
+      - Prevents inconsistent data modeling across different systems
+      - Effort: Low-Medium (specification + documentation, no coding)
+
+- [ ] T039 Spell level/rank specification: Define Lv.rank semantics — Claude + kazuyasi
+      - Status: Design phase - specification definition
+      - Owner: kazuyasi (specification) + Claude (documentation)
+      - Task: Define semantic meaning and usage of `Lv.rank` field
+      
+      **Current context:**
+      - Schema allows `Lv.kind: "rank"` with `rank: integer` field (lines 269-289 in spell_array.json)
+      - Sample spells currently use `Lv.kind: "value"` only (no rank examples)
+      - Issue: Unclear semantic difference between level and rank
+      
+      **Specification tasks:**
+      1. Clarify when to use rank vs level (e.g., rank-based sorting, ability tiers, etc.)
+      2. Define rank value ranges and constraints (min/max values)
+      3. Document rank display format in chat palette (if applicable)
+      4. Determine if rank affects sorting/filtering behavior in queries
+      5. Create examples: 2-3 sample spells using `Lv.kind: "rank"`
+      6. Update DESIGN_GUIDE.md with Lv.rank specification
+      
+      **Deliverables:**
+      - DESIGN_GUIDE.md section: "Spell Level vs Rank" (500-700 words)
+      - Sample spell data: 2-3 spells with rank-based levels
+      - Specification document clarifying rank semantics
+      - Decision on query/sorting behavior with ranks
+      
+      **Impact:**
+      - Clarifies data model for future spell data sources
+      - Enables proper level/rank filtering in queries
+      - Supports game systems with rank-based progression
+      - Effort: Medium (specification + documentation)
+
+- [ ] T040 Spell level/rank query support: Implement rank-based filtering — Claude
+      - Status: Implementation (depends on T039 completion)
+      - Owner: Claude
+      - Task: Implement rank filtering in spell query module
+      - Blockers: T039 (specification must be finalized first)
+      
+      **Implementation scope:**
+      1. Add `spell_find_by_rank()` function in query.rs
+      2. Update `spell_find_multi()` to support rank filtering alongside level
+      3. Update CLI palette command: add `-r` (rank) filter flag
+       4. Handle level vs rank distinction in queries:
+          - Level filter (`-l`): searches `Lv.kind: "value"` and `Lv.kind: "value+"` 
+          - Rank filter (`-r`): searches `Lv.kind: "rank"` only
+          - Note: Spell has EITHER level OR rank, never both (mutually exclusive)
+      5. Add 10+ unit tests for rank queries
+      6. Add integration tests for rank filtering in palette command
+      7. Update README.md with rank filtering examples
+      
+       **New features:**
+       - `gm spell find -r 5` — find spells with rank 5
+       - `gm spell palette -r 3` — show all rank 3 spells
+       - `gm spell palette -l 5` — show all level 5 spells (Lv.kind: "value" or "value+")
+      
+      **Testing:**
+      - Unit tests: single rank, multiple ranks, no matches
+      - Integration tests: rank only, rank+other filters, rank priority
+      - Edge cases: mixed level/rank data
+      - Estimated tests: 15+ (10 unit + 5 integration)
+      
+      **Impact:**
+      - Enables flexible spell filtering for games using rank-based systems
+      - Completes spell query system with full level/rank support
+      - Effort: Medium (add query functions + CLI integration)
+
 ## 📋 Future Phases (Post Phase 3)
-- [ ] T038 Phase 4: Skill system implementation (流派特技)
-- [ ] T039 Phase 4: Fairy magic system implementation (妖精魔法)
-- [ ] T040 Phase 4: Chat palette export to clipboard
-- [ ] T041 Phase 4: Multi-system support (extend beyond SW2.5)
-- [ ] T042 Phase 4: Skill/Fairy magic CLI commands (gm skill find/list/palette)
+- [ ] T041 Phase 4: Skill system implementation (流派特技)
+- [ ] T042 Phase 4: Fairy magic system implementation (妖精魔法)
+- [ ] T043 Phase 4: Chat palette export to clipboard
+- [ ] T044 Phase 4: Multi-system support (extend beyond SW2.5)
+- [ ] T045 Phase 4: Skill/Fairy magic CLI commands (gm skill find/list/palette)
 
 ## 🚮 Canceled / Superseded
 - [ ] T007 Data analysis feature implementation (deemed unnecessary) — 2025-09-14

@@ -220,7 +220,7 @@ fn generate_support_palette(spell: &Spell) -> Result<String, String> {
 /// 出力形式: 2d+{magic_category}+{行使修正}  {name} / MP:{mp} / 対象:{target} / 射程:{range} / 時間:{duration} / 効果
 fn generate_regular_palette(spell: &Spell) -> Result<String, String> {
     // school フィールド確認
-    if spell.category.is_empty() {
+    if spell.school.is_empty() {
         return Err(ERR_MISSING_SCHOOL.to_string());
     }
     
@@ -234,7 +234,7 @@ fn generate_regular_palette(spell: &Spell) -> Result<String, String> {
         .and_then(|v| v.as_str())
         .ok_or_else(|| ERR_MISSING_EFFECT.to_string())?;
     
-    let magic_category = format_magic_category(&spell.category);
+    let magic_category = format_magic_category(&spell.school);
     
     Ok(format!(
         "2d+{{{}}}+{{行使修正}}  {} / MP:{} / 対象:{} / 射程:{} / 時間:{} / {}",
@@ -286,7 +286,7 @@ mod tests {
         extra.insert("MP".to_string(), serde_json::json!({"value": 5}));
         let spell = Spell {
             name: "テスト".to_string(),
-            category: "魔法".to_string(),
+            school: "魔法".to_string(),
             extra,
         };
         assert_eq!(format_mp(&spell), Ok("5".to_string()));
@@ -299,7 +299,7 @@ mod tests {
         extra.insert("MP".to_string(), serde_json::json!({"value+": 3}));
         let spell = Spell {
             name: "テスト".to_string(),
-            category: "魔法".to_string(),
+            school: "魔法".to_string(),
             extra,
         };
         assert_eq!(format_mp(&spell), Ok("3～".to_string()));
@@ -312,7 +312,7 @@ mod tests {
         extra.insert("MP".to_string(), serde_json::json!({"special": "複雑な計算式"}));
         let spell = Spell {
             name: "テスト".to_string(),
-            category: "魔法".to_string(),
+            school: "魔法".to_string(),
             extra,
         };
         assert_eq!(format_mp(&spell), Ok("複雑な計算式".to_string()));
@@ -324,7 +324,7 @@ mod tests {
         let extra = std::collections::HashMap::new();
         let spell = Spell {
             name: "テスト".to_string(),
-            category: "魔法".to_string(),
+            school: "魔法".to_string(),
             extra,
         };
         assert!(format_mp(&spell).is_err());
@@ -344,7 +344,7 @@ mod tests {
         }));
         let spell = Spell {
             name: "テスト".to_string(),
-            category: "魔法".to_string(),
+            school: "魔法".to_string(),
             extra,
         };
         assert_eq!(format_target(&spell), Ok("1体".to_string()));
@@ -360,7 +360,7 @@ mod tests {
         }));
         let spell = Spell {
             name: "テスト".to_string(),
-            category: "魔法".to_string(),
+            school: "魔法".to_string(),
             extra,
         };
         assert_eq!(format_target(&spell), Ok("1体全".to_string()));
@@ -380,7 +380,7 @@ mod tests {
         }));
         let spell = Spell {
             name: "テスト".to_string(),
-            category: "魔法".to_string(),
+            school: "魔法".to_string(),
             extra,
         };
         assert_eq!(format_target(&spell), Ok("1エリア(半径5mすべて)".to_string()));
@@ -400,7 +400,7 @@ mod tests {
         }));
         let spell = Spell {
             name: "テスト".to_string(),
-            category: "魔法".to_string(),
+            school: "魔法".to_string(),
             extra,
         };
         assert_eq!(format_target(&spell), Ok("2エリア(半径10m空間)".to_string()));
@@ -415,7 +415,7 @@ mod tests {
         }));
         let spell = Spell {
             name: "テスト".to_string(),
-            category: "魔法".to_string(),
+            school: "魔法".to_string(),
             extra,
         };
         assert!(format_target(&spell).is_err());
@@ -434,7 +434,7 @@ mod tests {
         }));
         let spell = Spell {
             name: "テスト".to_string(),
-            category: "魔法".to_string(),
+            school: "魔法".to_string(),
             extra,
         };
         assert_eq!(format_duration(&spell), Ok("一瞬".to_string()));
@@ -450,7 +450,7 @@ mod tests {
         }));
         let spell = Spell {
             name: "テスト".to_string(),
-            category: "魔法".to_string(),
+            school: "魔法".to_string(),
             extra,
         };
         assert_eq!(format_duration(&spell), Ok("3年".to_string()));
@@ -466,7 +466,7 @@ mod tests {
         }));
         let spell = Spell {
             name: "テスト".to_string(),
-            category: "魔法".to_string(),
+            school: "魔法".to_string(),
             extra,
         };
         assert_eq!(format_duration(&spell), Ok("10ラウンド".to_string()));
@@ -515,7 +515,7 @@ mod tests {
         extra.insert("射程".to_string(), serde_json::json!("接触"));
         let spell = Spell {
             name: "テスト".to_string(),
-            category: "魔法".to_string(),
+            school: "魔法".to_string(),
             extra,
         };
         assert_eq!(format_range(&spell), Ok("接触".to_string()));
@@ -528,7 +528,7 @@ mod tests {
         extra.insert("射程".to_string(), serde_json::json!("10m(起点指定)"));
         let spell = Spell {
             name: "テスト".to_string(),
-            category: "魔法".to_string(),
+            school: "魔法".to_string(),
             extra,
         };
         assert_eq!(format_range(&spell), Ok("10m(起点指定)".to_string()));
@@ -541,7 +541,7 @@ mod tests {
         extra.insert("射程(m)".to_string(), serde_json::json!("20"));
         let spell = Spell {
             name: "テスト".to_string(),
-            category: "魔法".to_string(),
+            school: "魔法".to_string(),
             extra,
         };
         assert_eq!(format_range(&spell), Ok("20".to_string()));
@@ -555,7 +555,7 @@ mod tests {
         extra.insert("射程(m)".to_string(), serde_json::json!("20"));
         let spell = Spell {
             name: "テスト".to_string(),
-            category: "魔法".to_string(),
+            school: "魔法".to_string(),
             extra,
         };
         // 「射程」を優先
@@ -568,7 +568,7 @@ mod tests {
         let extra = std::collections::HashMap::new();
         let spell = Spell {
             name: "テスト".to_string(),
-            category: "魔法".to_string(),
+            school: "魔法".to_string(),
             extra,
         };
         assert!(format_range(&spell).is_err());
@@ -581,7 +581,7 @@ mod tests {
         extra.insert("射程(m)".to_string(), serde_json::json!(30));
         let spell = Spell {
             name: "テスト".to_string(),
-            category: "魔法".to_string(),
+            school: "魔法".to_string(),
             extra,
         };
         assert_eq!(format_range(&spell), Ok("30".to_string()));
@@ -594,7 +594,7 @@ mod tests {
         extra.insert("射程".to_string(), serde_json::json!(50));
         let spell = Spell {
             name: "テスト".to_string(),
-            category: "魔法".to_string(),
+            school: "魔法".to_string(),
             extra,
         };
         assert_eq!(format_range(&spell), Ok("50".to_string()));
@@ -620,7 +620,7 @@ mod tests {
 
         let spell = Spell {
             name: "ライト".to_string(),
-            category: "".to_string(),
+            school: "".to_string(),
             extra,
         };
         let result = generate_spell_palette(&spell).unwrap();
@@ -646,7 +646,7 @@ mod tests {
 
         let spell = Spell {
             name: "魔法解除".to_string(),
-            category: "".to_string(),
+            school: "".to_string(),
             extra,
         };
         let result = generate_spell_palette(&spell).unwrap();
@@ -669,7 +669,7 @@ mod tests {
 
         let spell = Spell {
             name: "テスト".to_string(),
-            category: "".to_string(),
+            school: "".to_string(),
             extra,
         };
         assert!(generate_spell_palette(&spell).is_err());
@@ -699,7 +699,7 @@ mod tests {
 
         let spell = Spell {
             name: "ゴッド・ジャッジメント".to_string(),
-            category: "神聖".to_string(),
+            school: "神聖".to_string(),
             extra,
         };
         let result = generate_spell_palette(&spell).unwrap();
@@ -725,7 +725,7 @@ mod tests {
 
         let spell = Spell {
             name: "テスト".to_string(),
-            category: "プリエスト".to_string(),
+            school: "プリエスト".to_string(),
             extra,
         };
         let result = generate_spell_palette(&spell).unwrap();
@@ -748,7 +748,7 @@ mod tests {
 
         let spell = Spell {
             name: "テスト".to_string(),
-            category: "".to_string(),  // 空の category
+            school: "".to_string(),  // 空の school
             extra,
         };
         assert!(generate_spell_palette(&spell).is_err());
@@ -774,7 +774,7 @@ mod tests {
 
         let spell = Spell {
             name: "テスト".to_string(),
-            category: "".to_string(),
+            school: "".to_string(),
             extra,
         };
         let result = generate_spell_palette(&spell).unwrap();
@@ -797,7 +797,7 @@ mod tests {
 
         let spell = Spell {
             name: "テスト".to_string(),
-            category: "神聖".to_string(),
+            school: "神聖".to_string(),
             extra,
         };
         let result = generate_spell_palette(&spell).unwrap();
@@ -820,7 +820,7 @@ mod tests {
 
         let spell = Spell {
             name: "テスト".to_string(),
-            category: "".to_string(),
+            school: "".to_string(),
             extra,
         };
         assert!(generate_spell_palette(&spell).is_err());
@@ -850,7 +850,7 @@ mod tests {
 
         let spell = Spell {
             name: "フェアリーズブレッシング".to_string(),
-            category: "妖精".to_string(),
+            school: "妖精".to_string(),
             extra,
         };
         let result = generate_spell_palette(&spell).unwrap();
@@ -875,7 +875,7 @@ mod tests {
 
         let spell = Spell {
             name: "ホーリーシールド".to_string(),
-            category: "神聖".to_string(),
+            school: "神聖".to_string(),
             extra,
         };
         let result = generate_spell_palette(&spell).unwrap();
@@ -900,7 +900,7 @@ mod tests {
 
         let spell = Spell {
             name: "日本語呪い".to_string(),
-            category: "".to_string(),
+            school: "".to_string(),
             extra,
         };
         let result = generate_spell_palette(&spell).unwrap();
@@ -925,7 +925,7 @@ mod tests {
 
         let spell = Spell {
             name: "ライト".to_string(),
-            category: "".to_string(),
+            school: "".to_string(),
             extra,
         };
         let result = generate_spell_palette(&spell).unwrap();
@@ -949,7 +949,7 @@ mod tests {
 
         let spell = Spell {
             name: "テスト".to_string(),
-            category: "神聖".to_string(),
+            school: "神聖".to_string(),
             extra,
         };
         let result = generate_spell_palette(&spell).unwrap();

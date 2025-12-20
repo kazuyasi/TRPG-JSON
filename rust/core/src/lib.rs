@@ -102,8 +102,8 @@ pub struct Spell {
     /// スペル名
     pub name: String,
 
-    /// カテゴリ（MagicCat_1 など）
-    pub category: String,
+    /// 系統（MagicCat_1 など）
+    pub school: String,
 
     // 複雑なフィールド: Lv（値と種別）, MP（値と種別）, 対象（個別 or エリア）
     // すべてを汎用 Value として受け入れる

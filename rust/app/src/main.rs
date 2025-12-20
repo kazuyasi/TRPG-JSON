@@ -230,8 +230,8 @@ enum SpellCommands {
     /// 使用例:
     ///   gm spell palette -n "ファイア"              # 名前でフィルタ
     ///   gm spell palette -l 3                      # レベルでフィルタ
-    ///   gm spell palette -c "MagicCat_1"           # カテゴリでフィルタ
-    ///   gm spell palette -n "ファイア" -c "MagicCat_1"  # 複数フィルタ
+    ///   gm spell palette -s "MagicCat_1"           # 系統でフィルタ
+    ///   gm spell palette -n "ファイア" -s "MagicCat_1"  # 複数フィルタ
     ///   gm spell palette -n "ファイア" --copy     # 先頭行をクリップボードにコピー
     Palette {
         /// スペル名（部分マッチ、オプション）
@@ -242,9 +242,9 @@ enum SpellCommands {
         #[arg(short = 'l')]
         level: Option<i32>,
         
-        /// カテゴリ（オプション）
-        #[arg(short = 'c')]
-        category: Option<String>,
+        /// 系統（オプション）
+        #[arg(short = 's')]
+        school: Option<String>,
         
         /// クリップボードにコピー（オプション、先頭行のみ）
         #[arg(long, short = 'y')]
@@ -319,8 +319,8 @@ fn main() {
                 SpellCommands::List { pattern } => {
                     handle_spell_list_command(&spell_path_strs, pattern);
                 }
-                SpellCommands::Palette { name, level, category, copy } => {
-                    handle_spell_palette_command(&spell_path_strs, name.as_deref(), *level, category.as_deref(), *copy);
+                SpellCommands::Palette { name, level, school, copy } => {
+                    handle_spell_palette_command(&spell_path_strs, name.as_deref(), *level, school.as_deref(), *copy);
                 }
             }
         }
@@ -754,7 +754,7 @@ fn handle_spell_list_command(data_paths: &[String], pattern: &str) {
              // 複数件の場合は名前一覧を出力
              println!("{}個のスペルが見つかりました:", n);
              for spell in &results {
-                 println!("  - {} ({})", spell.name, spell.category);
+                 println!("  - {} ({})", spell.name, spell.school);
              }
             
             // 完全一致するスペルがあればそのデータを出力
@@ -773,12 +773,12 @@ fn handle_spell_palette_command(
     data_paths: &[String],
     name: Option<&str>,
     level: Option<i32>,
-    category: Option<&str>,
+    school: Option<&str>,
     copy: bool,
 ) {
     // 最低1つのフィルタが必須
-    if name.is_none() && level.is_none() && category.is_none() {
-        eprintln!("エラー: 最低1つのフィルタ（-n, -l, -c）を指定してください");
+    if name.is_none() && level.is_none() && school.is_none() {
+        eprintln!("エラー: 最低1つのフィルタ（-n, -l, -s）を指定してください");
         process::exit(1);
     }
 
@@ -793,8 +793,8 @@ fn handle_spell_palette_command(
         }
     };
 
-    // マルチフィルタで検索（name, school/category, level）
-    let results = query::spell_find_multi(&spells, name, category, level);
+    // マルチフィルタで検索（name, school, level）
+    let results = query::spell_find_multi(&spells, name, school, level);
 
     match results.len() {
         0 => {
@@ -1055,7 +1055,7 @@ mod tests {
         
         let spell = result.unwrap();
         assert_eq!(spell.name, "Magic_47438");
-        assert_eq!(spell.category, "MagicCat_1");
+        assert_eq!(spell.school, "MagicCat_1");
     }
 
     #[test]
@@ -1077,9 +1077,9 @@ mod tests {
         assert!(!results.is_empty());
         
         // All results should match the category
-        for spell in results {
-            assert_eq!(spell.category, "MagicCat_1");
-        }
+         for spell in results {
+             assert_eq!(spell.school, "MagicCat_1");
+         }
     }
 
     #[test]
@@ -1164,9 +1164,9 @@ mod tests {
         let results = query::spell_find_multi(&spells, None, Some("MagicCat_2"), None);
         assert!(!results.is_empty());
         
-        for spell in &results {
-            assert_eq!(spell.category, "MagicCat_2");
-        }
+         for spell in &results {
+             assert_eq!(spell.school, "MagicCat_2");
+         }
     }
 
     #[test]
@@ -1194,9 +1194,9 @@ mod tests {
             .expect("Failed to load spell sample data");
         
         // Verify all spells have required fields
-        for spell in spells {
-            assert!(!spell.name.is_empty(), "Spell name is empty");
-            assert!(!spell.category.is_empty(), "Spell category is empty");
+         for spell in spells {
+             assert!(!spell.name.is_empty(), "Spell name is empty");
+             assert!(!spell.school.is_empty(), "Spell school is empty");
             
             // Verify MP field exists
             assert!(spell.extra.get("MP").is_some(), "MP field missing for {}", spell.name);
@@ -1279,11 +1279,11 @@ mod tests {
         
         // Filter by category only
         let results = query::spell_find_multi(&spells, None, Some("MagicCat_1"), None);
-        assert!(!results.is_empty());
-        
-        for spell in &results {
-            assert_eq!(spell.category, "MagicCat_1");
-        }
+         assert!(!results.is_empty());
+         
+         for spell in &results {
+             assert_eq!(spell.school, "MagicCat_1");
+         }
     }
 
     #[test]
@@ -1304,11 +1304,11 @@ mod tests {
         
         // Filter by name and category
         let results = query::spell_find_multi(&spells, Some("Magic"), Some("MagicCat_1"), None);
-        
-        for spell in &results {
-            assert!(spell.name.contains("Magic"));
-            assert_eq!(spell.category, "MagicCat_1");
-        }
+         
+         for spell in &results {
+             assert!(spell.name.contains("Magic"));
+             assert_eq!(spell.school, "MagicCat_1");
+         }
     }
 
     #[test]
