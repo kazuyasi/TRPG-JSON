@@ -2,76 +2,23 @@
 
 ## 🧭 Meta
 - Project: TRPG-JSON
-- Last Updated: 2025-12-19 JST (T038 complete; Phase 3.5 spell palette enhancement finished)
+- Last Updated: 2025-12-27 JST (T038.6 complete; Level/Rank/God field specification documented)
 - Responsibilities: kazuyasi (specification/approval/git operations) / Claude (proposal/implementation/testing)
-- Status: Phase 2.5 COMPLETE (T013-T027). Phase 3 COMPLETE (T028-T036.5 done). Phase 3.5 COMPLETE (T038-1/2/final done). Spell system fully implemented with multi-filter palette, chat palette generation, comprehensive test suite (28 app tests), documentation, flexible range field support. Ready for T037 (final commit).
+- Status: Phase 2.5 COMPLETE (T013-T027). Phase 3 COMPLETE (T028-T037 done). Phase 3.5 COMPLETE (T038-1/2/final done). Phase 3.6 IN PROGRESS (T038.6 complete; T040 implementation pending). Spell system fully implemented with multi-filter palette, chat palette generation, comprehensive test suite (28 app tests), documentation, flexible range field support. Level/Rank/God field specification added to DESIGN_GUIDE.md. All changes committed to main branch.
 
 ---
 
 ## 🔥 Priority Now
-- **Phase 3.5: Spell Palette Enhancement (T038)** 📋 COMPLETE ✅
-   - ✅ T038-2: Flexible range field handling (射程/射程(m)) - COMPLETE
-   - ✅ T038-1: Partial name matching for palette command - COMPLETE
-   - ✅ T038-final: Multi-filter palette command refactor - COMPLETE
-     - Remove positional argument, add `-n/-l/-c/-y` filter flags ✅
-     - Support multi-line output for multiple matches ✅
-     - Integrate select functionality into palette command ✅
-     - Clipboard copy: first match only (`-y` or `--copy` flag) ✅
-     - File output: use shell redirection ✅
-     - Require at least one filter (safety) ✅
-     - 7 new integration tests added ✅
-   - Test results: 221 core tests + 28 app tests passing ✅
-   - Release build: SUCCESS ✅
-    
-- **Phase 3: Spell System Implementation (T033-T037)** 📋 READY FOR FINAL COMMIT
-   - ✅ CLI refactoring complete (nested subcommands: `gm monster`/`gm spell`)
-   - ✅ Configuration extended with spell paths support
-   - ✅ Spell data model created with JSON schema validation
-   - ✅ Sample spell data created & validated (9 spells, all schema-compliant, aligned with schema)
-   - ✅ Query module implemented (20+ tests passing)
-   - ✅ I/O module implemented (ALL tests passing, 49/49 ✅)
-   - ✅ CLI commands implemented: `gm spell find/list/palette` all working
-   - ✅ Chat palette generation with補助フラグ support fully implemented (28 tests)
-   - ✅ Spell palette CLI command with multi-filter & clipboard support (T038 complete)
-   - ✅ Spell CLI integration test suite (28 total app tests passing)
-   - ✅ Documentation: README.md updated with new syntax and Spell Management section (T036)
-   - ✅ I/O tests fixed: Multiple spell file loading tests now passing (T036.5)
-   - ✅ Range field flexibility: Support both 射程 and 射程(m) fields
-   - ✅ Partial name matching: palette command supports partial names
-   - ✅ Multi-filter support: palette consolidates select functionality
-   - ✅ Release build: SUCCESS
-   - Next: T037 (final Phase 3 commit by kazuyasi)
+- **Phase 3.6: Level/Rank System Implementation** 📋 READY FOR IMPLEMENTATION
+   - Completed: T038.6 - Level/Rank/God field specification documented in DESIGN_GUIDE.md
+   - Next task: T040 - Implement rank-based filtering in spell query module
+   - Purpose: Enable rank filtering for spell queries
+   - Current focus: Add `-r` (rank) filter support to CLI and query functions
+   - See "Backlog (Phase 3.6)" section below for details
 
 ## 🚧 In Progress
-- [ ] T037 Commit spell system Phase 3 — READY FOR kazuyasi
-      - Status: All implementation, testing, and documentation complete
-      - Owner: kazuyasi (git operations)
-      - Task: Final git commit for Phase 3
-      - Blockers: None
-      - Changes to commit:
-        * README.md (T036): Updated command syntax and added Spell Management section
-        * io.rs (T036.5): Fixed spell I/O multiple file loading tests
-        * tasks.md: Updated task tracking and completion status
-      - Expected: All tests pass, release build succeeds
-
-- [x] T033 Chat palette generation for spells — 2025-12-19
-      - Status: COMPLETE ✅
-      - Owner: Claude + kazuyasi (collaborative)
-      - Task: Implement palette.rs module with補助フラグ conditional logic
-      - Completed:
-        * Helper functions: format_mp(), format_target(), format_duration() ✅
-        * Generator functions: generate_support_palette(), generate_regular_palette() ✅
-        * Entry point: generate_spell_palette() ✅
-        * 28 unit + integration tests (all PASSED) ✅
-        * Error constants: 9個 (kazuyasi実装 + Claude追加) ✅
-      - Test results: 49 passed; 0 failed
-      - Lines of code: ~400 (functions + tests)
-
-- [x] T034 Spell CLI command: palette display — 2025-12-19
-      - Status: COMPLETE ✅
-
-- [x] T035 Spell CLI integration test suite — 2025-12-19
-      - Status: COMPLETE ✅
+- Currently no active implementation tasks
+- T038.6 specification complete; ready for T040 implementation
 
 ---
 
@@ -153,17 +100,24 @@
 
 
 
-- [ ] T037 Commit spell system Phase 3 — kazuyasi
-     - Status: READY FOR COMMIT ✅
+- [x] T037 Commit spell system Phase 3 — 2025-12-27
+     - Status: COMPLETE ✅
      - All spell functionality implemented and tested ✅
      - Documentation complete (README.md + DESIGN_GUIDE.md) ✅
-     - All tests passing (212/212 core tests, 18/18 app tests) ✅
+     - All tests passing (221/221 core tests, 28/28 app tests) ✅
      - Release build successful ✅
-     - Ready for final git commit
+     - Git commits: All Phase 3 and 3.5 changes committed and pushed to main
+     - Final commit: "refactor(CLI): Remove legacy direct commands, require monster/spell subcommands" (a9bd604)
 
 ---
 
-## ✅ Done (Recent 25)
+## ✅ Done (Recent 27)
+- [x] T038.6 Level/Rank/God field specification documentation — 2025-12-27
+         - Description: Added comprehensive "Spell and Skill Data Structure Specification" section to DESIGN_GUIDE.md (lines 728-816). Documented Lv.kind variants (value/value+/rank) with query behavior, CLI flags, and use cases. Defined schoolVariant and god field query specifications with exact match semantics. Included examples with generic placeholders (神名) following data usage guidelines. Added Data Usage Guidelines section to AGENTS.md to prevent future copyright issues. Ready for T040 implementation.
+
+- [x] T037 Commit spell system Phase 3 — 2025-12-27
+         - Description: Final Phase 3 git commit. All spell system implementation, testing, and documentation complete. CLI refactored to require monster/spell subcommands. Legacy direct commands removed. All 221 core tests + 28 app tests passing. Changes pushed to main branch. Phase 3 fully deployed.
+
 - [x] T038 Spell palette: Multi-filter output with integrated select functionality — 2025-12-19
          - Description: Complete redesign of `gm spell palette` command. Removed mandatory positional argument, added `-n/-l/-c/-y` optional filter flags. Refactored to use `spell_find_multi()` for flexible multi-filter queries. Support multi-line output for all matching spells, consolidating select functionality into palette. Clipboard copy (`--copy` or `-y` flag) copies first matched spell only. File output via shell redirection. Require minimum one filter for safety. Added 7 new integration tests covering single/multi-filter scenarios, no-match errors, and precision. All 221 core tests + 28 app tests passing. Release build successful. Eliminates need for separate T035.5 select command.
 
@@ -272,80 +226,7 @@
 
 ---
 
-## 📋 Backlog (Phase 3.6 - Level/Rank System Clarification)
-- [ ] T038.6 Level field specification: Define Lv schema rules — kazuyasi
-      - Status: Design phase - core specification clarification
-      - Owner: kazuyasi (specification authority)
-      - Task: Formally define Lv schema constraints and semantics across all entity types
-      
-      **Context:**
-      - Current schema allows 3 mutually exclusive `Lv.kind` variants:
-        1. `Lv.kind: "value"` with `value: integer` (固定レベル)
-        2. `Lv.kind: "value+"` with `value+: integer` (下限レベル)
-        3. `Lv.kind: "rank"` with `rank: integer` (ランク)
-      - Current usage:
-        * Spells: `Lv.kind: "value"` only
-        * Skills (planned): `Lv.value+` for "level 5以上で習得" etc.
-        * Rank systems: `Lv.rank` for "rank-based progression"
-      - Question: Are all 3 variants universally applicable, or entity-specific?
-      
-      **Specification tasks:**
-      1. Define clear semantics for each Lv variant:
-         - `value`: When/why used? (e.g., fixed acquisition level)
-         - `value+`: When/why used? (e.g., minimum requirement for skills)
-         - `rank`: When/why used? (e.g., rank-based systems)
-      2. Establish entity-specific constraints:
-         - What Lv kinds are allowed for Spells?
-         - What Lv kinds are allowed for Skills?
-         - What Lv kinds are allowed for other entities?
-      3. Clarify mutual exclusivity:
-         - Confirm only ONE of value/value+/rank can exist per entity
-         - Document rationale for mutual exclusivity
-      4. Define value ranges and validation rules for each variant
-      5. Document in DESIGN_GUIDE.md with examples for each variant
-      
-      **Deliverables:**
-      - DESIGN_GUIDE.md section: "Level Field (Lv) Specification" (400-600 words)
-      - Clear rules for each Lv.kind variant
-      - Entity-type constraints (which kinds apply to which entities)
-      - Examples: spell, skill, and rank-based systems
-      - Validation rules for min/max values per variant
-      
-      **Impact:**
-      - Establishes canonical Lv schema rules across all entity types
-      - Guides implementation of level-based filtering and sorting
-      - Prevents inconsistent data modeling across different systems
-      - Effort: Low-Medium (specification + documentation, no coding)
-
-- [ ] T039 Spell level/rank specification: Define Lv.rank semantics — Claude + kazuyasi
-      - Status: Design phase - specification definition
-      - Owner: kazuyasi (specification) + Claude (documentation)
-      - Task: Define semantic meaning and usage of `Lv.rank` field
-      
-      **Current context:**
-      - Schema allows `Lv.kind: "rank"` with `rank: integer` field (lines 269-289 in spell_array.json)
-      - Sample spells currently use `Lv.kind: "value"` only (no rank examples)
-      - Issue: Unclear semantic difference between level and rank
-      
-      **Specification tasks:**
-      1. Clarify when to use rank vs level (e.g., rank-based sorting, ability tiers, etc.)
-      2. Define rank value ranges and constraints (min/max values)
-      3. Document rank display format in chat palette (if applicable)
-      4. Determine if rank affects sorting/filtering behavior in queries
-      5. Create examples: 2-3 sample spells using `Lv.kind: "rank"`
-      6. Update DESIGN_GUIDE.md with Lv.rank specification
-      
-      **Deliverables:**
-      - DESIGN_GUIDE.md section: "Spell Level vs Rank" (500-700 words)
-      - Sample spell data: 2-3 spells with rank-based levels
-      - Specification document clarifying rank semantics
-      - Decision on query/sorting behavior with ranks
-      
-      **Impact:**
-      - Clarifies data model for future spell data sources
-      - Enables proper level/rank filtering in queries
-      - Supports game systems with rank-based progression
-      - Effort: Medium (specification + documentation)
+## 📋 Backlog (Phase 3.6 - Level/Rank System Implementation)
 
 - [ ] T040 Spell level/rank query support: Implement rank-based filtering — Claude
       - Status: Implementation (depends on T039 completion)

@@ -725,6 +725,95 @@ gm export --export udonarium --output /path/to/monsters.zip
 - numberResource elements use `currentValue` attribute for convenience
 - Data transformation handles empty/null values as "-" where appropriate
 
+## Spell and Skill Data Structure Specification
+
+This section defines data structures and query behavior specific to Spells and Skills.
+
+### Level Field (`Lv` struct)
+
+**Scope**: Applies to Spells and Skills only (Monsters use a simple `level: i32` field instead of the `Lv` struct)
+
+**Mutual Exclusivity**: The `Lv.kind` field must contain exactly one of three mutually exclusive variants:
+- `"value"`: Fixed level (e.g., "spell acquired at level 3")
+- `"value+"`: Minimum level (e.g., "skill available at level 5 or higher")
+- `"rank"`: Rank-based progression (e.g., "rank 2 ability")
+
+**CLI Query Flags**: 
+- `-l` (level filter) and `-r` (rank filter) cannot be used simultaneously
+- Querying by level (`-l`) searches records with `Lv.kind: "value"` or `"value+"`
+- Querying by rank (`-r`) searches records with `Lv.kind: "rank"`
+
+#### `Lv.kind` Variants and Query Behavior
+
+**1. `Lv.kind: "value"` (Fixed Level)**
+- **CLI flag**: `-l <level>`
+- **Query behavior**: Returns records where `Lv.value` exactly matches the specified level
+- **Use case**: Spells with fixed acquisition level (e.g., "Fire Ball" acquired at level 3)
+- **Example**:
+  ```json
+  { "name": "ファイア・ボール", "Lv": { "kind": "value", "value": 3 } }
+  ```
+  Query: `gm spell find -l 3` → matches this record
+
+**2. `Lv.kind: "value+"` (Minimum Level)**
+- **CLI flag**: `-l <level>`
+- **Query behavior**: Returns records where `Lv.value+` is less than or equal to the specified level
+- **Use case**: Skills available from a minimum level onward (e.g., "Skill available at level 5 or higher")
+- **Example**:
+  ```json
+  { "name": "上級剣術", "Lv": { "kind": "value+", "value+": 5 } }
+  ```
+  Query: `gm skill find -l 7` → matches (since 5 ≤ 7)
+  Query: `gm skill find -l 3` → does NOT match (since 5 > 3)
+
+**3. `Lv.kind: "rank"` (Rank-based)**
+- **CLI flag**: `-r <rank>`
+- **Query behavior**: Returns records where `Lv.rank` exactly matches the specified rank
+- **Use case**: Rank-based progression systems (e.g., "Rank 2 fairy magic")
+- **Value range**: Variable; depends on `schoolVariant` and system implementation
+- **Example**:
+  ```json
+  { "name": "妖精魔法ランク2", "Lv": { "kind": "rank", "rank": 2 } }
+  ```
+  Query: `gm spell find -r 2` → matches this record
+
+### School Variant Field (`schoolVariant`)
+
+**CLI flag**: `-sv <variant>`
+
+**Query behavior**: 
+- Returns records where `schoolVariant` exactly matches the specified value (exact match only)
+- If `-sv` flag is specified, records without a `schoolVariant` field (or with `null` value) are excluded from results
+
+**Example**:
+```json
+{ "name": "特殊神聖魔法", "school": "神聖", "schoolVariant": "特殊" }
+```
+Query: `gm spell find -sv 特殊` → matches this record
+
+### God Field (`god`)
+
+**Applicability**: Only applicable when `schoolVariant == "特殊"` AND `school == "神聖"`
+
+**CLI flag**: `-g <god_name>`
+
+**Query behavior**:
+- Returns records where `god` exactly matches the specified value (exact match only)
+- If `-g` flag is specified, records without a `god` field (or with `null` value) are excluded from results
+
+**Example**:
+```json
+{ 
+  "name": "特殊神聖魔法の例", 
+  "school": "神聖", 
+  "schoolVariant": "特殊",
+  "god": "神名" 
+}
+```
+Query: `gm spell find -sv 特殊 -g 神名` → matches this record
+
+**Note**: If `schoolVariant` is not "特殊" or `school` is not "神聖", the `god` field is not applicable and should not exist in the data.
+
 ## Spell Chat Palette Format
 
 ### Design Principles

@@ -20,6 +20,13 @@ cargo run --bin gm -- --help  # Run CLI
 - Use serde field rename attributes for Japanese field names
 - Use Option<T> for nullable fields in structs
 
+## Data Usage Guidelines
+- **Public Repository Policy**: This repository may be published on GitHub; all committed files must contain only non-copyrighted data
+- **Examples and Documentation**: Use generic placeholder names (e.g., "モンスター名", "神名", "キャラクター名")
+- **Test Data**: Use only fictional/generic data not derived from published rulebooks
+- **Sample Data**: Must be created independently or with explicit permission
+- **If Uncertain**: Always use generic placeholders instead of specific names from rulebooks
+
 ## Architecture
 - Workspace: `trpg-json/Cargo.toml` with `core` and `app` members
 - Core library: data models, I/O, business logic
