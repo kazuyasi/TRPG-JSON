@@ -85,6 +85,7 @@ pub fn spell_find_by_school<'a>(spells: &'a [Spell], school: &str) -> Vec<&'a Sp
 }
 
 /// スペルをレベルで検索（完全一致）
+/// Lv.kind: "value" または "value+" のスペルを検索
 pub fn spell_find_by_level<'a>(spells: &'a [Spell], level: i32) -> Vec<&'a Spell> {
     spells
         .iter()
@@ -92,7 +93,17 @@ pub fn spell_find_by_level<'a>(spells: &'a [Spell], level: i32) -> Vec<&'a Spell
         .collect()
 }
 
+/// スペルをランクで検索（完全一致）
+/// Lv.kind: "rank" のスペルを検索
+pub fn spell_find_by_rank<'a>(spells: &'a [Spell], rank: i32) -> Vec<&'a Spell> {
+    spells
+        .iter()
+        .filter(|s| has_rank_field(s) && extract_spell_rank(s) == rank)
+        .collect()
+}
+
 /// Spell オブジェクトから Lv を抽出
+/// Lv.kind: "value" または "value+" の場合のみ値を返す
 fn extract_spell_level(spell: &Spell) -> i32 {
     if let Some(lv_obj) = spell.extra.get("Lv") {
         if let Some(obj) = lv_obj.as_object() {
@@ -102,6 +113,16 @@ fn extract_spell_level(spell: &Spell) -> i32 {
             if let Some(value) = obj.get("value+") {
                 return value.as_i64().unwrap_or(0) as i32;
             }
+        }
+    }
+    0
+}
+
+/// Spell オブジェクトから rank を抽出
+/// Lv.kind: "rank" の場合のみ値を返す
+fn extract_spell_rank(spell: &Spell) -> i32 {
+    if let Some(lv_obj) = spell.extra.get("Lv") {
+        if let Some(obj) = lv_obj.as_object() {
             if let Some(rank) = obj.get("rank") {
                 return rank.as_i64().unwrap_or(0) as i32;
             }
@@ -110,12 +131,25 @@ fn extract_spell_level(spell: &Spell) -> i32 {
     0
 }
 
-/// スペルを複合検索（名前、系統、レベルの条件を組み合わせ）
+/// Spell オブジェクトが rank フィールドを持つかチェック
+/// Lv.kind: "rank" の場合のみ true を返す
+fn has_rank_field(spell: &Spell) -> bool {
+    if let Some(lv_obj) = spell.extra.get("Lv") {
+        if let Some(obj) = lv_obj.as_object() {
+            return obj.contains_key("rank");
+        }
+    }
+    false
+}
+
+/// スペルを複合検索（名前、系統、レベル/ランクの条件を組み合わせ）
+/// level と rank は相互排他的（両方指定された場合、level が優先される）
 pub fn spell_find_multi<'a>(
     spells: &'a [Spell],
     name: Option<&str>,
     school: Option<&str>,
     level: Option<i32>,
+    rank: Option<i32>,
 ) -> Vec<&'a Spell> {
     spells
         .iter()
@@ -132,9 +166,14 @@ pub fn spell_find_multi<'a>(
                     return false;
                 }
             }
-            // レベルフィルタ
+            // レベルフィルタ（level優先）
             if let Some(l) = level {
                 if extract_spell_level(s) != l {
+                    return false;
+                }
+            } else if let Some(r) = rank {
+                // ランクフィルタ（levelが指定されていない場合のみ）
+                if !has_rank_field(s) || extract_spell_rank(s) != r {
                     return false;
                 }
             }
@@ -455,14 +494,30 @@ mod tests {
                    "対象": { "kind": "個別", "個別": "弾丸" }
                },
                {
-                   "name": "Magic_88250",
-                   "school": "MagicCat_2",
-                   "Lv": { "kind": "value", "value": 7 },
-                   "MP": { "kind": "value", "value": 82 },
-                   "effect": "EffectDescription_14305",
-                   "対象": { "kind": "個別", "個別": "魔法1つ" }
-               }
-           ]"#;
+                    "name": "Magic_88250",
+                    "school": "MagicCat_2",
+                    "Lv": { "kind": "value", "value": 7 },
+                    "MP": { "kind": "value", "value": 82 },
+                    "effect": "EffectDescription_14305",
+                    "対象": { "kind": "個別", "個別": "魔法1つ" }
+                },
+                {
+                    "name": "FairyMagic_Rank2",
+                    "school": "妖精魔法",
+                    "Lv": { "kind": "rank", "rank": 2 },
+                    "MP": { "kind": "value", "value": 5 },
+                    "effect": "Rank 2 fairy magic",
+                    "対象": { "kind": "個別", "個別": "1体" }
+                },
+                {
+                    "name": "FairyMagic_Rank3",
+                    "school": "妖精魔法",
+                    "Lv": { "kind": "rank", "rank": 3 },
+                    "MP": { "kind": "value", "value": 8 },
+                    "effect": "Rank 3 fairy magic",
+                    "対象": { "kind": "個別", "個別": "1体" }
+                }
+            ]"#;
 
           serde_json::from_str(json_data).expect("Failed to parse sample spells")
       }
@@ -537,60 +592,53 @@ mod tests {
      #[test]
      fn test_spell_find_multi_name_only() {
          let spells = sample_spells();
-         let results = spell_find_multi(&spells, Some("47438"), None, None);
+         let results = spell_find_multi(&spells, Some("47438"), None, None, None);
          assert_eq!(results.len(), 1); // Magic_47438
      }
 
-     #[test]
-     fn test_spell_find_multi_school_only() {
-         let spells = sample_spells();
-         let results = spell_find_multi(&spells, None, Some("MagicCat_1"), None);
-         assert_eq!(results.len(), 2);
-     }
+    #[test]
+    fn test_spell_find_multi_name_and_school() {
+        let spells = sample_spells();
+        let results = spell_find_multi(&spells, Some("47438"), Some("MagicCat_1"), None, None);
+        assert_eq!(results.len(), 1);
+        assert_eq!(results[0].name, "Magic_47438");
+    }
 
-     #[test]
-     fn test_spell_find_multi_level_only() {
-         let spells = sample_spells();
-         let results = spell_find_multi(&spells, None, None, Some(7));
-         assert_eq!(results.len(), 2);
-     }
+    #[test]
+    fn test_spell_find_multi_level_only() {
+        let spells = sample_spells();
+        let results = spell_find_multi(&spells, None, None, Some(7), None);
+        assert_eq!(results.len(), 2); // Magic_16470 と Magic_88250
+    }
 
-     #[test]
-     fn test_spell_find_multi_name_and_school() {
-         let spells = sample_spells();
-         let results = spell_find_multi(&spells, Some("47438"), Some("MagicCat_1"), None);
-         assert_eq!(results.len(), 1); // Magic_47438 MagicCat_1
-         assert!(results.iter().all(|s| s.school == "MagicCat_1"));
-     }
+    #[test]
+    fn test_spell_find_multi_name_and_school_no_match() {
+        let spells = sample_spells();
+        let results = spell_find_multi(&spells, Some("Magic_4"), Some("MagicCat_2"), None, None);
+        assert_eq!(results.len(), 0); // Magic_47438は MagicCat_1
+    }
 
-     #[test]
-     fn test_spell_find_multi_name_and_school_no_match() {
-         let spells = sample_spells();
-         let results = spell_find_multi(&spells, Some("Magic_4"), Some("MagicCat_2"), None);
-         assert_eq!(results.len(), 0); // Magic_47438は MagicCat_1
-     }
+    #[test]
+    fn test_spell_find_multi_all_filters() {
+        let spells = sample_spells();
+        let results = spell_find_multi(&spells, Some("Magic_"), Some("MagicCat_1"), Some(9), None);
+        assert_eq!(results.len(), 1);
+        assert_eq!(results[0].name, "Magic_47438");
+    }
 
-     #[test]
-     fn test_spell_find_multi_all_filters() {
-         let spells = sample_spells();
-         let results = spell_find_multi(&spells, Some("Magic_"), Some("MagicCat_1"), Some(9));
-         assert_eq!(results.len(), 1);
-         assert_eq!(results[0].name, "Magic_47438");
-     }
+    #[test]
+    fn test_spell_find_multi_all_filters_no_match() {
+        let spells = sample_spells();
+        let results = spell_find_multi(&spells, Some("Magic_"), Some("MagicCat_1"), Some(13), None);
+        assert_eq!(results.len(), 0); // MagicCat_1 の Lv 13 はない
+    }
 
-     #[test]
-     fn test_spell_find_multi_all_filters_no_match() {
-         let spells = sample_spells();
-         let results = spell_find_multi(&spells, Some("Magic_"), Some("MagicCat_1"), Some(13));
-         assert_eq!(results.len(), 0); // MagicCat_1 の Lv 13 はない
-     }
-
-     #[test]
-     fn test_spell_find_multi_no_filters() {
-         let spells = sample_spells();
-         let results = spell_find_multi(&spells, None, None, None);
-         assert_eq!(results.len(), 5); // すべてのスペルを返す
-     }
+    #[test]
+    fn test_spell_find_multi_no_filters() {
+        let spells = sample_spells();
+        let results = spell_find_multi(&spells, None, None, None, None);
+        assert_eq!(results.len(), 7); // すべてのスペルを返す
+    }
 
      #[test]
      fn test_spell_find_by_exact_name_match() {
@@ -607,10 +655,100 @@ mod tests {
          assert!(result.is_none());
      }
 
-     #[test]
-     fn test_spell_find_by_exact_name_partial_no_match() {
-         let spells = sample_spells();
-         let result = spell_find_by_exact_name(&spells, "Magic_3");
-         assert!(result.is_none()); // 部分マッチはしない
-     }
+    #[test]
+    fn test_spell_find_by_exact_name_partial_no_match() {
+        let spells = sample_spells();
+        let result = spell_find_by_exact_name(&spells, "Magic_3");
+        assert!(result.is_none()); // 部分マッチはしない
+    }
+
+    // ========== Rank-based filtering tests ==========
+
+    #[test]
+    fn test_spell_find_by_rank_single_match() {
+        let spells = sample_spells();
+        let results = spell_find_by_rank(&spells, 2);
+        assert_eq!(results.len(), 1);
+        assert_eq!(results[0].name, "FairyMagic_Rank2");
+    }
+
+    #[test]
+    fn test_spell_find_by_rank_multiple_matches() {
+        let spells = sample_spells();
+        // Currently only one spell per rank in sample data
+        let results = spell_find_by_rank(&spells, 3);
+        assert_eq!(results.len(), 1);
+        assert_eq!(results[0].name, "FairyMagic_Rank3");
+    }
+
+    #[test]
+    fn test_spell_find_by_rank_no_match() {
+        let spells = sample_spells();
+        let results = spell_find_by_rank(&spells, 99);
+        assert_eq!(results.len(), 0);
+    }
+
+    #[test]
+    fn test_spell_find_by_rank_zero() {
+        let spells = sample_spells();
+        let results = spell_find_by_rank(&spells, 0);
+        // Level-based spells should not match rank 0
+        assert_eq!(results.len(), 0);
+    }
+
+    #[test]
+    fn test_spell_find_multi_rank_only() {
+        let spells = sample_spells();
+        let results = spell_find_multi(&spells, None, None, None, Some(2));
+        assert_eq!(results.len(), 1);
+        assert_eq!(results[0].name, "FairyMagic_Rank2");
+    }
+
+    #[test]
+    fn test_spell_find_multi_rank_and_school() {
+        let spells = sample_spells();
+        let results = spell_find_multi(&spells, None, Some("妖精魔法"), None, Some(3));
+        assert_eq!(results.len(), 1);
+        assert_eq!(results[0].name, "FairyMagic_Rank3");
+    }
+
+    #[test]
+    fn test_spell_find_multi_rank_and_name() {
+        let spells = sample_spells();
+        let results = spell_find_multi(&spells, Some("Fairy"), None, None, Some(2));
+        assert_eq!(results.len(), 1);
+        assert_eq!(results[0].name, "FairyMagic_Rank2");
+    }
+
+    #[test]
+    fn test_spell_find_multi_level_and_rank_level_priority() {
+        let spells = sample_spells();
+        // When both level and rank are specified, level takes priority
+        let results = spell_find_multi(&spells, None, None, Some(7), Some(2));
+        assert_eq!(results.len(), 2); // Magic_16470 and Magic_88250 (level 7)
+        // Should not include FairyMagic_Rank2
+    }
+
+    #[test]
+    fn test_spell_find_multi_rank_no_match() {
+        let spells = sample_spells();
+        let results = spell_find_multi(&spells, None, None, None, Some(99));
+        assert_eq!(results.len(), 0);
+    }
+
+    #[test]
+    fn test_extract_spell_rank_returns_zero_for_level_spells() {
+        let spells = sample_spells();
+        // Level-based spells should return 0 for rank extraction
+        let level_spell = &spells[0]; // Magic_47438 (level-based)
+        assert_eq!(extract_spell_rank(level_spell), 0);
+    }
+
+    #[test]
+    fn test_extract_spell_level_returns_zero_for_rank_spells() {
+        let spells = sample_spells();
+        // Rank-based spells should return 0 for level extraction
+        let rank_spell = &spells[5]; // FairyMagic_Rank2 (rank-based)
+        assert_eq!(extract_spell_level(rank_spell), 0);
+    }
 }

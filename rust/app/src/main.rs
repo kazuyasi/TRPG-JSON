@@ -120,13 +120,18 @@ enum SpellCommands {
     ///   gm spell find ファイア           # 名前に「ファイア」を含むスペルを検索
     ///   gm spell find ファイア -l 2      # 名前に「ファイア」を含み、レベル2のスペルを検索
     ///   gm spell find ファイア -s 火系  # 名前に「ファイア」を含み、系統「火系」のスペルを検索
+    ///   gm spell find 妖精 -r 3          # 名前に「妖精」を含み、ランク3のスペルを検索
     Find {
         /// 検索する名前（部分マッチ）
         name: String,
         
-        /// レベルで絞り込む（オプション）
+        /// レベルで絞り込む（オプション、-rと同時指定不可）
         #[arg(short = 'l', long)]
         level: Option<i32>,
+        
+        /// ランクで絞り込む（オプション、-lと同時指定不可）
+        #[arg(short = 'r', long)]
+        rank: Option<i32>,
         
         /// 系統で絞り込む（オプション）
         #[arg(short = 's', long)]
@@ -147,6 +152,7 @@ enum SpellCommands {
     /// 使用例:
     ///   gm spell palette -n "ファイア"              # 名前でフィルタ
     ///   gm spell palette -l 3                      # レベルでフィルタ
+    ///   gm spell palette -r 2                      # ランクでフィルタ
     ///   gm spell palette -s "MagicCat_1"           # 系統でフィルタ
     ///   gm spell palette -n "ファイア" -s "MagicCat_1"  # 複数フィルタ
     ///   gm spell palette -n "ファイア" --copy     # 先頭行をクリップボードにコピー
@@ -155,9 +161,13 @@ enum SpellCommands {
         #[arg(short = 'n')]
         name: Option<String>,
         
-        /// レベル（オプション）
+        /// レベル（オプション、-rと同時指定不可）
         #[arg(short = 'l')]
         level: Option<i32>,
+        
+        /// ランク（オプション、-lと同時指定不可）
+        #[arg(short = 'r')]
+        rank: Option<i32>,
         
         /// 系統（オプション）
         #[arg(short = 's')]
@@ -230,14 +240,14 @@ fn main() {
 
         Some(Commands::Spell { command }) => {
             match command {
-                SpellCommands::Find { name, level, school } => {
-                    handle_spell_find_command(&spell_path_strs, name, *level, school.as_deref());
+                SpellCommands::Find { name, level, rank, school } => {
+                    handle_spell_find_command(&spell_path_strs, name, *level, *rank, school.as_deref());
                 }
                 SpellCommands::List { pattern } => {
                     handle_spell_list_command(&spell_path_strs, pattern);
                 }
-                SpellCommands::Palette { name, level, school, copy } => {
-                    handle_spell_palette_command(&spell_path_strs, name.as_deref(), *level, school.as_deref(), *copy);
+                SpellCommands::Palette { name, level, rank, school, copy } => {
+                    handle_spell_palette_command(&spell_path_strs, name.as_deref(), *level, *rank, school.as_deref(), *copy);
                 }
             }
         }
@@ -578,7 +588,13 @@ fn find_config_file() -> String {
 // Spell Command Handlers
 // ============================================================================
 
-fn handle_spell_find_command(data_paths: &[String], name: &str, level: Option<i32>, school: Option<&str>) {
+fn handle_spell_find_command(data_paths: &[String], name: &str, level: Option<i32>, rank: Option<i32>, school: Option<&str>) {
+    // level と rank の同時指定チェック
+    if level.is_some() && rank.is_some() {
+        eprintln!("エラー: -l (level) と -r (rank) は同時に指定できません");
+        process::exit(1);
+    }
+
     // データを読み込む（複数ファイル対応）
     let spells = match io::load_multiple_spells_json_arrays(
         &data_paths.iter().map(|p| p.as_str()).collect::<Vec<_>>()
@@ -591,7 +607,7 @@ fn handle_spell_find_command(data_paths: &[String], name: &str, level: Option<i3
     };
 
     // 検索を実行
-    let results = query::spell_find_multi(&spells, Some(name), school, level);
+    let results = query::spell_find_multi(&spells, Some(name), school, level, rank);
 
     // 結果を処理
     match results.len() {
@@ -673,12 +689,19 @@ fn handle_spell_palette_command(
     data_paths: &[String],
     name: Option<&str>,
     level: Option<i32>,
+    rank: Option<i32>,
     school: Option<&str>,
     copy: bool,
 ) {
+    // level と rank の同時指定チェック
+    if level.is_some() && rank.is_some() {
+        eprintln!("エラー: -l (level) と -r (rank) は同時に指定できません");
+        process::exit(1);
+    }
+
     // 最低1つのフィルタが必須
-    if name.is_none() && level.is_none() && school.is_none() {
-        eprintln!("エラー: 最低1つのフィルタ（-n, -l, -s）を指定してください");
+    if name.is_none() && level.is_none() && rank.is_none() && school.is_none() {
+        eprintln!("エラー: 最低1つのフィルタ（-n, -l, -r, -s）を指定してください");
         process::exit(1);
     }
 
@@ -693,8 +716,8 @@ fn handle_spell_palette_command(
         }
     };
 
-    // マルチフィルタで検索（name, school, level）
-    let results = query::spell_find_multi(&spells, name, school, level);
+    // マルチフィルタで検索（name, school, level, rank）
+    let results = query::spell_find_multi(&spells, name, school, level, rank);
 
     match results.len() {
         0 => {
@@ -1061,7 +1084,7 @@ mod tests {
             .expect("Failed to load spell sample data");
         
         // Multi-filter: school only (name, school, level)
-        let results = query::spell_find_multi(&spells, None, Some("MagicCat_2"), None);
+        let results = query::spell_find_multi(&spells, None, Some("MagicCat_2"), None, None);
         assert!(!results.is_empty());
         
          for spell in &results {
@@ -1168,7 +1191,7 @@ mod tests {
             .expect("Failed to load spell sample data");
         
         // Filter by name only
-        let results = query::spell_find_multi(&spells, Some("Magic"), None, None);
+        let results = query::spell_find_multi(&spells, Some("Magic"), None, None, None);
         assert!(results.len() > 1);
     }
 
@@ -1178,7 +1201,7 @@ mod tests {
             .expect("Failed to load spell sample data");
         
         // Filter by category only
-        let results = query::spell_find_multi(&spells, None, Some("MagicCat_1"), None);
+        let results = query::spell_find_multi(&spells, None, Some("MagicCat_1"), None, None);
          assert!(!results.is_empty());
          
          for spell in &results {
@@ -1192,7 +1215,7 @@ mod tests {
             .expect("Failed to load spell sample data");
         
         // Filter by level: check if level 1 spells exist
-        let results = query::spell_find_multi(&spells, None, None, Some(1));
+        let results = query::spell_find_multi(&spells, None, None, Some(1), None);
         // Note: May be empty if no level 1 spells exist, but function should work
         let _ = results;
     }
@@ -1203,7 +1226,7 @@ mod tests {
             .expect("Failed to load spell sample data");
         
         // Filter by name and category
-        let results = query::spell_find_multi(&spells, Some("Magic"), Some("MagicCat_1"), None);
+        let results = query::spell_find_multi(&spells, Some("Magic"), Some("MagicCat_1"), None, None);
          
          for spell in &results {
              assert!(spell.name.contains("Magic"));
@@ -1217,7 +1240,7 @@ mod tests {
             .expect("Failed to load spell sample data");
         
         // Get multiple matches and generate palettes
-        let results = query::spell_find_multi(&spells, Some("Magic"), None, None);
+        let results = query::spell_find_multi(&spells, Some("Magic"), None, None, None);
         assert!(results.len() > 1);
         
         // Verify all can generate palettes
@@ -1234,7 +1257,7 @@ mod tests {
             .expect("Failed to load spell sample data");
         
         // Filter with no matches
-        let results = query::spell_find_multi(&spells, Some("NonExistent"), None, None);
+        let results = query::spell_find_multi(&spells, Some("NonExistent"), None, None, None);
         assert!(results.is_empty());
     }
 
@@ -1244,10 +1267,10 @@ mod tests {
             .expect("Failed to load spell sample data");
         
         // Get all spells
-        let all_spells = query::spell_find_multi(&spells, None, None, None);
+        let all_spells = query::spell_find_multi(&spells, None, None, None, None);
         
         // Get filtered by category
-        let filtered = query::spell_find_multi(&spells, None, Some("MagicCat_1"), None);
+        let filtered = query::spell_find_multi(&spells, None, Some("MagicCat_1"), None, None);
         
         // Filtered should be subset of all
         assert!(filtered.len() <= all_spells.len());
