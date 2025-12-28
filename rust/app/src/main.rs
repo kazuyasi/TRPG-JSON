@@ -110,6 +110,12 @@ enum MonsterCommands {
         /// 削除するモンスターの正確な名前
         name: String,
     },
+    
+    /// データセット統計情報を表示する
+    /// 
+    /// 使用例:
+    ///   gm monster stats  # モンスターデータの統計を表示
+    Stats,
 }
 
 #[derive(Subcommand)]
@@ -197,6 +203,12 @@ enum SpellCommands {
         #[arg(long, short = 'y')]
         copy: bool,
     },
+    
+    /// データセット統計情報を表示する
+    /// 
+    /// 使用例:
+    ///   gm spell stats  # スペルデータの統計を表示
+    Stats,
 }
 
 fn main() {
@@ -255,6 +267,9 @@ fn main() {
                 MonsterCommands::Delete { name } => {
                     handle_delete_command(&monster_path_strs, name);
                 }
+                MonsterCommands::Stats => {
+                    handle_monster_stats_command(&monster_path_strs);
+                }
             }
         }
 
@@ -268,6 +283,9 @@ fn main() {
                 }
                 SpellCommands::Palette { name, level, rank, school, school_variant, god, copy } => {
                     handle_spell_palette_command(&spell_path_strs, name.as_deref(), *level, *rank, school.as_deref(), school_variant.as_deref(), god.as_deref(), *copy);
+                }
+                SpellCommands::Stats => {
+                    handle_spell_stats_command(&spell_path_strs);
                 }
             }
         }
@@ -571,6 +589,25 @@ fn handle_delete_command(data_paths: &[String], name: &str) {
     println!("成功: \"{}\" を削除しました", name);
 }
 
+fn handle_monster_stats_command(data_paths: &[String]) {
+    // データを読み込む（複数ファイル対応）
+    let monsters = match io::load_multiple_json_arrays(
+        &data_paths.iter().map(|p| p.as_str()).collect::<Vec<_>>()
+    ) {
+        Ok(m) => m,
+        Err(e) => {
+            eprintln!("エラー: {}", e);
+            process::exit(1);
+        }
+    };
+
+    // 統計情報を計算
+    let stats = trpg_json_core::stats::MonsterStats::calculate(&monsters);
+    
+    // 整形して出力
+    print!("{}", stats.format());
+}
+
 /// 設定ファイルを読み込む
 /// ユーザー指定がない場合はデフォルト設定を使用
 fn load_config(config_path: &Option<String>) -> config::Config {
@@ -782,6 +819,25 @@ fn handle_spell_list_command(data_paths: &[String], pattern: &str) {
             }
         }
     }
+}
+
+fn handle_spell_stats_command(data_paths: &[String]) {
+    // データを読み込む（複数ファイル対応）
+    let spells = match io::load_multiple_spells_json_arrays(
+        &data_paths.iter().map(|p| p.as_str()).collect::<Vec<_>>()
+    ) {
+        Ok(s) => s,
+        Err(e) => {
+            eprintln!("エラー: {}", e);
+            process::exit(1);
+        }
+    };
+
+    // 統計情報を計算
+    let stats = trpg_json_core::stats::SpellStats::calculate(&spells);
+    
+    // 整形して出力
+    print!("{}", stats.format());
 }
 
 fn handle_spell_palette_command(

@@ -5,6 +5,7 @@ pub mod config;
 pub mod export;
 pub mod io;
 pub mod query;
+pub mod stats;
 
 /// モンスター部位データ
 #[derive(Debug, Clone, Serialize, Deserialize)]

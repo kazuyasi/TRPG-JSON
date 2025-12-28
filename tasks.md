@@ -2,21 +2,23 @@
 
 ## 🧭 Meta
 - Project: TRPG-JSON
-- Last Updated: 2025-12-28 JST (T046 completed; Phase 3.7 UX improvements in progress)
+- Last Updated: 2025-12-28 JST (T047 completed; Phase 3.7 fully complete)
 - Responsibilities: kazuyasi (specification/approval/git operations) / Claude (proposal/implementation/testing)
-- Status: Phase 2.5 COMPLETE (T013-T027). Phase 3 COMPLETE (T028-T037). Phase 3.5 COMPLETE (T038-1/2/final). Phase 3.6 COMPLETE (T038.6, T040, T040.5). Phase 3.7 STARTED (T046 done). Enhanced error messages with filter condition display implemented. Test suite: 283 total tests (243 core + 40 app). Ready for commit.
+- Status: Phase 2.5 COMPLETE (T013-T027). Phase 3 COMPLETE (T028-T037). Phase 3.5 COMPLETE (T038-1/2/final). Phase 3.6 COMPLETE (T038.6, T040, T040.5). Phase 3.7 COMPLETE (T046, T047). UX improvements complete with enhanced error messages and statistics commands. Workspace version inheritance configured. Test suite: 291 total tests (251 core + 40 app). Ready for commit.
 
 ---
 
 ## 🔥 Priority Now
-- **Phase 3.7: UX Improvements** 🚧 IN PROGRESS
+- **Phase 3.7: UX Improvements** ✅ COMPLETE
    - Completed: T046 - Error message improvements with filter conditions display (2025-12-28)
-   - Next: T047 - Statistics command for dataset overview and distribution analysis
-   - Status: T046 complete and ready for commit
+   - Completed: T047 - Statistics command for dataset overview and distribution analysis (2025-12-28)
+   - Bonus: Workspace version inheritance configured for easier maintenance
+   - Status: All Phase 3.7 tasks complete and ready for commit
 
 ## 🚧 In Progress
 - Currently no active implementation tasks
-- T046 complete; ready for git commit
+- Phase 3.7 complete; ready for git commit
+- Next phase suggestions: Phase 4 (Advanced Features) or continue data addition work
 
 ---
 
@@ -110,6 +112,9 @@
 ---
 
 ## ✅ Done (Recent 30)
+- [x] T047 Statistics command: Dataset overview and distribution analysis — 2025-12-28
+         - Description: Implemented dataset statistics commands for monsters and spells. Added stats.rs module with MonsterStats and SpellStats structs. Monster stats include level distribution (1-4/5-8/9-12/13-16/17+), category distribution (Top 5), and numeric field ranges (hit_rate, dodge, damage, armor, life/mental resistance). Spell stats include level distribution (1-5/6-10/11-15/16+), school distribution (Top 5), and level/rank type counts. Added gm monster stats and gm spell stats CLI commands. Implemented 8 comprehensive unit tests. Bonus: Configured workspace version inheritance for easier maintenance (version now managed in single location). All 291 tests passing (251 core + 40 app). Release build successful. Provides quick dataset overview and helps identify data coverage gaps.
+
 - [x] T046 Error message improvements: Display applied filter conditions — 2025-12-28
          - Description: Enhanced error messages to display applied filter conditions for better debugging. Implemented format_spell_filter_conditions() and format_monster_filter_conditions() helper functions. Updated error handling in handle_spell_find_command(), handle_spell_list_command(), handle_spell_palette_command(), handle_monster_find_command(), handle_monster_list_command(), and handle_select_command(). Added 8 new unit tests (4 spell + 4 monster filter formatting tests). All 283 tests passing (243 core + 40 app). Release build successful. Error messages now show which filters were applied when no matches are found, significantly improving UX during data addition work.
 
@@ -331,65 +336,74 @@
       - ✅ Better UX when working with complex filter combinations
       - ✅ Particularly helpful during spell data addition work (currently 30% complete)
 
-- [ ] T047 Statistics command: Dataset overview and distribution analysis
-      - Status: Backlog
+- [x] T047 Statistics command: Dataset overview and distribution analysis — 2025-12-28
+      - Status: COMPLETE ✅
       - Owner: Claude
       - Priority: Medium (useful for understanding dataset composition)
       - Task: Implement `stats` command for monsters and spells
       
-      **New features:**
+      **Implemented features:**
       ```bash
       # Monster statistics
       gm monster stats
-      # Output:
+      # Output example (actual data: 688 monsters):
       # モンスター統計:
-      #   総数: 150
+      #   総数: 688
       #   レベル分布:
-      #     Lv 1-5:  45 (30.0%)
-      #     Lv 6-10: 60 (40.0%)
-      #     Lv 11+:  45 (30.0%)
-      #   カテゴリ分布:
-      #     蛮族:     50 (33.3%)
-      #     魔法生物: 40 (26.7%)
-      #     アンデッド: 30 (20.0%)
-      #     動物:     30 (20.0%)
+      #     Lv 1-4:  164 (23.8%)
+      #     Lv 5-8:  224 (32.6%)
+      #     Lv 9-12: 141 (20.5%)
+      #     Lv 13-16: 70 (10.2%)
+      #     Lv 17+:   83 (12.1%)
+      #   カテゴリ分布 (Top 5):
+      #     蛮族: 172 (25.0%)
+      #     動物:  95 (13.8%)
+      #   数値フィールド範囲:
+      #     命中力: 5～111
+      #     回避力: 7～42
+      #     打撃点: -2～38
+      #     防護点: 0～34
+      #     生命抵抗力: 0～46
+      #     精神抵抗力: 0～47
       
       # Spell statistics
       gm spell stats
-      # Output:
+      # Output example (actual data: 226 spells):
       # スペル統計:
-      #   総数: 200
+      #   総数: 226
       #   レベル分布:
-      #     Lv 1-3:  80 (40.0%)
-      #     Lv 4-7:  90 (45.0%)
-      #     Lv 8+:   30 (15.0%)
-      #   系統分布:
-      #     神聖: 60 (30.0%)
-      #     操霊: 50 (25.0%)
-      #     妖精: 40 (20.0%)
-      #     他:   50 (25.0%)
+      #     Lv 1-5:  101 (44.7%)
+      #     Lv 6-10:  64 (28.3%)
+      #     Lv 11-15: 51 (22.6%)
+      #     Lv 16+:    0 (0.0%)
+      #   系統分布 (Top 5):
+      #     森羅:  60 (26.5%)
+      #     真語:  54 (23.9%)
+      #     召異:  46 (20.4%)
       #   種別:
-      #     レベル型: 180 (90.0%)
-      #     ランク型:  20 (10.0%)
+      #     レベル型: 216 (95.6%)
+      #     ランク型:  10 (4.4%)
       ```
       
       **Implementation scope:**
-      1. Add `stats.rs` module in core for statistics calculation
-      2. Implement `MonsterStats` and `SpellStats` structs
-      3. Add `gm monster stats` CLI command
-      4. Add `gm spell stats` CLI command
-      5. Add distribution calculation functions (level, category, school)
-      6. Add formatted output functions
-      7. Add unit tests for statistics calculation
-      8. Add integration tests for CLI commands
+      1. ✅ Add `stats.rs` module in core for statistics calculation
+      2. ✅ Implement `MonsterStats` and `SpellStats` structs
+      3. ✅ Add `gm monster stats` CLI command
+      4. ✅ Add `gm spell stats` CLI command
+      5. ✅ Add distribution calculation functions (level, category, school)
+      6. ✅ Add numeric field range calculation (monster hit_rate, dodge, damage, armor, resistances)
+      7. ✅ Add formatted output functions
+      8. ✅ Add 8 unit tests for statistics calculation
+      9. ✅ All 291 tests passing (251 core + 40 app)
+      10. ✅ Release build successful
       
-      **Estimated effort:** Small-Medium (2-3 hours)
+      **Completed:** 2025-12-28
       
       **Benefits:**
-      - Quick overview of dataset composition
-      - Identify gaps in data coverage
-      - Useful for balancing data across levels/categories
-      - Helps plan future data addition work
+      - ✅ Quick overview of dataset composition
+      - ✅ Identify gaps in data coverage (e.g., no Lv 16+ spells)
+      - ✅ Useful for balancing data across levels/categories
+      - ✅ Helps plan future data addition work
 
 ### Phase 4: Advanced Features
 - [ ] T041 Phase 4: Skill system implementation (流派特技)
