@@ -287,6 +287,101 @@
       - ✅ Release build successful
 
 ## 📋 Future Phases (Post Phase 3)
+
+### Phase 3.7: UX Improvements
+- [ ] T046 Error message improvements: Display applied filter conditions
+      - Status: Backlog
+      - Owner: Claude
+      - Priority: Medium (improves user experience during data addition work)
+      - Task: Enhance error messages to show which filters were applied
+      
+      **Current behavior:**
+      ```
+      エラー: マッチするスペルが見つかりません
+      ```
+      
+      **Improved behavior:**
+      ```
+      エラー: 以下の条件でマッチするスペルが見つかりません
+        - schoolVariant: "特殊"
+        - god: "神名"
+      ```
+      
+      **Implementation scope:**
+      1. Update `handle_spell_find_command()` error handling
+      2. Update `handle_spell_palette_command()` error handling
+      3. Update `handle_monster_find_command()` error handling (if applicable)
+      4. Add helper function `format_filter_conditions()` for consistent formatting
+      5. Add unit tests for error message formatting
+      
+      **Estimated effort:** Small (1-2 hours)
+      
+      **Benefits:**
+      - Easier debugging when queries return no results
+      - Better UX when working with complex filter combinations
+      - Particularly helpful during data addition work
+
+- [ ] T047 Statistics command: Dataset overview and distribution analysis
+      - Status: Backlog
+      - Owner: Claude
+      - Priority: Medium (useful for understanding dataset composition)
+      - Task: Implement `stats` command for monsters and spells
+      
+      **New features:**
+      ```bash
+      # Monster statistics
+      gm monster stats
+      # Output:
+      # モンスター統計:
+      #   総数: 150
+      #   レベル分布:
+      #     Lv 1-5:  45 (30.0%)
+      #     Lv 6-10: 60 (40.0%)
+      #     Lv 11+:  45 (30.0%)
+      #   カテゴリ分布:
+      #     蛮族:     50 (33.3%)
+      #     魔法生物: 40 (26.7%)
+      #     アンデッド: 30 (20.0%)
+      #     動物:     30 (20.0%)
+      
+      # Spell statistics
+      gm spell stats
+      # Output:
+      # スペル統計:
+      #   総数: 200
+      #   レベル分布:
+      #     Lv 1-3:  80 (40.0%)
+      #     Lv 4-7:  90 (45.0%)
+      #     Lv 8+:   30 (15.0%)
+      #   系統分布:
+      #     神聖: 60 (30.0%)
+      #     操霊: 50 (25.0%)
+      #     妖精: 40 (20.0%)
+      #     他:   50 (25.0%)
+      #   種別:
+      #     レベル型: 180 (90.0%)
+      #     ランク型:  20 (10.0%)
+      ```
+      
+      **Implementation scope:**
+      1. Add `stats.rs` module in core for statistics calculation
+      2. Implement `MonsterStats` and `SpellStats` structs
+      3. Add `gm monster stats` CLI command
+      4. Add `gm spell stats` CLI command
+      5. Add distribution calculation functions (level, category, school)
+      6. Add formatted output functions
+      7. Add unit tests for statistics calculation
+      8. Add integration tests for CLI commands
+      
+      **Estimated effort:** Small-Medium (2-3 hours)
+      
+      **Benefits:**
+      - Quick overview of dataset composition
+      - Identify gaps in data coverage
+      - Useful for balancing data across levels/categories
+      - Helps plan future data addition work
+
+### Phase 4: Advanced Features
 - [ ] T041 Phase 4: Skill system implementation (流派特技)
 - [ ] T042 Phase 4: Fairy magic system implementation (妖精魔法)
 - [ ] T043 Phase 4: Chat palette export to clipboard
