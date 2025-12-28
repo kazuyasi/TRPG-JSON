@@ -121,6 +121,8 @@ enum SpellCommands {
     ///   gm spell find ファイア -l 2      # 名前に「ファイア」を含み、レベル2のスペルを検索
     ///   gm spell find ファイア -s 火系  # 名前に「ファイア」を含み、系統「火系」のスペルを検索
     ///   gm spell find 妖精 -r 3          # 名前に「妖精」を含み、ランク3のスペルを検索
+    ///   gm spell find 神聖 -v 特殊       # 名前に「神聖」を含み、schoolVariant「特殊」のスペルを検索
+    ///   gm spell find 神聖 -v 特殊 -g 神名  # schoolVariant「特殊」かつgod「神名」のスペルを検索
     Find {
         /// 検索する名前（部分マッチ）
         name: String,
@@ -136,6 +138,14 @@ enum SpellCommands {
         /// 系統で絞り込む（オプション）
         #[arg(short = 's', long)]
         school: Option<String>,
+        
+        /// schoolVariantで絞り込む（オプション）
+        #[arg(short = 'v', long)]
+        school_variant: Option<String>,
+        
+        /// godで絞り込む（オプション）
+        #[arg(short = 'g', long)]
+        god: Option<String>,
     },
     
     /// スペル名一覧を取得する
@@ -154,6 +164,8 @@ enum SpellCommands {
     ///   gm spell palette -l 3                      # レベルでフィルタ
     ///   gm spell palette -r 2                      # ランクでフィルタ
     ///   gm spell palette -s "MagicCat_1"           # 系統でフィルタ
+    ///   gm spell palette -v "特殊"                 # schoolVariantでフィルタ
+    ///   gm spell palette -g "神名"                 # godでフィルタ
     ///   gm spell palette -n "ファイア" -s "MagicCat_1"  # 複数フィルタ
     ///   gm spell palette -n "ファイア" --copy     # 先頭行をクリップボードにコピー
     Palette {
@@ -172,6 +184,14 @@ enum SpellCommands {
         /// 系統（オプション）
         #[arg(short = 's')]
         school: Option<String>,
+        
+        /// schoolVariantで絞り込む（オプション）
+        #[arg(short = 'v', long)]
+        school_variant: Option<String>,
+        
+        /// godで絞り込む（オプション）
+        #[arg(short = 'g', long)]
+        god: Option<String>,
         
         /// クリップボードにコピー（オプション、先頭行のみ）
         #[arg(long, short = 'y')]
@@ -240,14 +260,14 @@ fn main() {
 
         Some(Commands::Spell { command }) => {
             match command {
-                SpellCommands::Find { name, level, rank, school } => {
-                    handle_spell_find_command(&spell_path_strs, name, *level, *rank, school.as_deref());
+                SpellCommands::Find { name, level, rank, school, school_variant, god } => {
+                    handle_spell_find_command(&spell_path_strs, name, *level, *rank, school.as_deref(), school_variant.as_deref(), god.as_deref());
                 }
                 SpellCommands::List { pattern } => {
                     handle_spell_list_command(&spell_path_strs, pattern);
                 }
-                SpellCommands::Palette { name, level, rank, school, copy } => {
-                    handle_spell_palette_command(&spell_path_strs, name.as_deref(), *level, *rank, school.as_deref(), *copy);
+                SpellCommands::Palette { name, level, rank, school, school_variant, god, copy } => {
+                    handle_spell_palette_command(&spell_path_strs, name.as_deref(), *level, *rank, school.as_deref(), school_variant.as_deref(), god.as_deref(), *copy);
                 }
             }
         }
@@ -588,7 +608,15 @@ fn find_config_file() -> String {
 // Spell Command Handlers
 // ============================================================================
 
-fn handle_spell_find_command(data_paths: &[String], name: &str, level: Option<i32>, rank: Option<i32>, school: Option<&str>) {
+fn handle_spell_find_command(
+    data_paths: &[String],
+    name: &str,
+    level: Option<i32>,
+    rank: Option<i32>,
+    school: Option<&str>,
+    school_variant: Option<&str>,
+    god: Option<&str>,
+) {
     // level と rank の同時指定チェック
     if level.is_some() && rank.is_some() {
         eprintln!("エラー: -l (level) と -r (rank) は同時に指定できません");
@@ -607,7 +635,7 @@ fn handle_spell_find_command(data_paths: &[String], name: &str, level: Option<i3
     };
 
     // 検索を実行
-    let results = query::spell_find_multi(&spells, Some(name), school, level, rank);
+    let results = query::spell_find_multi(&spells, Some(name), school, level, rank, school_variant, god);
 
     // 結果を処理
     match results.len() {
@@ -691,6 +719,8 @@ fn handle_spell_palette_command(
     level: Option<i32>,
     rank: Option<i32>,
     school: Option<&str>,
+    school_variant: Option<&str>,
+    god: Option<&str>,
     copy: bool,
 ) {
     // level と rank の同時指定チェック
@@ -700,8 +730,8 @@ fn handle_spell_palette_command(
     }
 
     // 最低1つのフィルタが必須
-    if name.is_none() && level.is_none() && rank.is_none() && school.is_none() {
-        eprintln!("エラー: 最低1つのフィルタ（-n, -l, -r, -s）を指定してください");
+    if name.is_none() && level.is_none() && rank.is_none() && school.is_none() && school_variant.is_none() && god.is_none() {
+        eprintln!("エラー: 最低1つのフィルタ（-n, -l, -r, -s, -v, -g）を指定してください");
         process::exit(1);
     }
 
@@ -716,8 +746,8 @@ fn handle_spell_palette_command(
         }
     };
 
-    // マルチフィルタで検索（name, school, level, rank）
-    let results = query::spell_find_multi(&spells, name, school, level, rank);
+    // マルチフィルタで検索（name, school, level, rank, school_variant, god）
+    let results = query::spell_find_multi(&spells, name, school, level, rank, school_variant, god);
 
     match results.len() {
         0 => {
@@ -1084,7 +1114,7 @@ mod tests {
             .expect("Failed to load spell sample data");
         
         // Multi-filter: school only (name, school, level)
-        let results = query::spell_find_multi(&spells, None, Some("MagicCat_2"), None, None);
+        let results = query::spell_find_multi(&spells, None, Some("MagicCat_2"), None, None, None, None);
         assert!(!results.is_empty());
         
          for spell in &results {
@@ -1191,7 +1221,7 @@ mod tests {
             .expect("Failed to load spell sample data");
         
         // Filter by name only
-        let results = query::spell_find_multi(&spells, Some("Magic"), None, None, None);
+        let results = query::spell_find_multi(&spells, Some("Magic"), None, None, None, None, None);
         assert!(results.len() > 1);
     }
 
@@ -1201,7 +1231,7 @@ mod tests {
             .expect("Failed to load spell sample data");
         
         // Filter by category only
-        let results = query::spell_find_multi(&spells, None, Some("MagicCat_1"), None, None);
+        let results = query::spell_find_multi(&spells, None, Some("MagicCat_1"), None, None, None, None);
          assert!(!results.is_empty());
          
          for spell in &results {
@@ -1215,7 +1245,7 @@ mod tests {
             .expect("Failed to load spell sample data");
         
         // Filter by level: check if level 1 spells exist
-        let results = query::spell_find_multi(&spells, None, None, Some(1), None);
+        let results = query::spell_find_multi(&spells, None, None, Some(1), None, None, None);
         // Note: May be empty if no level 1 spells exist, but function should work
         let _ = results;
     }
@@ -1226,7 +1256,7 @@ mod tests {
             .expect("Failed to load spell sample data");
         
         // Filter by name and category
-        let results = query::spell_find_multi(&spells, Some("Magic"), Some("MagicCat_1"), None, None);
+        let results = query::spell_find_multi(&spells, Some("Magic"), Some("MagicCat_1"), None, None, None, None);
          
          for spell in &results {
              assert!(spell.name.contains("Magic"));
@@ -1240,7 +1270,7 @@ mod tests {
             .expect("Failed to load spell sample data");
         
         // Get multiple matches and generate palettes
-        let results = query::spell_find_multi(&spells, Some("Magic"), None, None, None);
+        let results = query::spell_find_multi(&spells, Some("Magic"), None, None, None, None, None);
         assert!(results.len() > 1);
         
         // Verify all can generate palettes
@@ -1257,7 +1287,7 @@ mod tests {
             .expect("Failed to load spell sample data");
         
         // Filter with no matches
-        let results = query::spell_find_multi(&spells, Some("NonExistent"), None, None, None);
+        let results = query::spell_find_multi(&spells, Some("NonExistent"), None, None, None, None, None);
         assert!(results.is_empty());
     }
 
@@ -1267,13 +1297,73 @@ mod tests {
             .expect("Failed to load spell sample data");
         
         // Get all spells
-        let all_spells = query::spell_find_multi(&spells, None, None, None, None);
+        let all_spells = query::spell_find_multi(&spells, None, None, None, None, None, None);
         
         // Get filtered by category
-        let filtered = query::spell_find_multi(&spells, None, Some("MagicCat_1"), None, None);
+        let filtered = query::spell_find_multi(&spells, None, Some("MagicCat_1"), None, None, None, None);
         
         // Filtered should be subset of all
         assert!(filtered.len() <= all_spells.len());
+    }
+
+    // ========================================================================
+    // schoolVariant/god Filter Tests (T040.5)
+    // ========================================================================
+
+    #[test]
+    fn test_spell_find_with_school_variant() {
+        let spells = io::load_spells_json_array("../../data/sample/spells_sample.json")
+            .expect("Failed to load spell sample data");
+        
+        // Find spells with schoolVariant "水・氷"
+        let results = query::spell_find_by_school_variant(&spells, "水・氷");
+        
+        // Magic_33778 has schoolVariant "水・氷"
+        if !results.is_empty() {
+            assert!(results.iter().any(|s| s.name == "Magic_33778"));
+        }
+    }
+
+    #[test]
+    fn test_spell_find_with_god() {
+        let spells = io::load_spells_json_array("../../data/sample/spells_sample.json")
+            .expect("Failed to load spell sample data");
+        
+        // Find spells with god "Deity_A"
+        let results = query::spell_find_by_god(&spells, "Deity_A");
+        
+        // Magic_83071 has god "Deity_A"
+        if !results.is_empty() {
+            assert!(results.iter().any(|s| s.name == "Magic_83071"));
+        }
+    }
+
+    #[test]
+    fn test_spell_palette_with_school_variant() {
+        let spells = io::load_spells_json_array("../../data/sample/spells_sample.json")
+            .expect("Failed to load spell sample data");
+        
+        // Filter by schoolVariant using spell_find_multi
+        let results = query::spell_find_multi(&spells, None, None, None, None, Some("水・氷"), None);
+        
+        // Should find Magic_33778
+        if !results.is_empty() {
+            assert!(results.iter().any(|s| s.name == "Magic_33778"));
+        }
+    }
+
+    #[test]
+    fn test_spell_palette_with_god() {
+        let spells = io::load_spells_json_array("../../data/sample/spells_sample.json")
+            .expect("Failed to load spell sample data");
+        
+        // Filter by god using spell_find_multi
+        let results = query::spell_find_multi(&spells, None, None, None, None, None, Some("Deity_B"));
+        
+        // Should find Magic_65432
+        if !results.is_empty() {
+            assert!(results.iter().any(|s| s.name == "Magic_65432"));
+        }
     }
 }
 

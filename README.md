@@ -61,23 +61,53 @@ gm spell find "spell name"
 # Search by level
 gm spell find "spell name" -l 5
 
+# Search by rank (for rank-based magic systems)
+gm spell find "spell name" -r 3
+
 # Search by school
 gm spell find "spell name" -s "神聖"
 
+# Search by schoolVariant
+gm spell find "spell name" -v "特殊"
+
+# Search by god (for divine magic)
+gm spell find "spell name" -g "神名"
+
 # Combine multiple filters
 gm spell find "magic" -l 3 -s "神聖"
+gm spell find "神聖" -v "特殊" -g "神名"
 
 # List spells matching a pattern
 gm spell list "pattern"
 
-# Generate chat palette for a spell
-gm spell palette "spell name"
+# Generate chat palette for spells (supports multiple filters)
+gm spell palette -n "spell name"
+gm spell palette -l 5              # All level 5 spells
+gm spell palette -r 3              # All rank 3 spells
+gm spell palette -s "神聖"         # All spells of a school
+gm spell palette -v "特殊"         # All special variant spells
+gm spell palette -g "神名"         # All spells of a deity
+
+# Combine filters for precise palette generation
+gm spell palette -n "magic" -s "神聖" -l 5
+gm spell palette -v "特殊" -g "神名"
 
 # Copy spell palette to clipboard (macOS/Linux/Windows)
-gm spell palette "spell name" -y
+gm spell palette -n "spell name" -y
 # or
-gm spell palette "spell name" --copy
+gm spell palette -n "spell name" --copy
 ```
+
+**Filter Options:**
+- `-n`: Spell name (partial match)
+- `-l`: Level (exact match, for `Lv.kind: "value"` or `"value+"`)
+- `-r`: Rank (exact match, for `Lv.kind: "rank"`)
+- `-s`: School/Category (exact match)
+- `-v` / `--school-variant`: School variant (exact match)
+- `-g` / `--god`: God/Deity name (exact match)
+- `-y` / `--copy`: Copy first result to clipboard
+
+**Note:** Level (`-l`) and rank (`-r`) filters are mutually exclusive. If both are specified, level takes priority.
 
 #### Spell Palette Output Format
 

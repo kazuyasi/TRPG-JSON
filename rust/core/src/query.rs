@@ -102,6 +102,34 @@ pub fn spell_find_by_rank<'a>(spells: &'a [Spell], rank: i32) -> Vec<&'a Spell> 
         .collect()
 }
 
+/// スペルを schoolVariant で検索（完全一致）
+pub fn spell_find_by_school_variant<'a>(spells: &'a [Spell], school_variant: &str) -> Vec<&'a Spell> {
+    spells
+        .iter()
+        .filter(|s| {
+            if let Some(sv) = extract_school_variant(s) {
+                sv == school_variant
+            } else {
+                false
+            }
+        })
+        .collect()
+}
+
+/// スペルを god で検索（完全一致）
+pub fn spell_find_by_god<'a>(spells: &'a [Spell], god: &str) -> Vec<&'a Spell> {
+    spells
+        .iter()
+        .filter(|s| {
+            if let Some(g) = extract_god(s) {
+                g == god
+            } else {
+                false
+            }
+        })
+        .collect()
+}
+
 /// Spell オブジェクトから Lv を抽出
 /// Lv.kind: "value" または "value+" の場合のみ値を返す
 fn extract_spell_level(spell: &Spell) -> i32 {
@@ -142,7 +170,17 @@ fn has_rank_field(spell: &Spell) -> bool {
     false
 }
 
-/// スペルを複合検索（名前、系統、レベル/ランクの条件を組み合わせ）
+/// Spell オブジェクトから schoolVariant を抽出
+fn extract_school_variant(spell: &Spell) -> Option<&str> {
+    spell.extra.get("schoolVariant")?.as_str()
+}
+
+/// Spell オブジェクトから god を抽出
+fn extract_god(spell: &Spell) -> Option<&str> {
+    spell.extra.get("god")?.as_str()
+}
+
+/// スペルを複合検索（名前、系統、レベル/ランク、schoolVariant、godの条件を組み合わせ）
 /// level と rank は相互排他的（両方指定された場合、level が優先される）
 pub fn spell_find_multi<'a>(
     spells: &'a [Spell],
@@ -150,6 +188,8 @@ pub fn spell_find_multi<'a>(
     school: Option<&str>,
     level: Option<i32>,
     rank: Option<i32>,
+    school_variant: Option<&str>,
+    god: Option<&str>,
 ) -> Vec<&'a Spell> {
     spells
         .iter()
@@ -174,6 +214,18 @@ pub fn spell_find_multi<'a>(
             } else if let Some(r) = rank {
                 // ランクフィルタ（levelが指定されていない場合のみ）
                 if !has_rank_field(s) || extract_spell_rank(s) != r {
+                    return false;
+                }
+            }
+            // schoolVariant フィルタ
+            if let Some(sv) = school_variant {
+                if extract_school_variant(s) != Some(sv) {
+                    return false;
+                }
+            }
+            // god フィルタ
+            if let Some(g) = god {
+                if extract_god(s) != Some(g) {
                     return false;
                 }
             }
@@ -592,14 +644,14 @@ mod tests {
      #[test]
      fn test_spell_find_multi_name_only() {
          let spells = sample_spells();
-         let results = spell_find_multi(&spells, Some("47438"), None, None, None);
+         let results = spell_find_multi(&spells, Some("47438"), None, None, None, None, None);
          assert_eq!(results.len(), 1); // Magic_47438
      }
 
     #[test]
     fn test_spell_find_multi_name_and_school() {
         let spells = sample_spells();
-        let results = spell_find_multi(&spells, Some("47438"), Some("MagicCat_1"), None, None);
+        let results = spell_find_multi(&spells, Some("47438"), Some("MagicCat_1"), None, None, None, None);
         assert_eq!(results.len(), 1);
         assert_eq!(results[0].name, "Magic_47438");
     }
@@ -607,21 +659,21 @@ mod tests {
     #[test]
     fn test_spell_find_multi_level_only() {
         let spells = sample_spells();
-        let results = spell_find_multi(&spells, None, None, Some(7), None);
+        let results = spell_find_multi(&spells, None, None, Some(7), None, None, None);
         assert_eq!(results.len(), 2); // Magic_16470 と Magic_88250
     }
 
     #[test]
     fn test_spell_find_multi_name_and_school_no_match() {
         let spells = sample_spells();
-        let results = spell_find_multi(&spells, Some("Magic_4"), Some("MagicCat_2"), None, None);
+        let results = spell_find_multi(&spells, Some("Magic_4"), Some("MagicCat_2"), None, None, None, None);
         assert_eq!(results.len(), 0); // Magic_47438は MagicCat_1
     }
 
     #[test]
     fn test_spell_find_multi_all_filters() {
         let spells = sample_spells();
-        let results = spell_find_multi(&spells, Some("Magic_"), Some("MagicCat_1"), Some(9), None);
+        let results = spell_find_multi(&spells, Some("Magic_"), Some("MagicCat_1"), Some(9), None, None, None);
         assert_eq!(results.len(), 1);
         assert_eq!(results[0].name, "Magic_47438");
     }
@@ -629,14 +681,14 @@ mod tests {
     #[test]
     fn test_spell_find_multi_all_filters_no_match() {
         let spells = sample_spells();
-        let results = spell_find_multi(&spells, Some("Magic_"), Some("MagicCat_1"), Some(13), None);
+        let results = spell_find_multi(&spells, Some("Magic_"), Some("MagicCat_1"), Some(13), None, None, None);
         assert_eq!(results.len(), 0); // MagicCat_1 の Lv 13 はない
     }
 
     #[test]
     fn test_spell_find_multi_no_filters() {
         let spells = sample_spells();
-        let results = spell_find_multi(&spells, None, None, None, None);
+        let results = spell_find_multi(&spells, None, None, None, None, None, None);
         assert_eq!(results.len(), 7); // すべてのスペルを返す
     }
 
@@ -699,7 +751,7 @@ mod tests {
     #[test]
     fn test_spell_find_multi_rank_only() {
         let spells = sample_spells();
-        let results = spell_find_multi(&spells, None, None, None, Some(2));
+        let results = spell_find_multi(&spells, None, None, None, Some(2), None, None);
         assert_eq!(results.len(), 1);
         assert_eq!(results[0].name, "FairyMagic_Rank2");
     }
@@ -707,7 +759,7 @@ mod tests {
     #[test]
     fn test_spell_find_multi_rank_and_school() {
         let spells = sample_spells();
-        let results = spell_find_multi(&spells, None, Some("妖精魔法"), None, Some(3));
+        let results = spell_find_multi(&spells, None, Some("妖精魔法"), None, Some(3), None, None);
         assert_eq!(results.len(), 1);
         assert_eq!(results[0].name, "FairyMagic_Rank3");
     }
@@ -715,7 +767,7 @@ mod tests {
     #[test]
     fn test_spell_find_multi_rank_and_name() {
         let spells = sample_spells();
-        let results = spell_find_multi(&spells, Some("Fairy"), None, None, Some(2));
+        let results = spell_find_multi(&spells, Some("Fairy"), None, None, Some(2), None, None);
         assert_eq!(results.len(), 1);
         assert_eq!(results[0].name, "FairyMagic_Rank2");
     }
@@ -724,7 +776,7 @@ mod tests {
     fn test_spell_find_multi_level_and_rank_level_priority() {
         let spells = sample_spells();
         // When both level and rank are specified, level takes priority
-        let results = spell_find_multi(&spells, None, None, Some(7), Some(2));
+        let results = spell_find_multi(&spells, None, None, Some(7), Some(2), None, None);
         assert_eq!(results.len(), 2); // Magic_16470 and Magic_88250 (level 7)
         // Should not include FairyMagic_Rank2
     }
@@ -732,7 +784,7 @@ mod tests {
     #[test]
     fn test_spell_find_multi_rank_no_match() {
         let spells = sample_spells();
-        let results = spell_find_multi(&spells, None, None, None, Some(99));
+        let results = spell_find_multi(&spells, None, None, None, Some(99), None, None);
         assert_eq!(results.len(), 0);
     }
 
@@ -750,5 +802,240 @@ mod tests {
         // Rank-based spells should return 0 for level extraction
         let rank_spell = &spells[5]; // FairyMagic_Rank2 (rank-based)
         assert_eq!(extract_spell_level(rank_spell), 0);
+    }
+
+    // ========== schoolVariant filtering tests ==========
+
+    #[test]
+    fn test_spell_find_by_school_variant_single_match() {
+        let _spells = sample_spells();
+        // Load real sample data which has schoolVariant field
+        let json_data = r#"[
+            {
+                "name": "Magic_WithVariant_1",
+                "school": "MagicCat_2",
+                "schoolVariant": "水・氷",
+                "Lv": { "kind": "value", "value": 5 },
+                "MP": { "kind": "value", "value": 20 },
+                "effect": "Test effect",
+                "対象": { "kind": "個別", "個別": "1体" }
+            },
+            {
+                "name": "Magic_WithVariant_2",
+                "school": "MagicCat_2",
+                "schoolVariant": "風",
+                "Lv": { "kind": "value", "value": 3 },
+                "MP": { "kind": "value", "value": 15 },
+                "effect": "Test effect 2",
+                "対象": { "kind": "個別", "個別": "1体" }
+            }
+        ]"#;
+        let spells_with_variant: Vec<crate::Spell> = serde_json::from_str(json_data).unwrap();
+        
+        let results = spell_find_by_school_variant(&spells_with_variant, "水・氷");
+        assert_eq!(results.len(), 1);
+        assert_eq!(results[0].name, "Magic_WithVariant_1");
+    }
+
+    #[test]
+    fn test_spell_find_by_school_variant_multiple_matches() {
+        let json_data = r#"[
+            {
+                "name": "Magic_Fire_1",
+                "school": "MagicCat_2",
+                "schoolVariant": "火",
+                "Lv": { "kind": "value", "value": 3 },
+                "MP": { "kind": "value", "value": 10 },
+                "effect": "Test",
+                "対象": { "kind": "個別", "個別": "1体" }
+            },
+            {
+                "name": "Magic_Fire_2",
+                "school": "MagicCat_2",
+                "schoolVariant": "火",
+                "Lv": { "kind": "value", "value": 5 },
+                "MP": { "kind": "value", "value": 15 },
+                "effect": "Test",
+                "対象": { "kind": "個別", "個別": "1体" }
+            }
+        ]"#;
+        let spells: Vec<crate::Spell> = serde_json::from_str(json_data).unwrap();
+        
+        let results = spell_find_by_school_variant(&spells, "火");
+        assert_eq!(results.len(), 2);
+        assert!(results.iter().all(|s| extract_school_variant(s) == Some("火")));
+    }
+
+    #[test]
+    fn test_spell_find_by_school_variant_no_match() {
+        let _spells = sample_spells();
+        // Use empty slice for testing no match scenario
+        let results = spell_find_by_school_variant(&[], "NonExistentVariant");
+        assert_eq!(results.len(), 0);
+    }
+
+    // ========== god filtering tests ==========
+
+    #[test]
+    fn test_spell_find_by_god_single_match() {
+        let json_data = r#"[
+            {
+                "name": "Divine_Spell_1",
+                "school": "神聖",
+                "schoolVariant": "特殊",
+                "god": "Deity_A",
+                "Lv": { "kind": "value", "value": 5 },
+                "MP": { "kind": "value", "value": 30 },
+                "effect": "Divine power",
+                "対象": { "kind": "個別", "個別": "1体" }
+            },
+            {
+                "name": "Divine_Spell_2",
+                "school": "神聖",
+                "schoolVariant": "特殊",
+                "god": "Deity_B",
+                "Lv": { "kind": "value", "value": 7 },
+                "MP": { "kind": "value", "value": 40 },
+                "effect": "Divine power 2",
+                "対象": { "kind": "個別", "個別": "1体" }
+            }
+        ]"#;
+        let spells: Vec<crate::Spell> = serde_json::from_str(json_data).unwrap();
+        
+        let results = spell_find_by_god(&spells, "Deity_A");
+        assert_eq!(results.len(), 1);
+        assert_eq!(results[0].name, "Divine_Spell_1");
+    }
+
+    #[test]
+    fn test_spell_find_by_god_multiple_matches() {
+        let json_data = r#"[
+            {
+                "name": "Divine_A_1",
+                "school": "神聖",
+                "god": "Deity_A",
+                "Lv": { "kind": "value", "value": 3 },
+                "MP": { "kind": "value", "value": 20 },
+                "effect": "Test",
+                "対象": { "kind": "個別", "個別": "1体" }
+            },
+            {
+                "name": "Divine_A_2",
+                "school": "神聖",
+                "god": "Deity_A",
+                "Lv": { "kind": "value", "value": 5 },
+                "MP": { "kind": "value", "value": 25 },
+                "effect": "Test",
+                "対象": { "kind": "個別", "個別": "1体" }
+            }
+        ]"#;
+        let spells: Vec<crate::Spell> = serde_json::from_str(json_data).unwrap();
+        
+        let results = spell_find_by_god(&spells, "Deity_A");
+        assert_eq!(results.len(), 2);
+        assert!(results.iter().all(|s| extract_god(s) == Some("Deity_A")));
+    }
+
+    #[test]
+    fn test_spell_find_by_god_no_match() {
+        let _spells = sample_spells();
+        // Use empty slice for testing no match scenario
+        let results = spell_find_by_god(&[], "NonExistentGod");
+        assert_eq!(results.len(), 0);
+    }
+
+    // ========== Combined schoolVariant/god filtering tests ==========
+
+    #[test]
+    fn test_spell_find_multi_school_variant_only() {
+        let json_data = r#"[
+            {
+                "name": "Variant_Spell",
+                "school": "MagicCat_2",
+                "schoolVariant": "水・氷",
+                "Lv": { "kind": "value", "value": 5 },
+                "MP": { "kind": "value", "value": 20 },
+                "effect": "Test",
+                "対象": { "kind": "個別", "個別": "1体" }
+            }
+        ]"#;
+        let spells: Vec<crate::Spell> = serde_json::from_str(json_data).unwrap();
+        
+        let results = spell_find_multi(&spells, None, None, None, None, Some("水・氷"), None);
+        assert_eq!(results.len(), 1);
+        assert_eq!(results[0].name, "Variant_Spell");
+    }
+
+    #[test]
+    fn test_spell_find_multi_god_only() {
+        let json_data = r#"[
+            {
+                "name": "Divine_Test",
+                "school": "神聖",
+                "god": "Deity_A",
+                "Lv": { "kind": "value", "value": 5 },
+                "MP": { "kind": "value", "value": 30 },
+                "effect": "Test",
+                "対象": { "kind": "個別", "個別": "1体" }
+            }
+        ]"#;
+        let spells: Vec<crate::Spell> = serde_json::from_str(json_data).unwrap();
+        
+        let results = spell_find_multi(&spells, None, None, None, None, None, Some("Deity_A"));
+        assert_eq!(results.len(), 1);
+        assert_eq!(results[0].name, "Divine_Test");
+    }
+
+    #[test]
+    fn test_spell_find_multi_school_variant_and_god() {
+        let json_data = r#"[
+            {
+                "name": "Divine_Special",
+                "school": "神聖",
+                "schoolVariant": "特殊",
+                "god": "Deity_A",
+                "Lv": { "kind": "value", "value": 7 },
+                "MP": { "kind": "value", "value": 50 },
+                "effect": "Special divine spell",
+                "対象": { "kind": "個別", "個別": "1体" }
+            },
+            {
+                "name": "Divine_Special_Wrong_God",
+                "school": "神聖",
+                "schoolVariant": "特殊",
+                "god": "Deity_B",
+                "Lv": { "kind": "value", "value": 7 },
+                "MP": { "kind": "value", "value": 50 },
+                "effect": "Another divine spell",
+                "対象": { "kind": "個別", "個別": "1体" }
+            }
+        ]"#;
+        let spells: Vec<crate::Spell> = serde_json::from_str(json_data).unwrap();
+        
+        let results = spell_find_multi(&spells, None, None, None, None, Some("特殊"), Some("Deity_A"));
+        assert_eq!(results.len(), 1);
+        assert_eq!(results[0].name, "Divine_Special");
+    }
+
+    #[test]
+    fn test_spell_find_multi_school_variant_no_match() {
+        let _spells = sample_spells();
+        // Use empty slice for testing no match scenario
+        let results = spell_find_multi(&[], None, None, None, None, Some("NonExistent"), None);
+        assert_eq!(results.len(), 0);
+    }
+
+    #[test]
+    fn test_extract_school_variant_returns_none_when_missing() {
+        let spells = sample_spells();
+        let spell_without_variant = &spells[0]; // Magic_47438 has no schoolVariant
+        assert_eq!(extract_school_variant(spell_without_variant), None);
+    }
+
+    #[test]
+    fn test_extract_god_returns_none_when_missing() {
+        let spells = sample_spells();
+        let spell_without_god = &spells[0]; // Magic_47438 has no god
+        assert_eq!(extract_god(spell_without_god), None);
     }
 }
