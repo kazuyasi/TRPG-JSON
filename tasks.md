@@ -2,22 +2,21 @@
 
 ## 🧭 Meta
 - Project: TRPG-JSON
-- Last Updated: 2025-12-28 JST (T040.5 completed; Phase 3.6 fully complete with schoolVariant/god filtering)
+- Last Updated: 2025-12-28 JST (T046 completed; Phase 3.7 UX improvements in progress)
 - Responsibilities: kazuyasi (specification/approval/git operations) / Claude (proposal/implementation/testing)
-- Status: Phase 2.5 COMPLETE (T013-T027). Phase 3 COMPLETE (T028-T037). Phase 3.5 COMPLETE (T038-1/2/final). Phase 3.6 COMPLETE (T038.6, T040, T040.5 all done). Spell system fully implemented with level/rank/schoolVariant/god filtering, multi-filter palette, chat palette generation, comprehensive test suite (275 total tests: 243 core + 32 app), complete documentation. Ready for commit.
+- Status: Phase 2.5 COMPLETE (T013-T027). Phase 3 COMPLETE (T028-T037). Phase 3.5 COMPLETE (T038-1/2/final). Phase 3.6 COMPLETE (T038.6, T040, T040.5). Phase 3.7 STARTED (T046 done). Enhanced error messages with filter condition display implemented. Test suite: 283 total tests (243 core + 40 app). Ready for commit.
 
 ---
 
 ## 🔥 Priority Now
-- **Phase 3.6: Advanced Filtering System** ✅ COMPLETE
-   - Completed: T038.6 - Level/Rank/God field specification documented
-   - Completed: T040 - Rank-based filtering implemented with 11 new tests
-   - Completed: T040.5 - schoolVariant/god filtering implemented with 16 new tests (2025-12-28)
-   - Status: All advanced filtering functionality complete, ready for commit
+- **Phase 3.7: UX Improvements** 🚧 IN PROGRESS
+   - Completed: T046 - Error message improvements with filter conditions display (2025-12-28)
+   - Next: T047 - Statistics command for dataset overview and distribution analysis
+   - Status: T046 complete and ready for commit
 
 ## 🚧 In Progress
 - Currently no active implementation tasks
-- Phase 3.6 complete; ready for git commit
+- T046 complete; ready for git commit
 
 ---
 
@@ -111,6 +110,9 @@
 ---
 
 ## ✅ Done (Recent 30)
+- [x] T046 Error message improvements: Display applied filter conditions — 2025-12-28
+         - Description: Enhanced error messages to display applied filter conditions for better debugging. Implemented format_spell_filter_conditions() and format_monster_filter_conditions() helper functions. Updated error handling in handle_spell_find_command(), handle_spell_list_command(), handle_spell_palette_command(), handle_monster_find_command(), handle_monster_list_command(), and handle_select_command(). Added 8 new unit tests (4 spell + 4 monster filter formatting tests). All 283 tests passing (243 core + 40 app). Release build successful. Error messages now show which filters were applied when no matches are found, significantly improving UX during data addition work.
+
 - [x] T040.5 Spell schoolVariant/god query support: Implement advanced filtering — 2025-12-28
          - Description: Implemented schoolVariant and god filtering for spell queries with 16 new tests (12 unit + 4 integration). Added spell_find_by_school_variant() and spell_find_by_god() functions in query.rs. Extended spell_find_multi() from 5 to 7 parameters (added schoolVariant, god). Added -v/--school-variant and -g/--god CLI flags to spell find/palette commands. Updated README.md with comprehensive filter examples and options table. All 275 tests passing (243 core + 32 app). Release build successful. Completes DESIGN_GUIDE.md specification implementation.
 
@@ -289,13 +291,13 @@
 ## 📋 Future Phases (Post Phase 3)
 
 ### Phase 3.7: UX Improvements
-- [ ] T046 Error message improvements: Display applied filter conditions
-      - Status: Backlog
+- [x] T046 Error message improvements: Display applied filter conditions — 2025-12-28
+      - Status: COMPLETE ✅
       - Owner: Claude
       - Priority: Medium (improves user experience during data addition work)
       - Task: Enhance error messages to show which filters were applied
       
-      **Current behavior:**
+      **Previous behavior:**
       ```
       エラー: マッチするスペルが見つかりません
       ```
@@ -303,23 +305,31 @@
       **Improved behavior:**
       ```
       エラー: 以下の条件でマッチするスペルが見つかりません
+        - name: "ファイア"
+        - level: 3
         - schoolVariant: "特殊"
         - god: "神名"
       ```
       
       **Implementation scope:**
-      1. Update `handle_spell_find_command()` error handling
-      2. Update `handle_spell_palette_command()` error handling
-      3. Update `handle_monster_find_command()` error handling (if applicable)
-      4. Add helper function `format_filter_conditions()` for consistent formatting
-      5. Add unit tests for error message formatting
+      1. ✅ Add `format_spell_filter_conditions()` helper function
+      2. ✅ Add `format_monster_filter_conditions()` helper function
+      3. ✅ Update `handle_spell_find_command()` error handling
+      4. ✅ Update `handle_spell_list_command()` error handling
+      5. ✅ Update `handle_spell_palette_command()` error handling
+      6. ✅ Update `handle_monster_find_command()` error handling
+      7. ✅ Update `handle_monster_list_command()` error handling
+      8. ✅ Update `handle_select_command()` error handling
+      9. ✅ Add 8 unit tests for error message formatting (4 spell + 4 monster)
+      10. ✅ All 283 tests passing (243 core + 40 app)
+      11. ✅ Release build successful
       
-      **Estimated effort:** Small (1-2 hours)
+      **Completed:** 2025-12-28
       
       **Benefits:**
-      - Easier debugging when queries return no results
-      - Better UX when working with complex filter combinations
-      - Particularly helpful during data addition work
+      - ✅ Easier debugging when queries return no results
+      - ✅ Better UX when working with complex filter combinations
+      - ✅ Particularly helpful during spell data addition work (currently 30% complete)
 
 - [ ] T047 Statistics command: Dataset overview and distribution analysis
       - Status: Backlog

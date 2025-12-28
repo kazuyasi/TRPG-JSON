@@ -297,7 +297,8 @@ fn handle_find_command(data_paths: &[String], name: &str, level: Option<i32>, ca
     // 結果を処理
     match results.len() {
         0 => {
-            eprintln!("エラー: マッチするモンスターが見つかりません");
+            let error_msg = format_monster_filter_conditions(Some(name), level, category);
+            eprintln!("エラー: {}", error_msg);
             process::exit(1);
         }
         1 => {
@@ -341,7 +342,8 @@ fn handle_list_command(data_paths: &[String], pattern: &str) {
     // 結果を処理
     match results.len() {
         0 => {
-            eprintln!("エラー: マッチするモンスターが見つかりません");
+            let error_msg = format_monster_filter_conditions(Some(pattern), None, None);
+            eprintln!("エラー: {}", error_msg);
             process::exit(1);
         }
         1 => {
@@ -398,7 +400,8 @@ fn handle_select_command(
     // 結果を処理
     match results.len() {
         0 => {
-            eprintln!("エラー: マッチするモンスターが見つかりません");
+            let error_msg = format_monster_filter_conditions(name, level, category);
+            eprintln!("エラー: {}", error_msg);
             process::exit(1);
         }
         _ => {
@@ -605,6 +608,72 @@ fn find_config_file() -> String {
 }
 
 // ============================================================================
+// Helper Functions - Filter Condition Formatting
+// ============================================================================
+
+/// スペルのフィルター条件を整形して文字列で返す
+fn format_spell_filter_conditions(
+    name: Option<&str>,
+    school: Option<&str>,
+    level: Option<i32>,
+    rank: Option<i32>,
+    school_variant: Option<&str>,
+    god: Option<&str>,
+) -> String {
+    let mut conditions = Vec::new();
+    
+    if let Some(n) = name {
+        conditions.push(format!("  - name: \"{}\"", n));
+    }
+    if let Some(s) = school {
+        conditions.push(format!("  - school: \"{}\"", s));
+    }
+    if let Some(l) = level {
+        conditions.push(format!("  - level: {}", l));
+    }
+    if let Some(r) = rank {
+        conditions.push(format!("  - rank: {}", r));
+    }
+    if let Some(v) = school_variant {
+        conditions.push(format!("  - schoolVariant: \"{}\"", v));
+    }
+    if let Some(g) = god {
+        conditions.push(format!("  - god: \"{}\"", g));
+    }
+    
+    if conditions.is_empty() {
+        String::new()
+    } else {
+        format!("以下の条件でマッチするスペルが見つかりません\n{}", conditions.join("\n"))
+    }
+}
+
+/// モンスターのフィルター条件を整形して文字列で返す
+fn format_monster_filter_conditions(
+    name: Option<&str>,
+    level: Option<i32>,
+    category: Option<&str>,
+) -> String {
+    let mut conditions = Vec::new();
+    
+    if let Some(n) = name {
+        conditions.push(format!("  - name: \"{}\"", n));
+    }
+    if let Some(l) = level {
+        conditions.push(format!("  - level: {}", l));
+    }
+    if let Some(c) = category {
+        conditions.push(format!("  - category: \"{}\"", c));
+    }
+    
+    if conditions.is_empty() {
+        String::new()
+    } else {
+        format!("以下の条件でマッチするモンスターが見つかりません\n{}", conditions.join("\n"))
+    }
+}
+
+// ============================================================================
 // Spell Command Handlers
 // ============================================================================
 
@@ -640,7 +709,8 @@ fn handle_spell_find_command(
     // 結果を処理
     match results.len() {
         0 => {
-            eprintln!("エラー: マッチするスペルが見つかりません");
+            let error_msg = format_spell_filter_conditions(Some(name), school, level, rank, school_variant, god);
+            eprintln!("エラー: {}", error_msg);
             process::exit(1);
         }
         1 => {
@@ -684,7 +754,8 @@ fn handle_spell_list_command(data_paths: &[String], pattern: &str) {
     // 結果を処理
     match results.len() {
         0 => {
-            eprintln!("エラー: マッチするスペルが見つかりません");
+            let error_msg = format_spell_filter_conditions(Some(pattern), None, None, None, None, None);
+            eprintln!("エラー: {}", error_msg);
             process::exit(1);
         }
         1 => {
@@ -751,7 +822,8 @@ fn handle_spell_palette_command(
 
     match results.len() {
         0 => {
-            eprintln!("エラー: マッチするスペルが見つかりません");
+            let error_msg = format_spell_filter_conditions(name, school, level, rank, school_variant, god);
+            eprintln!("エラー: {}", error_msg);
             process::exit(1);
         }
         _ => {
@@ -1364,6 +1436,77 @@ mod tests {
         if !results.is_empty() {
             assert!(results.iter().any(|s| s.name == "Magic_65432"));
         }
+    }
+
+    // ========================================================================
+    // Error Message Formatting Tests (T046)
+    // ========================================================================
+
+    #[test]
+    fn test_format_spell_filter_conditions_single_name() {
+        let msg = format_spell_filter_conditions(Some("TestSpell"), None, None, None, None, None);
+        assert!(msg.contains("以下の条件でマッチするスペルが見つかりません"));
+        assert!(msg.contains("name: \"TestSpell\""));
+    }
+
+    #[test]
+    fn test_format_spell_filter_conditions_multiple_filters() {
+        let msg = format_spell_filter_conditions(
+            Some("TestSpell"),
+            Some("MagicCat_1"),
+            Some(3),
+            None,
+            Some("特殊"),
+            Some("神名")
+        );
+        assert!(msg.contains("以下の条件でマッチするスペルが見つかりません"));
+        assert!(msg.contains("name: \"TestSpell\""));
+        assert!(msg.contains("school: \"MagicCat_1\""));
+        assert!(msg.contains("level: 3"));
+        assert!(msg.contains("schoolVariant: \"特殊\""));
+        assert!(msg.contains("god: \"神名\""));
+    }
+
+    #[test]
+    fn test_format_spell_filter_conditions_rank_only() {
+        let msg = format_spell_filter_conditions(None, None, None, Some(5), None, None);
+        assert!(msg.contains("以下の条件でマッチするスペルが見つかりません"));
+        assert!(msg.contains("rank: 5"));
+    }
+
+    #[test]
+    fn test_format_spell_filter_conditions_empty() {
+        let msg = format_spell_filter_conditions(None, None, None, None, None, None);
+        assert!(msg.is_empty());
+    }
+
+    #[test]
+    fn test_format_monster_filter_conditions_single_name() {
+        let msg = format_monster_filter_conditions(Some("TestMonster"), None, None);
+        assert!(msg.contains("以下の条件でマッチするモンスターが見つかりません"));
+        assert!(msg.contains("name: \"TestMonster\""));
+    }
+
+    #[test]
+    fn test_format_monster_filter_conditions_multiple_filters() {
+        let msg = format_monster_filter_conditions(Some("TestMonster"), Some(6), Some("蛮族"));
+        assert!(msg.contains("以下の条件でマッチするモンスターが見つかりません"));
+        assert!(msg.contains("name: \"TestMonster\""));
+        assert!(msg.contains("level: 6"));
+        assert!(msg.contains("category: \"蛮族\""));
+    }
+
+    #[test]
+    fn test_format_monster_filter_conditions_level_only() {
+        let msg = format_monster_filter_conditions(None, Some(10), None);
+        assert!(msg.contains("以下の条件でマッチするモンスターが見つかりません"));
+        assert!(msg.contains("level: 10"));
+    }
+
+    #[test]
+    fn test_format_monster_filter_conditions_empty() {
+        let msg = format_monster_filter_conditions(None, None, None);
+        assert!(msg.is_empty());
     }
 }
 
