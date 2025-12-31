@@ -304,13 +304,12 @@ trpg-json/
 │   └── Cargo.toml
 ├── app/
 │   ├── src/
-│   │   ├── main.rs
+│   │   ├── main.rs            # Entry point & routing
 │   │   ├── commands/
 │   │   │   ├── mod.rs
-│   │   │   ├── find.rs        # find handler
-│   │   │   ├── list.rs        # list handler
-│   │   │   └── select.rs      # select handler
-│   │   └── config.rs          # Load config
+│   │   │   ├── monster.rs     # Monster command handlers
+│   │   │   └── spell.rs       # Spell command handlers
+│   │   └── utils.rs           # Shared I/O & UI utilities
 │   └── Cargo.toml
 ├── config/
 │   └── default.toml           # Default configuration
@@ -498,6 +497,8 @@ gm find "Monster Name" -l 3                 # Search System A monsters (default)
 
 ### Current Implementation
 - **CLI entry point**: `app/src/main.rs`
+- **Command handlers**: `app/src/commands/{monster,spell}.rs`
+- **Utilities**: `app/src/utils.rs` (I/O, formatting)
 - **Business logic**: `core/src/query.rs` (search functions)
 - **File I/O**: `core/src/io.rs` (load/save operations)
 - **Configuration**: `core/src/config.rs` (config parsing)

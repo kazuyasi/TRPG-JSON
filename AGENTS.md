@@ -30,7 +30,10 @@ cargo run --bin gm -- --help  # Run CLI
 ## Architecture
 - Workspace: `trpg-json/Cargo.toml` with `core` and `app` members
 - Core library: data models, I/O, business logic
-- CLI app: clap-based interface, generates `gm` binary
+- CLI app (`app`):
+  - `main.rs`: Entry point and routing
+  - `commands/`: Command handlers (monster, spell)
+  - `utils.rs`: Common I/O and UI utilities
 - Main data: `data/sample/monsters_sample.json`
 
 ## Data Models
