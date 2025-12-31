@@ -380,32 +380,29 @@ mod tests {
     }
 
     #[test]
-    #[ignore] // 実際のファイル検証用、通常のテストでは実行しない
-    fn test_load_actual_monsters_json() {
-        // 実際のmonsters.jsonファイルを読み込んでテスト
+    fn test_load_sample_monsters_json() {
+        // サンプルmonsters.jsonファイルを読み込んでテスト
         use std::fs;
 
         // ファイルが存在するかチェック
-        let file_path = "../../data/SW2.5/monsters.json";
+        let file_path = "../../data/sample/monsters_sample.json";
         if !std::path::Path::new(file_path).exists() {
-            println!("monsters.json not found at {}, skipping test", file_path);
+            println!("monsters_sample.json not found at {}, skipping test", file_path);
             return;
         }
 
         let json_content = fs::read_to_string(file_path)
-            .expect("Failed to read monsters.json");
+            .expect("Failed to read monsters_sample.json");
 
         // JSONをパース
         match serde_json::from_str::<Vec<Monster>>(&json_content) {
             Ok(monsters) => {
                 assert!(!monsters.is_empty(), "No monsters loaded");
-                println!("Successfully loaded {} monsters from monsters.json", monsters.len());
+                println!("Successfully loaded {} monsters from monsters_sample.json", monsters.len());
                 println!("First monster: {}", monsters[0].name);
             }
             Err(e) => {
-                println!("Failed to deserialize monsters.json: {}", e);
-                println!("This likely means the JSON data still needs cleaning");
-                // テストは失敗させずに情報だけ出力
+                panic!("Failed to deserialize monsters_sample.json: {}", e);
             }
         }
     }
