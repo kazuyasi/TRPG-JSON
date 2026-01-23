@@ -1,0 +1,16 @@
+{
+  "instructions": [
+    "AGENTS.md",
+    "DESIGN_GUIDE.md",
+    "tasks.md",
+    "README.md",
+    "rust/Cargo.toml",
+    "rust/core/Cargo.toml",
+    "rust/app/Cargo.toml"
+  ],
+  "permission": {
+    "edit": "ask",
+    "write": "ask",
+    "bash": "ask"
+  }
+}
