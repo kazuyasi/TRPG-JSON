@@ -146,8 +146,20 @@ impl DataTransformer {
         // AJ列（35）: data
         row[35] = Some(monster.data.clone());
 
-         // AM列（38）: 共通特殊能力（奇数行）
-         if !monster.common_abilities.is_empty() {
+         // AM列（38）: 打撃点と共通特殊能力（奇数行）
+         if let Some(damage) = part.damage {
+            let prefix = if damage == 0 {
+                "2d".to_string()
+            } else {
+                format!("2d{:+}", damage)
+            };
+
+            if !monster.common_abilities.is_empty() {
+                row[38] = Some(format!("{}、{}", prefix, monster.common_abilities));
+            } else {
+                row[38] = Some(prefix);
+            }
+         } else if !monster.common_abilities.is_empty() {
              row[38] = Some(monster.common_abilities.clone());
          }
 
@@ -266,6 +278,7 @@ mod tests {
         assert_eq!(odd_row.values[0], Some("★テストモンスター".to_string()));
         assert_eq!(odd_row.values[11], Some("48".to_string()));
         assert_eq!(odd_row.values[15], Some("75".to_string()));
+        assert_eq!(odd_row.values[38], Some("2d+6、飛行".to_string()));
 
         // 偶数行の確認
         let even_row = &rows[1];
@@ -334,6 +347,7 @@ mod tests {
         assert_eq!(part1_odd.row_number, 3);
         assert_eq!(part1_odd.values[0], Some("★複合型モンスター\n(頭部)".to_string()));
         assert_eq!(part1_odd.values[19], Some("15".to_string())); // 先制値は最初のパートのみ
+        assert_eq!(part1_odd.values[38], Some("2d+6、強靭な皮膚".to_string()));
 
         // 最初のパート（偶数行）
         let part1_even = &rows[1];
@@ -346,6 +360,7 @@ mod tests {
         assert_eq!(part2_odd.row_number, 5);
         assert_eq!(part2_odd.values[0], Some("複合型モンスター\n(胴体)".to_string())); // ★なし
         assert_eq!(part2_odd.values[19], Some("-".to_string())); // 先制値は2番目以降 "-"
+        assert_eq!(part2_odd.values[38], Some("2d+8、強靭な皮膚".to_string()));
 
         // 次のパート（偶数行）
         let part2_even = &rows[3];
@@ -376,7 +391,7 @@ mod tests {
                     "コア": true,
                     "命中力": 14,
                     "回避力": 14,
-                    "打撃点": 6,
+                    "打撃点": 0,
                     "部位数": 1,
                     "部位特殊能力": "",
                     "防護点": 5
@@ -398,6 +413,7 @@ mod tests {
         let odd_row = &rows[0];
         // MP が -1 の場合、"-" が出力されることを確認
         assert_eq!(odd_row.values[15], Some("-".to_string()));
+        assert_eq!(odd_row.values[38], Some("2d".to_string()));
     }
 
     #[test]
@@ -422,7 +438,7 @@ mod tests {
                     "コア": true,
                     "命中力": 13,
                     "回避力": 13,
-                    "打撃点": 6,
+                    "打撃点": -2,
                     "部位数": 1,
                     "部位特殊能力": "",
                     "防護点": 4
@@ -445,6 +461,7 @@ mod tests {
         // 移動力と説明を含む形式をチェック
         assert_eq!(odd_row.values[27], Some("18".to_string())); // moveon（説明なし）
         assert_eq!(odd_row.values[29], Some("20\n(飛行)".to_string())); // movein（説明あり）
+        assert_eq!(odd_row.values[38], Some("2d-2、飛行".to_string()));
     }
 
     #[test]
