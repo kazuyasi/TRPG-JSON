@@ -1,6 +1,6 @@
+use crate::utils;
 use std::process;
 use trpg_json_core::{export, io, query, stats, Monster};
-use crate::utils;
 
 /// 検索コマンドのハンドラ
 pub fn handle_find(data_paths: &[String], name: &str, level: Option<i32>, category: Option<&str>) {
@@ -18,12 +18,14 @@ pub fn handle_find(data_paths: &[String], name: &str, level: Option<i32>, catego
         }
         1 => {
             // 1件の場合は JSON で出力
-            utils::save_json_stdout_or_exit(&results.iter().map(|&m| m.clone()).collect::<Vec<_>>());
+            utils::save_json_stdout_or_exit(
+                &results.iter().map(|&m| m.clone()).collect::<Vec<_>>(),
+            );
         }
         n => {
             // 複数件の場合は件数を出力
             println!("{} 件のモンスターが見つかりました", n);
-            
+
             // 完全一致するモンスターがあればそのデータを出力
             if let Some(exact_match) = results.iter().find(|m| m.name == name) {
                 let exact_monster = (*exact_match).clone();
@@ -49,7 +51,9 @@ pub fn handle_list(data_paths: &[String], pattern: &str) {
         }
         1 => {
             // 1件の場合は JSON で出力
-            utils::save_json_stdout_or_exit(&results.iter().map(|&m| m.clone()).collect::<Vec<_>>());
+            utils::save_json_stdout_or_exit(
+                &results.iter().map(|&m| m.clone()).collect::<Vec<_>>(),
+            );
         }
         n => {
             // 複数件の場合は名前の一覧を出力
@@ -57,10 +61,13 @@ pub fn handle_list(data_paths: &[String], pattern: &str) {
                 if i > 0 {
                     println!();
                 }
-                println!("Lv.{:2} {} [{}]", monster.level, monster.name, monster.category);
+                println!(
+                    "Lv.{:2} {} [{}]",
+                    monster.level, monster.name, monster.category
+                );
             }
             println!("\n計 {} 件のモンスターが見つかりました", n);
-            
+
             // 完全一致するモンスターがあればそのデータを出力
             if let Some(exact_match) = results.iter().find(|m| m.name == pattern) {
                 let exact_monster = (*exact_match).clone();
@@ -92,14 +99,16 @@ pub fn handle_select(
             process::exit(1);
         }
         _ => {
-            let json_results: Vec<_> = results.iter().map(|&m| m.clone()).collect();
+            let json_results = select_exact_match_if_available(results, name);
 
             // エクスポート機能が指定されている場合
             if let Some(fmt) = export_format {
                 if let Some(output) = output_dest {
                     export_results(&json_results, fmt, output);
                 } else {
-                    eprintln!("エラー: --export を使用する場合は --output で出力先を指定してください");
+                    eprintln!(
+                        "エラー: --export を使用する場合は --output で出力先を指定してください"
+                    );
                     process::exit(1);
                 }
             } else {
@@ -108,6 +117,16 @@ pub fn handle_select(
             }
         }
     }
+}
+
+fn select_exact_match_if_available(results: Vec<&Monster>, name: Option<&str>) -> Vec<Monster> {
+    if let Some(target_name) = name {
+        if let Some(exact_match) = results.iter().find(|m| m.name == target_name) {
+            return vec![(*exact_match).clone()];
+        }
+    }
+
+    results.into_iter().cloned().collect()
 }
 
 /// エクスポート処理を実行
@@ -139,7 +158,11 @@ fn export_results(monsters: &[Monster], format: &str, output: &str) {
     // エクスポート実行
     match exporter.export(monsters, &config) {
         Ok(()) => {
-            println!("成功: {} 件のモンスターを {} にエクスポートしました", monsters.len(), output);
+            println!(
+                "成功: {} 件のモンスターを {} にエクスポートしました",
+                monsters.len(),
+                output
+            );
         }
         Err(e) => {
             eprintln!("エラー: エクスポートに失敗しました: {}", e);
@@ -173,7 +196,10 @@ pub fn handle_add(data_paths: &[String], file: &str) {
     // 重複チェック
     if let Some(_duplicate) = query::find_by_exact_name(&monsters, &new_monster.name) {
         // 確認ダイアログを表示
-        if !utils::confirm_action(&format!("\"{}\" という名前のモンスターは既に存在します。上書きしますか？", new_monster.name)) {
+        if !utils::confirm_action(&format!(
+            "\"{}\" という名前のモンスターは既に存在します。上書きしますか？",
+            new_monster.name
+        )) {
             eprintln!("キャンセルされました");
             process::exit(1);
         }
@@ -201,7 +227,10 @@ pub fn handle_delete(data_paths: &[String], name: &str) {
 
     // 完全一致で検索
     if query::find_by_exact_name(&monsters, name).is_none() {
-        eprintln!("エラー: \"{}\" という名前のモンスターが見つかりません", name);
+        eprintln!(
+            "エラー: \"{}\" という名前のモンスターが見つかりません",
+            name
+        );
         process::exit(1);
     }
 
@@ -229,7 +258,75 @@ pub fn handle_stats(data_paths: &[String]) {
 
     // 統計情報を計算
     let stats = stats::MonsterStats::calculate(&monsters);
-    
+
     // 整形して出力
     print!("{}", stats.format());
+}
+
+#[cfg(test)]
+mod tests {
+    use super::select_exact_match_if_available;
+    use std::collections::HashMap;
+    use trpg_json_core::{Monster, Part};
+
+    fn sample_monster(name: &str, level: i32, category: &str) -> Monster {
+        Monster {
+            category: category.to_string(),
+            level,
+            revision: 2.5,
+            data: "TEST".to_string(),
+            illust: String::new(),
+            movein: -1,
+            movein_description: String::new(),
+            moveon: -1,
+            moveon_description: String::new(),
+            name: name.to_string(),
+            part: vec![Part {
+                hp: Some(10),
+                mp: -1,
+                name: String::new(),
+                core: Some(true),
+                hit_rate: Some(5),
+                dodge: Some(5),
+                damage: Some(5),
+                part_count: 1,
+                special_abilities: String::new(),
+                armor: 0,
+            }],
+            notes: String::new(),
+            initiative: 0,
+            common_abilities: String::new(),
+            weakness: String::new(),
+            weakness_value: 0,
+            life_resistance: 0,
+            fame: 0,
+            mental_resistance: 0,
+            extra: HashMap::new(),
+        }
+    }
+
+    #[test]
+    fn select_returns_only_exact_match_when_available() {
+        let goblin = sample_monster("ゴブリン", 2, "蛮族");
+        let goblin_scout = sample_monster("ゴブリンスカウト", 2, "蛮族");
+        let results = vec![&goblin, &goblin_scout];
+
+        let selected = select_exact_match_if_available(results, Some("ゴブリン"));
+
+        assert_eq!(selected.len(), 1);
+        assert_eq!(selected[0].name, "ゴブリン");
+    }
+
+    #[test]
+    fn select_keeps_partial_matches_when_no_exact_match_exists() {
+        let goblin = sample_monster("ゴブリン", 2, "蛮族");
+        let goblin_scout = sample_monster("ゴブリンスカウト", 2, "蛮族");
+        let results = vec![&goblin, &goblin_scout];
+
+        let selected = select_exact_match_if_available(results, Some("ゴブ"));
+
+        assert_eq!(selected.len(), 2);
+        assert_eq!(selected[0].name, "ゴブリン");
+        assert_eq!(selected[1].name, "ゴブリンスカウト");
+    }
 }
