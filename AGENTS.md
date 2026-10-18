@@ -29,8 +29,8 @@ cargo run --bin gm -- --help  # Run CLI
 
 ## Roles and Responsibilities
 
-- **Operator:** You, the user, act as the Operator. You are responsible for providing instructions, supervising tasks, and managing the project's direction and git operations.
-- **AI Agent:** I, the AI, am responsible for implementation, testing, and documentation according to the Operator's instructions. I will not perform any git operations (commit, push, etc.).
+- **Operator:** You, the user, act as the Operator. You are responsible for providing instructions, supervising tasks, and managing the project's direction, the `main` branch, merges into `main`, and pushes.
+- **AI Agent:** I, the AI, am responsible for implementation, testing, and documentation according to the Operator's instructions. I may perform git operations (creating branches, committing, etc.) only on branches other than `main`. I will never commit to or modify the `main` branch directly; before starting work, I will create or switch to a working branch.
 
 ## AI Behavior and Ethics Policy (Anthropic AI Constitution)
 
