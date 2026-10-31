@@ -13,7 +13,7 @@ const PROMPT: &str = "検索> ";
 /// 検索バーを描画する。フォーカス中は端末のカーソルを入力位置に置く（IME の変換窓もそこに出る）
 pub fn draw(frame: &mut Frame, area: Rect, app: &App) {
     let focused = app.focus == Focus::Search;
-    let query = app.monster_view.query.as_str();
+    let query = app.view().query.as_str();
 
     let prompt_style = if focused {
         Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)

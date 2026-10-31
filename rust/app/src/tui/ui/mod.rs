@@ -74,12 +74,9 @@ fn draw_header(frame: &mut Frame, area: Rect, app: &App) {
     );
 }
 
-/// ヘッダー右端の件数表示（検索のあるタブは「総件数中 ヒット件数」）
+/// ヘッダー右端の件数表示（「総件数中 ヒット件数」）
 fn count_label(app: &App) -> String {
-    match app.tab {
-        Tab::Monster => format!("{}件中 {}件", app.total_count(), app.hit_count()),
-        Tab::Spell => format!("{}件", app.total_count()),
-    }
+    format!("{}件中 {}件", app.total_count(), app.hit_count())
 }
 
 /// 枠付きペイン。フォーカス中は枠を強調する
@@ -92,14 +89,8 @@ fn pane_block(title: &str, focused: bool) -> Block<'_> {
     Block::default().borders(Borders::ALL).border_style(style).title(title)
 }
 
+/// 本文: 検索バーの下に結果リスト（左）と詳細（右）。モンスター・スペルとも同じ配置
 fn draw_body(frame: &mut Frame, area: Rect, app: &App) {
-    match app.tab {
-        Tab::Monster => draw_monster_tab(frame, area, app),
-        Tab::Spell => draw_spell_tab(frame, area, app),
-    }
-}
-
-fn draw_monster_tab(frame: &mut Frame, area: Rect, app: &App) {
     let [search_area, panes] = Layout::vertical([Constraint::Length(1), Constraint::Min(0)]).areas(area);
     search::draw(frame, search_area, app);
 
@@ -107,23 +98,6 @@ fn draw_monster_tab(frame: &mut Frame, area: Rect, app: &App) {
         Layout::horizontal([Constraint::Percentage(40), Constraint::Percentage(60)]).areas(panes);
     list::draw(frame, list_area, app);
     detail::draw(frame, detail_area, app);
-}
-
-fn draw_spell_tab(frame: &mut Frame, area: Rect, app: &App) {
-    let lines = if app.spells.is_empty() {
-        vec![Line::from(Span::styled(
-            "スペルデータなし",
-            Style::default().fg(Color::DarkGray),
-        ))]
-    } else {
-        vec![
-            Line::from(format!("スペルデータ {} 件を読み込みました。", app.spells.len())),
-            Line::from(""),
-            Line::from("検索・一覧・詳細表示は今後のバージョンで追加されます。"),
-        ]
-    };
-    let block = Block::default().borders(Borders::ALL).title(" スペル ");
-    frame.render_widget(Paragraph::new(lines).block(block).wrap(Wrap { trim: false }), area);
 }
 
 fn draw_status(frame: &mut Frame, area: Rect, app: &App) {
@@ -145,8 +119,7 @@ fn draw_status(frame: &mut Frame, area: Rect, app: &App) {
 /// 現在のフォーカスで使える主要キー
 fn help_text(app: &App) -> &'static str {
     match (app.tab, app.focus) {
-        (Tab::Spell, _) => "1/2:タブ切替  q:終了",
-        (Tab::Monster, Focus::Search) => {
+        (_, Focus::Search) => {
             "文字入力:名前で絞り込み  Enter/Esc:リストへ  Ctrl-u:クリア  ↑↓:選択  Ctrl-c:終了"
         }
         // 幅 80 桁に収まるよう短縮表記にしている
@@ -155,6 +128,12 @@ fn help_text(app: &App) -> &'static str {
         }
         (Tab::Monster, Focus::Detail) => {
             "↑↓/jk:部位選択  c:ココフォリア  PgUp/Dn/g/G:本文  Tab:ペイン  Esc:リスト  q:終了"
+        }
+        (Tab::Spell, Focus::List) => {
+            "↑↓/jk:選択  y:パレット  Y:全件  PgUp/Dn:頁  /:検索  Tab:ペイン  1/2:タブ  q:終了"
+        }
+        (Tab::Spell, Focus::Detail) => {
+            "↑↓/jk/PgUp/Dn/g/G:本文  y:パレット  Y:全件  Tab:ペイン  Esc:リスト  q:終了"
         }
     }
 }
@@ -284,7 +263,83 @@ mod tests {
     fn test_render_spell_tab_without_data() {
         let app = App { tab: Tab::Spell, ..App::default() };
         let rows = render(&app, 80, 24);
-        assert!(contains(&rows, "スペルデータなし"));
+        assert!(contains(&rows, "0件中 0件"));
+        assert!(contains(&rows, "スペルデータがありません"));
+    }
+
+    fn spell_app() -> App {
+        use crate::tui::format::tests::{full_spell, spell};
+        use serde_json::json;
+        let mut a = full_spell("テストスペル", json!({"kind": "value", "value": 9}));
+        a.extra.insert("形状".into(), json!("貫通"));
+        a.extra.insert("属性".into(), json!("精神効果"));
+        let b = spell(
+            "サンプル呪文",
+            "MagicCat_2",
+            json!({"Lv": {"kind": "rank", "rank": 2}, "schoolVariant": "特殊", "god": "神名"}),
+        );
+        App::new(Vec::new(), vec![a, b], Tab::Spell)
+    }
+
+    #[test]
+    fn test_render_spell_tab() {
+        let app = spell_app();
+        for width in [80, 120] {
+            let rows = render(&app, width, 24);
+            assert!(contains(&rows, "2件中 2件"), "{width}: {rows:#?}");
+            assert!(contains(&rows, "検索>"));
+            // 結果リスト（Lv 列・系統列）
+            assert!(contains(&rows, "系統"));
+            assert!(contains(&rows, "> 9"), "{width}: {rows:#?}");
+            assert!(contains(&rows, "R2"));
+            assert!(contains(&rows, "MagicCat_2"));
+            // 詳細ペイン
+            assert!(contains(&rows, "Lv.9 MagicCat_1"));
+            assert!(contains(&rows, "MP 5"));
+            assert!(contains(&rows, "時間 一瞬"));
+            assert!(contains(&rows, "対象 1体"));
+            assert!(contains(&rows, "射程 術者(30m)"));
+            assert!(contains(&rows, "形状 貫通"));
+            assert!(contains(&rows, "抵抗 半減"));
+            assert!(contains(&rows, "属性 精神効果"));
+            assert!(contains(&rows, "【効果】"));
+            assert!(contains(&rows, "テスト効果"));
+            // チャットパレットはプレビューしない
+            assert!(!contains(&rows, "行使修正"));
+            assert!(contains(&rows, "y:パレット"));
+        }
+    }
+
+    #[test]
+    fn test_render_spell_detail_with_variant_and_missing_fields() {
+        let mut app = spell_app();
+        crate::tui::update::update(&mut app, crate::tui::action::Action::Down);
+        let rows = render(&app, 120, 24);
+        assert!(contains(&rows, "ランク2 MagicCat_2 [特殊] 神名"), "{rows:#?}");
+        assert!(contains(&rows, "MP - 時間 -"));
+        assert!(!contains(&rows, "【効果】"));
+    }
+
+    #[test]
+    fn test_render_spell_no_hits_shows_conditions() {
+        let mut app = spell_app();
+        app.spell_view.query = "該当なし".into();
+        app.refresh_spell_hits();
+        let rows = render(&app, 80, 24);
+        assert!(contains(&rows, "2件中 0件"));
+        assert!(contains(&rows, "以下の条件でマッチする"));
+        assert!(contains(&rows, "name: \"該当なし\""));
+    }
+
+    #[test]
+    fn test_render_spell_search_query() {
+        let mut app = spell_app();
+        app.focus = Focus::Search;
+        app.spell_view.query = "テスト".into();
+        app.refresh_spell_hits();
+        let rows = render(&app, 80, 24);
+        assert!(contains(&rows, "検索> テスト"));
+        assert!(contains(&rows, "2件中 1件"));
     }
 
     #[test]
@@ -300,11 +355,15 @@ mod tests {
     #[test]
     fn test_help_line_fits_80_columns() {
         let mut app = sample_app();
-        for focus in [Focus::List, Focus::Detail, Focus::Search] {
-            app.focus = focus;
-            let width = Line::from(help_text(&app)).width();
-            assert!(width <= 80, "{focus:?}: {width}");
+        for tab in Tab::ALL {
+            app.tab = tab;
+            for focus in [Focus::List, Focus::Detail, Focus::Search] {
+                app.focus = focus;
+                let width = Line::from(help_text(&app)).width();
+                assert!(width <= 80, "{tab:?} {focus:?}: {width}");
+            }
         }
+        app.tab = Tab::Monster;
         app.focus = Focus::Detail;
         let rows = render(&app, 80, 24);
         assert!(contains(&rows, "c:ココフォリア"));

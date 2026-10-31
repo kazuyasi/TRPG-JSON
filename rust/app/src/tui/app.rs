@@ -111,6 +111,8 @@ pub struct ListView {
     pub offset: Cell<usize>,
     /// 直近の描画での表示可能行数（PgUp/PgDn の移動量に使う）
     pub page_size: Cell<usize>,
+    /// 詳細ペイン下部（特殊能力・効果など）のスクロール量
+    pub detail_scroll: u16,
 }
 
 impl ListView {
@@ -136,6 +138,25 @@ impl ListView {
             n => n,
         }
     }
+
+    /// 検索語（前後の空白を除く。空なら `None` = 全件）
+    pub fn name_query(&self) -> Option<&str> {
+        let q = self.query.trim();
+        (!q.is_empty()).then_some(q)
+    }
+
+    /// ヒット結果を差し替える。直前に選んでいた項目がまだヒットしていれば選択を保つ
+    ///
+    /// 選択中の項目が変わったら `true` を返す（詳細ペインの状態を戻す判断に使う）。
+    fn replace_hits(&mut self, hits: Vec<usize>) -> bool {
+        let previous = self.selected_index();
+        self.hits = hits;
+        self.selected = previous
+            .and_then(|p| self.hits.iter().position(|&i| i == p))
+            .unwrap_or(0);
+        self.offset.set(0);
+        self.selected_index() != previous
+    }
 }
 
 /// TUI 全体の状態
@@ -148,10 +169,9 @@ pub struct App {
     /// 起動時に一括ロードしたスペル（読み込めなかった場合は空）
     pub spells: Vec<Spell>,
     pub monster_view: ListView,
+    pub spell_view: ListView,
     /// モンスター詳細の部位表で選択中の部位（`part[]` の 0 始まり index）
     pub selected_part: usize,
-    /// 詳細ペイン下部（特殊能力など）のスクロール量
-    pub detail_scroll: u16,
     /// 直近の描画でのスクロール量の上限（描画時に書き戻す）
     pub detail_max_scroll: Cell<u16>,
     /// 直近の描画での詳細ペイン下部の表示行数（PgUp/PgDn の移動量に使う）
@@ -169,6 +189,7 @@ impl App {
             ..Self::default()
         };
         app.refresh_monster_hits();
+        app.refresh_spell_hits();
         app
     }
 
@@ -180,11 +201,24 @@ impl App {
         }
     }
 
-    /// 現在のタブのヒット件数（検索未実装のタブは総件数）
+    /// 現在のタブのヒット件数
     pub fn hit_count(&self) -> usize {
+        self.view().hits.len()
+    }
+
+    /// 現在のタブの結果リストの状態
+    pub fn view(&self) -> &ListView {
         match self.tab {
-            Tab::Monster => self.monster_view.hits.len(),
-            Tab::Spell => self.spells.len(),
+            Tab::Monster => &self.monster_view,
+            Tab::Spell => &self.spell_view,
+        }
+    }
+
+    /// 現在のタブの結果リストの状態（変更用）
+    pub fn view_mut(&mut self) -> &mut ListView {
+        match self.tab {
+            Tab::Monster => &mut self.monster_view,
+            Tab::Spell => &mut self.spell_view,
         }
     }
 
@@ -193,17 +227,31 @@ impl App {
         self.monster_view.selected_index().and_then(|i| self.monsters.get(i))
     }
 
-    /// 検索語（前後の空白を除く。空なら `None` = 全件）
-    pub fn monster_name_query(&self) -> Option<&str> {
-        let q = self.monster_view.query.trim();
-        (!q.is_empty()).then_some(q)
+    /// 選択中のスペル
+    pub fn selected_spell(&self) -> Option<&Spell> {
+        self.spell_view.selected_index().and_then(|i| self.spells.get(i))
     }
 
-    /// 検索語でヒット結果を作り直す（Lv 昇順 → 名前順）
-    ///
-    /// 直前に選んでいた項目がまだヒットしていれば選択を保つ。
+    /// モンスターの検索語（空なら `None` = 全件）
+    pub fn monster_name_query(&self) -> Option<&str> {
+        self.monster_view.name_query()
+    }
+
+    /// スペルの検索語（空なら `None` = 全件）
+    pub fn spell_name_query(&self) -> Option<&str> {
+        self.spell_view.name_query()
+    }
+
+    /// 現在のタブのヒット結果を検索語で作り直す
+    pub fn refresh_hits(&mut self) {
+        match self.tab {
+            Tab::Monster => self.refresh_monster_hits(),
+            Tab::Spell => self.refresh_spell_hits(),
+        }
+    }
+
+    /// モンスターのヒット結果を作り直す（Lv 昇順 → 名前順）
     pub fn refresh_monster_hits(&mut self) {
-        let previous = self.monster_view.selected_index();
         let name = self.monster_name_query();
 
         // CLI と同じ判定にするため core の find_multi を1件ずつ適用し、index で保持する
@@ -218,21 +266,46 @@ impl App {
                 .then_with(|| monsters[a].name.cmp(&monsters[b].name))
         });
 
-        let view = &mut self.monster_view;
-        view.hits = hits;
-        view.selected = previous
-            .and_then(|p| view.hits.iter().position(|&i| i == p))
-            .unwrap_or(0);
-        view.offset.set(0);
-
-        if view.selected_index() != previous {
-            self.reset_detail();
+        if self.monster_view.replace_hits(hits) {
+            self.reset_monster_detail();
         }
     }
 
-    /// 選択モンスターが変わったときに部位選択とスクロールを既定に戻す
+    /// スペルのヒット結果を作り直す（Lv 昇順 → ランク昇順 → 名前順）
+    pub fn refresh_spell_hits(&mut self) {
+        let name = self.spell_name_query();
+
+        // CLI と同じ判定にするため core の spell_find_multi を1件ずつ適用し、index で保持する
+        let spells = &self.spells;
+        let mut hits: Vec<usize> = (0..spells.len())
+            .filter(|&i| {
+                !query::spell_find_multi(std::slice::from_ref(&spells[i]), name, None, None, None, None, None)
+                    .is_empty()
+            })
+            .collect();
+        hits.sort_by(|&a, &b| {
+            format::spell_level(&spells[a])
+                .sort_key()
+                .cmp(&format::spell_level(&spells[b]).sort_key())
+                .then_with(|| spells[a].name.cmp(&spells[b].name))
+        });
+
+        if self.spell_view.replace_hits(hits) {
+            self.spell_view.detail_scroll = 0;
+        }
+    }
+
+    /// 現在のタブで選択項目が変わったときに詳細ペインの状態を既定に戻す
     pub fn reset_detail(&mut self) {
+        match self.tab {
+            Tab::Monster => self.reset_monster_detail(),
+            Tab::Spell => self.spell_view.detail_scroll = 0,
+        }
+    }
+
+    /// モンスターの部位選択とスクロールを既定に戻す
+    fn reset_monster_detail(&mut self) {
         self.selected_part = self.selected_monster().map(format::default_part_index).unwrap_or(0);
-        self.detail_scroll = 0;
+        self.monster_view.detail_scroll = 0;
     }
 }

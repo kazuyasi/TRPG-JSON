@@ -39,6 +39,10 @@ pub enum Action {
     Bottom,
     /// 選択中モンスターの選択部位をココフォリア形式でクリップボードへコピー
     CopyCcfolia,
+    /// 選択中スペルのチャットパレットをクリップボードへコピー
+    CopyPalette,
+    /// ヒット中の全スペルのチャットパレットを改行区切りでクリップボードへコピー
+    CopyAllPalettes,
 }
 
 /// キーイベントを Action に変換する（割り当てのないキーは `None`）
@@ -83,6 +87,8 @@ pub fn from_key(key: KeyEvent, focus: Focus) -> Option<Action> {
         KeyCode::Char('2') => Some(Action::SwitchTab(Tab::Spell)),
         KeyCode::Char('/') => Some(Action::FocusSearch),
         KeyCode::Char('c') => Some(Action::CopyCcfolia),
+        KeyCode::Char('y') => Some(Action::CopyPalette),
+        KeyCode::Char('Y') => Some(Action::CopyAllPalettes),
         KeyCode::Char('k') => Some(Action::Up),
         KeyCode::Char('j') => Some(Action::Down),
         KeyCode::Char('g') | KeyCode::Home => Some(Action::Top),
@@ -122,6 +128,19 @@ mod tests {
             from_key(press(KeyCode::Char('c')), Focus::Search),
             Some(Action::InsertChar('c'))
         );
+    }
+
+    #[test]
+    fn test_y_copies_palette() {
+        assert_eq!(from_key(press(KeyCode::Char('y')), Focus::List), Some(Action::CopyPalette));
+        assert_eq!(from_key(press(KeyCode::Char('y')), Focus::Detail), Some(Action::CopyPalette));
+        // 端末によって Shift 付きで届くこともある
+        let shift_y = KeyEvent::new(KeyCode::Char('Y'), KeyModifiers::SHIFT);
+        assert_eq!(from_key(shift_y, Focus::List), Some(Action::CopyAllPalettes));
+        assert_eq!(from_key(press(KeyCode::Char('Y')), Focus::Detail), Some(Action::CopyAllPalettes));
+        // 検索中は文字入力
+        assert_eq!(from_key(press(KeyCode::Char('y')), Focus::Search), Some(Action::InsertChar('y')));
+        assert_eq!(from_key(shift_y, Focus::Search), Some(Action::InsertChar('Y')));
     }
 
     #[test]

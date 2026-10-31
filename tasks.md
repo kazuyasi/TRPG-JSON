@@ -470,6 +470,15 @@
         4. ✅ キーヘルプ行に `c:ココフォリア` を追加（80 桁に収まるよう短縮）
         5. ✅ 単体テスト 10 件追加（Action 変換・update のコピー要求・Effect 実行の成功/失敗・描画）。全 309 件通過（core 258 + app 51）
         6. ✅ 疑似端末で起動 → 詳細ペインで `c` → ステータス行の成功表示とクリップボードの JSON を確認
+      - [x] T049e スペルタブ（0.12.0）— 2026-10-31
+        1. ✅ スペルタブにモンスタータブと同じ検索バー・結果リスト・詳細ペインを実装（名前の部分一致は `core::query::spell_find_multi` を使用）。検索語・選択・詳細スクロールはタブごとに保持（`ListView` に `detail_scroll` を移動）
+        2. ✅ 結果リスト: Lv 列は `9` / `5+` / `R2`、並びはレベル系昇順 → ランク昇順 → 名前順、右端は系統。ヒット 0 件は `format_spell_filter_conditions` の条件一覧、データなしは「スペルデータがありません」。ヘッダーは「総件数中 ヒット件数」
+        3. ✅ 詳細ペイン: 見出し（Lv/ランク・系統・schoolVariant・god）、MP・時間／対象／射程(`術者(30m)` 併記)・形状／抵抗・属性、【効果】。チャットパレットはプレビューしない。`↑↓`/`jk`/`PgUp`/`PgDn`/`g`/`G` でスクロール
+        4. ✅ `y`: 選択中スペルのパレットをコピー（ステータス行に先頭部分を表示）。`Y`: ヒット全件を改行区切りでコピー（生成失敗は除外して件数・名前を表示、全件失敗はエラー）。モンスタータブでは無効、`c` はスペルタブで無効
+        5. ✅ core: 表示に再利用するため `export::palette::{format_mp, format_target, format_duration}` を `pub` に
+        6. ✅ 新規: `tui/format.rs` に `SpellLevel` / `spell_title` / `spell_summary` / `spell_range` / `spell_sections`。キーヘルプ行（スペル用）を追加し 80 桁に収まることをテスト
+        7. ✅ 単体テスト 20 件追加（整形・Action 変換・update のコピー要求/失敗/タブ別無効・描画 80/120 桁）。全 329 件通過（core 258 + app 71）
+        8. ✅ 疑似端末（サンプル設定）で起動 → 検索 → `y` / `Y` → ステータス行の成功表示とクリップボードのパレットを確認
 - [ ] T051 Phase 4: TUI selection list pane (multi-select → bulk copy/export) — future, after T050 (see TUI_DESIGN.md §4.5)
 - [ ] T044 Phase 4: Multi-system support (extend beyond SW2.5)
 - [ ] T045 Phase 4: Skill/Fairy magic CLI commands (gm skill find/list/palette)

@@ -1,15 +1,17 @@
-//! モンスター詳細（右ペイン）
+//! 詳細（右ペイン）
 //!
-//! 上から「見出し・基本値」「部位表」「特殊能力などの本文（スクロール可）」の3段で描画する。
+//! モンスター: 上から「見出し・基本値」「部位表」「特殊能力などの本文（スクロール可）」の3段で描画する。
+//! スペル: 「見出し」の下に基本値と効果をまとめて本文（スクロール可）として描画する。
+//! チャットパレットはプレビュー表示しない（`y` でコピーのみ。TUI_DESIGN.md Q6）。
 
 use ratatui::Frame;
 use ratatui::layout::{Alignment, Constraint, Layout, Rect};
 use ratatui::style::{Color, Modifier, Style};
 use ratatui::text::{Line, Span};
 use ratatui::widgets::{Cell, Paragraph, Row, Table, TableState, Wrap};
-use trpg_json_core::Monster;
+use trpg_json_core::{Monster, Spell};
 
-use super::super::app::{App, Focus};
+use super::super::app::{App, Focus, Tab};
 use super::super::format;
 use super::pane_block;
 
@@ -22,10 +24,19 @@ pub fn draw(frame: &mut Frame, area: Rect, app: &App) {
     let inner = block.inner(area);
     frame.render_widget(block, area);
 
-    let Some(monster) = app.selected_monster() else {
-        app.detail_max_scroll.set(0);
-        return;
-    };
+    match app.tab {
+        Tab::Monster => match app.selected_monster() {
+            Some(monster) => draw_monster(frame, inner, app, monster, focused),
+            None => app.detail_max_scroll.set(0),
+        },
+        Tab::Spell => match app.selected_spell() {
+            Some(spell) => draw_spell(frame, inner, app, spell),
+            None => app.detail_max_scroll.set(0),
+        },
+    }
+}
+
+fn draw_monster(frame: &mut Frame, inner: Rect, app: &App, monster: &Monster, focused: bool) {
 
     let summary = format::monster_summary(monster);
     let part_rows = (monster.part.len() as u16).clamp(1, MAX_PART_ROWS);
@@ -38,7 +49,8 @@ pub fn draw(frame: &mut Frame, area: Rect, app: &App) {
     ])
     .areas(inner);
 
-    draw_title(frame, title, monster);
+    let (name, right) = format::monster_title(monster);
+    draw_title(frame, title, name, right);
     let summary_lines: Vec<Line> = summary.iter().map(|row| summary_line(row)).collect();
     frame.render_widget(Paragraph::new(summary_lines), summary_area);
 
@@ -47,11 +59,27 @@ pub fn draw(frame: &mut Frame, area: Rect, app: &App) {
         parts_heading,
     );
     draw_parts(frame, parts_area, app, monster, focused);
-    draw_body(frame, body, app, monster);
+    let lines = section_lines(format::monster_sections(monster, app.selected_part));
+    draw_body(frame, body, app, lines);
 }
 
-fn draw_title(frame: &mut Frame, area: Rect, monster: &Monster) {
-    let (name, right) = format::monster_title(monster);
+fn draw_spell(frame: &mut Frame, inner: Rect, app: &App, spell: &Spell) {
+    let [title, body] = Layout::vertical([Constraint::Length(1), Constraint::Min(0)]).areas(inner);
+    let (name, right) = format::spell_title(spell);
+    draw_title(frame, title, name, right);
+
+    // 基本値は狭い端末で折り返せるよう、効果と同じスクロール領域に入れる
+    let summary = format::spell_summary(spell);
+    let mut lines: Vec<Line> = summary.iter().map(|row| summary_line(row)).collect();
+    let sections = section_lines(format::spell_sections(spell));
+    if !sections.is_empty() {
+        lines.push(Line::from(""));
+        lines.extend(sections);
+    }
+    draw_body(frame, body, app, lines);
+}
+
+fn draw_title(frame: &mut Frame, area: Rect, name: String, right: String) {
     let [left_area, right_area] =
         Layout::horizontal([Constraint::Min(0), Constraint::Length(Line::from(right.as_str()).width() as u16)])
             .areas(area);
@@ -141,16 +169,21 @@ fn draw_parts(frame: &mut Frame, area: Rect, app: &App, monster: &Monster, focus
     frame.render_stateful_widget(table, area, &mut state);
 }
 
-fn draw_body(frame: &mut Frame, area: Rect, app: &App, monster: &Monster) {
+/// 見出し付きのテキスト節を行にする（節の間は空行）
+fn section_lines(sections: Vec<(String, String)>) -> Vec<Line<'static>> {
     let mut lines: Vec<Line> = Vec::new();
-    for (title, text) in format::monster_sections(monster, app.selected_part) {
+    for (title, text) in sections {
         if !lines.is_empty() {
             lines.push(Line::from(""));
         }
         lines.push(heading(&title));
         lines.extend(text.lines().map(|l| Line::from(format!(" {}", l))));
     }
+    lines
+}
 
+/// 折り返し・スクロール可能な本文を描画する
+fn draw_body(frame: &mut Frame, area: Rect, app: &App, lines: Vec<Line>) {
     // 折り返し後の行数を見積もり、スクロール上限を update に伝える
     let width = area.width.max(1) as usize;
     let wrapped: usize = lines.iter().map(|l| l.width().max(1).div_ceil(width)).sum();
@@ -160,6 +193,6 @@ fn draw_body(frame: &mut Frame, area: Rect, app: &App, monster: &Monster) {
 
     let para = Paragraph::new(lines)
         .wrap(Wrap { trim: false })
-        .scroll((app.detail_scroll.min(max_scroll), 0));
+        .scroll((app.view().detail_scroll.min(max_scroll), 0));
     frame.render_widget(para, area);
 }
