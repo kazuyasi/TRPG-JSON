@@ -149,11 +149,12 @@ fn help_text(app: &App) -> &'static str {
         (Tab::Monster, Focus::Search) => {
             "文字入力:名前で絞り込み  Enter/Esc:リストへ  Ctrl-u:クリア  ↑↓:選択  Ctrl-c:終了"
         }
+        // 幅 80 桁に収まるよう短縮表記にしている
         (Tab::Monster, Focus::List) => {
-            "↑↓/jk:選択  PgUp/PgDn/g/G:移動  /:検索  Tab:ペイン移動  1/2:タブ  q:終了"
+            "↑↓/jk:選択  c:ココフォリア  PgUp/Dn:移動  /:検索  Tab:ペイン  1/2:タブ  q:終了"
         }
         (Tab::Monster, Focus::Detail) => {
-            "↑↓/jk:部位選択  PgUp/PgDn/g/G:スクロール  Tab:ペイン移動  Esc:リストへ  q:終了"
+            "↑↓/jk:部位選択  c:ココフォリア  PgUp/Dn/g/G:本文  Tab:ペイン  Esc:リスト  q:終了"
         }
     }
 }
@@ -294,6 +295,35 @@ mod tests {
         };
         let rows = render(&app, 80, 24);
         assert!(contains(&rows, "エラー: テスト用のエラー"));
+    }
+
+    #[test]
+    fn test_help_line_fits_80_columns() {
+        let mut app = sample_app();
+        for focus in [Focus::List, Focus::Detail, Focus::Search] {
+            app.focus = focus;
+            let width = Line::from(help_text(&app)).width();
+            assert!(width <= 80, "{focus:?}: {width}");
+        }
+        app.focus = Focus::Detail;
+        let rows = render(&app, 80, 24);
+        assert!(contains(&rows, "c:ココフォリア"));
+        assert!(contains(&rows, "q:終了"));
+    }
+
+    #[test]
+    fn test_render_copy_success_status() {
+        let app = App {
+            status: Some(StatusMessage::success(
+                "\"テストモンスター\" をココフォリア形式でクリップボードにコピーしました",
+            )),
+            ..App::default()
+        };
+        let rows = render(&app, 120, 24);
+        assert!(contains(
+            &rows,
+            "成功: \"テストモンスター\" をココフォリア形式でクリップボードにコピーしました"
+        ));
     }
 
     #[test]

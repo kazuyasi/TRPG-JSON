@@ -37,7 +37,6 @@ impl Tab {
 
 /// ステータス行に出すメッセージの種別
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[allow(dead_code)] // Success / Info はコピー操作（T049d 以降）で使用する
 pub enum StatusKind {
     Success,
     Info,
@@ -52,6 +51,14 @@ pub struct StatusMessage {
 }
 
 impl StatusMessage {
+    pub fn success(text: impl Into<String>) -> Self {
+        Self { kind: StatusKind::Success, text: text.into() }
+    }
+
+    pub fn info(text: impl Into<String>) -> Self {
+        Self { kind: StatusKind::Info, text: text.into() }
+    }
+
     pub fn error(text: impl Into<String>) -> Self {
         Self { kind: StatusKind::Error, text: text.into() }
     }

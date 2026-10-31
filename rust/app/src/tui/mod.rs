@@ -5,6 +5,7 @@
 
 mod action;
 mod app;
+mod effect;
 mod format;
 mod ui;
 mod update;
@@ -71,8 +72,9 @@ fn event_loop(terminal: &mut DefaultTerminal, app: &mut App) -> Result<(), TuiEr
 
         if let Event::Key(key) = event::read()?
             && let Some(action) = action::from_key(key, app.focus)
+            && let Some(effect) = update::update(app, action)
         {
-            update::update(app, action);
+            app.status = Some(effect::execute(effect));
         }
     }
     Ok(())
