@@ -85,6 +85,7 @@ pub fn handle_select(
     category: Option<&str>,
     export_format: Option<&str>,
     output_dest: Option<&str>,
+    part: Option<usize>,
 ) {
     let monsters = utils::load_monsters_or_exit(data_paths);
 
@@ -101,8 +102,16 @@ pub fn handle_select(
         _ => {
             let json_results = select_exact_match_if_available(results, name);
 
+            if part.is_some() && !export_format.is_some_and(is_ccfolia_format) {
+                eprintln!("エラー: --part は --export ccfolia と組み合わせて使用してください");
+                process::exit(1);
+            }
+
             // エクスポート機能が指定されている場合
-            if let Some(fmt) = export_format {
+            if export_format.is_some_and(is_ccfolia_format) {
+                // ココフォリア形式は --output 省略時にクリップボードへコピー
+                export_ccfolia(&json_results, part, output_dest);
+            } else if let Some(fmt) = export_format {
                 if let Some(output) = output_dest {
                     export_results(&json_results, fmt, output);
                 } else {
@@ -127,6 +136,101 @@ fn select_exact_match_if_available(results: Vec<&Monster>, name: Option<&str>) -
     }
 
     results.into_iter().cloned().collect()
+}
+
+/// ココフォリア形式の指定かどうか
+fn is_ccfolia_format(format: &str) -> bool {
+    matches!(format.to_lowercase().as_str(), "ccfolia" | "cocofolia")
+}
+
+/// ココフォリア形式に変換し、クリップボード（または --output のファイル）へ出力する
+///
+/// ココフォリアは1回の貼り付けで1キャラクターしか取り込めないため、
+/// 対象は1体のモンスターに限定し、複数部位の場合は --part で部位を選ぶ。
+fn export_ccfolia(monsters: &[Monster], part: Option<usize>, output: Option<&str>) {
+    let monster = match monsters {
+        [m] => m,
+        _ => {
+            eprintln!(
+                "エラー: ココフォリア形式で出力できるのは1体のみです（{} 件がマッチしました）。条件を絞り込んでください:",
+                monsters.len()
+            );
+            for m in monsters {
+                eprintln!("  Lv.{:2} {} [{}]", m.level, m.name, m.category);
+            }
+            process::exit(1);
+        }
+    };
+
+    let characters = export::ccfolia::monster_to_characters(monster);
+    if characters.is_empty() {
+        eprintln!("エラー: \"{}\" には部位データがありません", monster.name);
+        process::exit(1);
+    }
+
+    let index = match part {
+        Some(0) => {
+            eprintln!("エラー: --part は 1 から指定してください");
+            process::exit(1);
+        }
+        Some(n) if n > characters.len() => {
+            eprintln!(
+                "エラー: --part {} は範囲外です（部位数: {}）",
+                n,
+                characters.len()
+            );
+            print_ccfolia_parts(&characters);
+            process::exit(1);
+        }
+        Some(n) => n - 1,
+        None => export::ccfolia::default_part_index(monster),
+    };
+
+    let character = &characters[index];
+    let json = match export::ccfolia::to_clipboard_json(character) {
+        Ok(j) => j,
+        Err(e) => {
+            eprintln!("エラー: JSON 変換に失敗しました: {}", e);
+            process::exit(1);
+        }
+    };
+
+    match output {
+        Some(path) => {
+            if let Err(e) = std::fs::write(path, &json) {
+                eprintln!("エラー: ファイルに保存できません: {}", e);
+                process::exit(1);
+            }
+            println!(
+                "成功: \"{}\" をココフォリア形式で {} に保存しました",
+                character.data.name, path
+            );
+        }
+        None => {
+            if let Err(e) = utils::copy_to_clipboard(&json) {
+                eprintln!("エラー: クリップボードへのコピーに失敗しました: {}", e);
+                process::exit(1);
+            }
+            println!(
+                "成功: \"{}\" をココフォリア形式でクリップボードにコピーしました（ココフォリアのルームで貼り付けてください）",
+                character.data.name
+            );
+        }
+    }
+
+    if characters.len() > 1 {
+        eprintln!(
+            "情報: このモンスターは {} 部位あります。他の部位は --part <番号> で指定してください:",
+            characters.len()
+        );
+        print_ccfolia_parts(&characters);
+    }
+}
+
+fn print_ccfolia_parts(characters: &[export::ccfolia::CcfoliaClipboard]) {
+    for (i, c) in characters.iter().enumerate() {
+        eprintln!("  {}: {}", i + 1, c.data.name);
+    }
 }
 
 /// エクスポート処理を実行

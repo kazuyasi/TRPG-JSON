@@ -2,6 +2,7 @@ use crate::Monster;
 use thiserror::Error;
 
 pub mod auth;
+pub mod ccfolia;
 pub mod google_sheets;
 pub mod json;
 pub mod palette;
