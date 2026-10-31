@@ -151,6 +151,7 @@ This tool supports exporting TRPG data to multiple formats for collaboration and
 - **JSON**: Native JSON format for data interchange and integration with other tools
 - **Google Sheets**: Direct export to Google Sheets for collaborative editing and sharing
 - **Udonarium**: Export to Udonarium character format (ZIP file with XML) for use in the Udonarium TRPG tool
+- **CCFolia (ココフォリア)**: Copy a monster to the clipboard as a CCFolia character piece; paste it into a CCFolia room to add it
 
 ### Monster Export Commands
 
@@ -171,6 +172,29 @@ gm monster select -n "monster name" --export json --output monster.json
 
 # Export single monster to Udonarium format
 gm monster select -n "monster name" --export udonarium --output monster.zip
+
+# Copy single monster to clipboard in CCFolia format
+gm monster select -n "monster name" --export ccfolia
+```
+
+### CCFolia (ココフォリア) Export
+
+`--export ccfolia` converts one monster into CCFolia's clipboard character format
+(`{"kind":"character","data":{...}}`) and copies it to the clipboard
+(macOS: `pbcopy`, Linux: `xclip`, Windows: `clip`). Open a CCFolia room and paste (Ctrl+V / Cmd+V) to create the piece.
+
+- **One character per paste**: the query must match exactly one monster (an exact name match is preferred)
+- **Multi-part monsters**: the first core part is copied by default; use `--part <n>` (1-based) to pick another part. The list of parts is printed to stderr
+- **status**: HP / MP / 防護点 (MP `-1` becomes `0`)
+- **params**: 命中力 / 回避力 / 生命抵抗力 / 精神抵抗力 (each `-7`, same as Udonarium), 打撃点, ダメージ軽減 (`0`)
+- **memo**: category and level, 知名度/弱点値, 先制値, 弱点, movement, special abilities (knowledge info on core parts only)
+- **commands**: the same chat palette as the Udonarium export
+- `--output <file>` writes the JSON to a file instead of the clipboard
+
+```bash
+gm monster select -n "モンスター名" --export ccfolia            # copy the core part
+gm monster select -n "モンスター名" --export ccfolia --part 2   # copy the 2nd part
+gm monster select -n "モンスター名" --export ccfolia --output piece.json
 ```
 
 ### Google Sheets Setup

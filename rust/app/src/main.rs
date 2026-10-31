@@ -73,6 +73,8 @@ enum MonsterCommands {
     ///   gm monster select -l 6 --export json --output results.json # 結果をJSONファイルにエクスポート
     ///   gm monster select -l 6 --export sheets --output "Spreadsheet ID" # Google Sheetsにエクスポート
     ///   gm monster select -l 6 --export udonarium --output monsters.zip # Udonarium形式にエクスポート
+    ///   gm monster select -n "モンスター名" --export ccfolia           # ココフォリア形式でクリップボードにコピー
+    ///   gm monster select -n "モンスター名" --export ccfolia --part 2  # 2番目の部位をコピー
     Select {
         /// 名前で検索（部分マッチ、オプション）
         #[arg(short = 'n', long)]
@@ -86,13 +88,17 @@ enum MonsterCommands {
         #[arg(short = 'c', long)]
         category: Option<String>,
         
-        /// エクスポート形式（json, sheets, udonarium）
+        /// エクスポート形式（json, sheets, udonarium, ccfolia）
         #[arg(long)]
         export: Option<String>,
-        
-        /// エクスポート出力先（JSONの場合: ファイルパス、Sheetsの場合: スプレッドシートID、Udonariumの場合: ZIPファイルパス）
+
+        /// エクスポート出力先（JSONの場合: ファイルパス、Sheetsの場合: スプレッドシートID、Udonariumの場合: ZIPファイルパス、ccfoliaの場合: 省略でクリップボード）
         #[arg(long)]
         output: Option<String>,
+
+        /// ココフォリア出力時に使う部位番号（1始まり、省略時は最初のコア部位）
+        #[arg(long)]
+        part: Option<usize>,
     },
     
     /// モンスターを追加する
@@ -260,8 +266,8 @@ fn main() {
                 MonsterCommands::List { pattern } => {
                     commands::monster::handle_list(&monster_path_strs, pattern);
                 }
-                MonsterCommands::Select { name, level, category, export: export_format, output } => {
-                    commands::monster::handle_select(&monster_path_strs, name.as_deref(), *level, category.as_deref(), export_format.as_deref(), output.as_deref());
+                MonsterCommands::Select { name, level, category, export: export_format, output, part } => {
+                    commands::monster::handle_select(&monster_path_strs, name.as_deref(), *level, category.as_deref(), export_format.as_deref(), output.as_deref(), *part);
                 }
                 MonsterCommands::Add { file } => {
                     commands::monster::handle_add(&monster_path_strs, file);
