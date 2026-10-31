@@ -432,6 +432,13 @@
       6. ✅ Format verified against official spec: https://docs.ccfolia.com/developer-api/clipboard-api (beta v1.19.0)
       7. ✅ 6 unit tests added; all 260 tests passing (258 core + 2 app)
       8. ✅ Release build successful; manually verified paste into a CCFolia room
+- [ ] T049 Phase 4: TUI mode (`gm tui`) — design drafted 2026-10-31
+      - Status: 📝 DESIGN (awaiting Operator decisions on open questions Q1–Q6)
+      - Owner: Claude
+      - Design doc: TUI_DESIGN.md
+      - Goal: search → inspect → copy/export with keyboard only (ratatui + crossterm)
+      - Planned subtasks: T049a refactor (Result-returning export helpers) / T049b skeleton / T049c monster tab / T049d CCFolia copy / T049e spell tab / T049f modals & docs
+      - Follow-up: T050 export modal, stats view, add/delete in TUI
 - [ ] T044 Phase 4: Multi-system support (extend beyond SW2.5)
 - [ ] T045 Phase 4: Skill/Fairy magic CLI commands (gm skill find/list/palette)
 
