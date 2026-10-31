@@ -368,12 +368,15 @@ TUI で必要なロジックを **`Result` を返す関数に切り出し**、CL
 
 | 切り出し対象 | 現在の場所 | 切り出し後 |
 |--------------|-----------|-----------|
-| ココフォリア部位選択 + JSON 化 | `commands::monster::export_ccfolia` | `fn ccfolia_json(monster, part: Option<usize>) -> Result<(String, String), CcfoliaError>`（JSON と部位名） |
+| ココフォリア部位選択 + JSON 化 | `commands::monster::export_ccfolia` | `fn ccfolia_json(monster, part: Option<usize>) -> Result<CcfoliaPiece, CcfoliaError>`（JSON・選択部位名・全部位名） |
 | データ読み込み | `utils::load_*_or_exit` | `core::io::load_multiple_*` を直接使用（既存） |
 | クリップボード | `utils::copy_to_clipboard` | そのまま再利用（`Result` を返すため問題なし） |
 | 汎用エクスポート | `commands::monster::export_results` | `fn export_monsters(...) -> Result<(), ExportError>` |
 
 CLI の挙動・出力文言は変えない（リファクタは振る舞い不変）。
+
+✅ T049a で実施済み（0.8.1）。`CcfoliaError` / `ExportError`（app 側、thiserror）の `Display` は CLI のエラー文言（「エラー: 」以降）と同一なので、TUI のステータス行にそのまま表示できる。
+複数体マッチ時のエラー（ココフォリアは1体のみ）は CLI ハンドラ側に残した（TUI は常に1体を選んで呼ぶため）。
 
 ### 7.4 端末の扱い
 

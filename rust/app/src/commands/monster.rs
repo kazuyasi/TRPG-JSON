@@ -1,5 +1,6 @@
 use crate::utils;
 use std::process;
+use thiserror::Error;
 use trpg_json_core::{export, io, query, stats, Monster};
 
 /// 検索コマンドのハンドラ
@@ -143,6 +144,71 @@ fn is_ccfolia_format(format: &str) -> bool {
     matches!(format.to_lowercase().as_str(), "ccfolia" | "cocofolia")
 }
 
+/// ココフォリア変換のエラー
+///
+/// 表示文言は CLI のエラーメッセージ（「エラー: 」以降）と同一。
+#[derive(Debug, Error)]
+pub enum CcfoliaError {
+    #[error("\"{name}\" には部位データがありません")]
+    NoParts { name: String },
+
+    #[error("--part は 1 から指定してください")]
+    PartZero,
+
+    #[error("--part {part} は範囲外です（部位数: {}）", .part_names.len())]
+    PartOutOfRange {
+        part: usize,
+        /// 選択可能な部位名（1始まりの番号順）
+        part_names: Vec<String>,
+    },
+
+    #[error("JSON 変換に失敗しました: {0}")]
+    Serialize(#[from] serde_json::Error),
+}
+
+/// ココフォリア変換の結果（1部位ぶんの駒）
+#[derive(Debug, Clone)]
+pub struct CcfoliaPiece {
+    /// クリップボードに貼り付ける JSON 文字列
+    pub json: String,
+    /// 選択された部位の表示名
+    pub part_name: String,
+    /// 全部位の表示名（0始まりのインデックス順）
+    pub part_names: Vec<String>,
+}
+
+/// モンスター1体をココフォリアの駒 JSON に変換する
+///
+/// `part` は 1 始まりの部位番号。`None` の場合は最初のコア部位（なければ先頭）を選ぶ。
+/// I/O や `process::exit` を行わないため、CLI と TUI の両方から使える。
+pub fn ccfolia_json(monster: &Monster, part: Option<usize>) -> Result<CcfoliaPiece, CcfoliaError> {
+    let characters = export::ccfolia::monster_to_characters(monster);
+    if characters.is_empty() {
+        return Err(CcfoliaError::NoParts {
+            name: monster.name.clone(),
+        });
+    }
+
+    let part_names: Vec<String> = characters.iter().map(|c| c.data.name.clone()).collect();
+
+    let index = match part {
+        Some(0) => return Err(CcfoliaError::PartZero),
+        Some(n) if n > characters.len() => {
+            return Err(CcfoliaError::PartOutOfRange { part: n, part_names });
+        }
+        Some(n) => n - 1,
+        None => export::ccfolia::default_part_index(monster),
+    };
+
+    let json = export::ccfolia::to_clipboard_json(&characters[index])?;
+
+    Ok(CcfoliaPiece {
+        json,
+        part_name: part_names[index].clone(),
+        part_names,
+    })
+}
+
 /// ココフォリア形式に変換し、クリップボード（または --output のファイル）へ出力する
 ///
 /// ココフォリアは1回の貼り付けで1キャラクターしか取り込めないため、
@@ -162,105 +228,95 @@ fn export_ccfolia(monsters: &[Monster], part: Option<usize>, output: Option<&str
         }
     };
 
-    let characters = export::ccfolia::monster_to_characters(monster);
-    if characters.is_empty() {
-        eprintln!("エラー: \"{}\" には部位データがありません", monster.name);
-        process::exit(1);
-    }
-
-    let index = match part {
-        Some(0) => {
-            eprintln!("エラー: --part は 1 から指定してください");
-            process::exit(1);
-        }
-        Some(n) if n > characters.len() => {
-            eprintln!(
-                "エラー: --part {} は範囲外です（部位数: {}）",
-                n,
-                characters.len()
-            );
-            print_ccfolia_parts(&characters);
-            process::exit(1);
-        }
-        Some(n) => n - 1,
-        None => export::ccfolia::default_part_index(monster),
-    };
-
-    let character = &characters[index];
-    let json = match export::ccfolia::to_clipboard_json(character) {
-        Ok(j) => j,
+    let piece = match ccfolia_json(monster, part) {
+        Ok(p) => p,
         Err(e) => {
-            eprintln!("エラー: JSON 変換に失敗しました: {}", e);
+            eprintln!("エラー: {}", e);
+            if let CcfoliaError::PartOutOfRange { part_names, .. } = &e {
+                print_ccfolia_parts(part_names);
+            }
             process::exit(1);
         }
     };
 
     match output {
         Some(path) => {
-            if let Err(e) = std::fs::write(path, &json) {
+            if let Err(e) = std::fs::write(path, &piece.json) {
                 eprintln!("エラー: ファイルに保存できません: {}", e);
                 process::exit(1);
             }
             println!(
                 "成功: \"{}\" をココフォリア形式で {} に保存しました",
-                character.data.name, path
+                piece.part_name, path
             );
         }
         None => {
-            if let Err(e) = utils::copy_to_clipboard(&json) {
+            if let Err(e) = utils::copy_to_clipboard(&piece.json) {
                 eprintln!("エラー: クリップボードへのコピーに失敗しました: {}", e);
                 process::exit(1);
             }
             println!(
                 "成功: \"{}\" をココフォリア形式でクリップボードにコピーしました（ココフォリアのルームで貼り付けてください）",
-                character.data.name
+                piece.part_name
             );
         }
     }
 
-    if characters.len() > 1 {
+    if piece.part_names.len() > 1 {
         eprintln!(
             "情報: このモンスターは {} 部位あります。他の部位は --part <番号> で指定してください:",
-            characters.len()
+            piece.part_names.len()
         );
-        print_ccfolia_parts(&characters);
+        print_ccfolia_parts(&piece.part_names);
     }
 }
 
-fn print_ccfolia_parts(characters: &[export::ccfolia::CcfoliaClipboard]) {
-    for (i, c) in characters.iter().enumerate() {
-        eprintln!("  {}: {}", i + 1, c.data.name);
+fn print_ccfolia_parts(part_names: &[String]) {
+    for (i, name) in part_names.iter().enumerate() {
+        eprintln!("  {}: {}", i + 1, name);
     }
 }
 
-/// エクスポート処理を実行
-fn export_results(monsters: &[Monster], format: &str, output: &str) {
-    // エクスポート形式をパース
-    let export_format = match format.parse::<export::ExportFormat>() {
-        Ok(fmt) => fmt,
-        Err(e) => {
-            eprintln!("エラー: {}", e);
-            process::exit(1);
-        }
-    };
+/// 汎用エクスポート（JSON / Udonarium / Google Sheets）のエラー
+///
+/// 表示文言は CLI のエラーメッセージ（「エラー: 」以降）と同一。
+#[derive(Debug, Error)]
+pub enum ExportError {
+    #[error("{0}")]
+    InvalidFormat(String),
 
-    // エクスポーターを生成
-    let exporter = match export::ExporterFactory::create_exporter(export_format) {
-        Ok(exp) => exp,
-        Err(e) => {
-            eprintln!("エラー: {}", e);
-            process::exit(1);
-        }
-    };
+    #[error("{0}")]
+    CreateExporter(export::ExportError),
 
-    // エクスポート設定を作成
+    #[error("エクスポートに失敗しました: {0}")]
+    Export(export::ExportError),
+}
+
+/// モンスター群を指定形式で出力先へエクスポートする
+///
+/// I/O（ファイル書き込み・Sheets API）は行うが、標準出力への表示や
+/// `process::exit` は行わないため、CLI と TUI の両方から使える。
+pub fn export_monsters(monsters: &[Monster], format: &str, output: &str) -> Result<(), ExportError> {
+    let export_format = format
+        .parse::<export::ExportFormat>()
+        .map_err(ExportError::InvalidFormat)?;
+
+    let exporter = export::ExporterFactory::create_exporter(export_format)
+        .map_err(ExportError::CreateExporter)?;
+
     let config = export::ExportConfig {
         destination: output.to_string(),
         format: export_format,
     };
 
-    // エクスポート実行
-    match exporter.export(monsters, &config) {
+    exporter
+        .export(monsters, &config)
+        .map_err(ExportError::Export)
+}
+
+/// エクスポート処理を実行（CLI 用: 結果を表示し、失敗時は終了する）
+fn export_results(monsters: &[Monster], format: &str, output: &str) {
+    match export_monsters(monsters, format, output) {
         Ok(()) => {
             println!(
                 "成功: {} 件のモンスターを {} にエクスポートしました",
@@ -269,7 +325,7 @@ fn export_results(monsters: &[Monster], format: &str, output: &str) {
             );
         }
         Err(e) => {
-            eprintln!("エラー: エクスポートに失敗しました: {}", e);
+            eprintln!("エラー: {}", e);
             process::exit(1);
         }
     }
@@ -369,7 +425,9 @@ pub fn handle_stats(data_paths: &[String]) {
 
 #[cfg(test)]
 mod tests {
-    use super::select_exact_match_if_available;
+    use super::{
+        ccfolia_json, export_monsters, select_exact_match_if_available, CcfoliaError, ExportError,
+    };
     use std::collections::HashMap;
     use trpg_json_core::{Monster, Part};
 
@@ -419,6 +477,93 @@ mod tests {
 
         assert_eq!(selected.len(), 1);
         assert_eq!(selected[0].name, "ゴブリン");
+    }
+
+    fn multi_part_monster() -> Monster {
+        let mut m = sample_monster("テストモンスター", 3, "テスト分類");
+        let mut non_core = m.part[0].clone();
+        non_core.name = "部位A".to_string();
+        non_core.core = Some(false);
+        let mut core = m.part[0].clone();
+        core.name = "部位B".to_string();
+        core.core = Some(true);
+        m.part = vec![non_core, core];
+        m
+    }
+
+    #[test]
+    fn ccfolia_json_defaults_to_first_core_part() {
+        let m = multi_part_monster();
+        let piece = ccfolia_json(&m, None).unwrap();
+
+        assert_eq!(piece.part_names.len(), 2);
+        assert_eq!(piece.part_name, piece.part_names[1]);
+        let v: serde_json::Value = serde_json::from_str(&piece.json).unwrap();
+        assert_eq!(v["kind"], "character");
+        assert_eq!(v["data"]["name"], piece.part_name);
+    }
+
+    #[test]
+    fn ccfolia_json_selects_explicit_part() {
+        let m = multi_part_monster();
+        let piece = ccfolia_json(&m, Some(1)).unwrap();
+
+        assert_eq!(piece.part_name, piece.part_names[0]);
+        assert_ne!(piece.part_name, ccfolia_json(&m, None).unwrap().part_name);
+    }
+
+    #[test]
+    fn ccfolia_json_rejects_part_zero() {
+        let m = multi_part_monster();
+        let err = ccfolia_json(&m, Some(0)).unwrap_err();
+
+        assert!(matches!(err, CcfoliaError::PartZero));
+        assert_eq!(err.to_string(), "--part は 1 から指定してください");
+    }
+
+    #[test]
+    fn ccfolia_json_rejects_out_of_range_part() {
+        let m = multi_part_monster();
+        let err = ccfolia_json(&m, Some(3)).unwrap_err();
+
+        assert_eq!(err.to_string(), "--part 3 は範囲外です（部位数: 2）");
+        match err {
+            CcfoliaError::PartOutOfRange { part, part_names } => {
+                assert_eq!(part, 3);
+                assert_eq!(part_names.len(), 2);
+            }
+            other => panic!("unexpected error: {other:?}"),
+        }
+    }
+
+    #[test]
+    fn ccfolia_json_rejects_monster_without_parts() {
+        let mut m = sample_monster("テストモンスター", 1, "テスト分類");
+        m.part.clear();
+        let err = ccfolia_json(&m, None).unwrap_err();
+
+        assert_eq!(err.to_string(), "\"テストモンスター\" には部位データがありません");
+    }
+
+    #[test]
+    fn export_monsters_rejects_unknown_format() {
+        let m = sample_monster("テストモンスター", 1, "テスト分類");
+        let err = export_monsters(&[m], "unknown", "out.json").unwrap_err();
+
+        assert!(matches!(err, ExportError::InvalidFormat(_)));
+        assert!(err.to_string().starts_with("Unknown export format: 'unknown'"));
+    }
+
+    #[test]
+    fn export_monsters_writes_json_file() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("out.json");
+        let m = sample_monster("テストモンスター", 1, "テスト分類");
+
+        export_monsters(&[m], "json", path.to_str().unwrap()).unwrap();
+
+        let content = std::fs::read_to_string(&path).unwrap();
+        assert!(content.contains("テストモンスター"));
     }
 
     #[test]
