@@ -1,8 +1,9 @@
-use clap::{Parser, Subcommand};
+use clap::{Parser, Subcommand, ValueEnum};
 use std::process;
 use trpg_json_core::config;
 
 mod commands;
+mod tui;
 mod utils;
 
 #[derive(Parser)]
@@ -32,6 +33,35 @@ enum Commands {
         #[command(subcommand)]
         command: SpellCommands,
     },
+
+    /// TUI（対話画面）を起動する
+    ///
+    /// 使用例:
+    ///   gm tui          # モンスタータブで起動
+    ///   gm tui spell    # スペルタブで起動
+    Tui {
+        /// 起動時に開くタブ
+        #[arg(value_enum, default_value_t = TuiTab::Monster)]
+        tab: TuiTab,
+    },
+}
+
+/// `gm tui` で最初に開くタブ
+#[derive(Clone, Copy, ValueEnum)]
+enum TuiTab {
+    /// モンスタータブ
+    Monster,
+    /// スペルタブ
+    Spell,
+}
+
+impl From<TuiTab> for tui::Tab {
+    fn from(tab: TuiTab) -> Self {
+        match tab {
+            TuiTab::Monster => tui::Tab::Monster,
+            TuiTab::Spell => tui::Tab::Spell,
+        }
+    }
 }
 
 #[derive(Subcommand)]
@@ -295,6 +325,13 @@ fn main() {
                 SpellCommands::Stats => {
                     commands::spell::handle_stats(&spell_path_strs);
                 }
+            }
+        }
+
+        Some(Commands::Tui { tab }) => {
+            if let Err(e) = tui::run(&monster_path_strs, &spell_path_strs, (*tab).into()) {
+                eprintln!("エラー: {}", e);
+                process::exit(1);
             }
         }
 
