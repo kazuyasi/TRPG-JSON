@@ -200,7 +200,7 @@ mod tests {
         m.common_abilities = "共通テスト能力".into();
         m.weakness = "テスト属性ダメージ+3".into();
         m.moveon_description = "飛行".into();
-        let other = monster("サンプル動物", 2, "動物", vec![part("", true)]);
+        let other = monster("サンプル動物", 2, "アンデッド", vec![part("", true)]);
         App::new(vec![m, other], Vec::new(), Tab::Monster)
     }
 
@@ -217,6 +217,8 @@ mod tests {
             assert!(contains(&rows, "検索>"));
             // 結果リスト
             assert!(contains(&rows, "サンプル動物"));
+            // 全角5文字のカテゴリが見切れない
+            assert!(contains(&rows, "アンデッド"), "{width}: {rows:#?}");
             assert!(contains(&rows, "> 6"), "{width}: {rows:#?}");
             // 詳細ペイン
             assert!(contains(&rows, "Lv.6 [蛮族]"));

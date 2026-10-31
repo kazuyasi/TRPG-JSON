@@ -36,7 +36,8 @@ pub fn draw(frame: &mut Frame, area: Rect, app: &App) {
 
     let table = Table::new(
         rows,
-        [Constraint::Length(3), Constraint::Fill(1), Constraint::Length(8)],
+        // カテゴリは最長の「アンデッド」（全角5文字 = 10桁）が収まる幅にし、名前列を詰める
+        [Constraint::Length(3), Constraint::Fill(1), Constraint::Length(10)],
     )
     .header(header)
     .block(block)
