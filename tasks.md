@@ -445,6 +445,15 @@
         3. ✅ CLI ハンドラは上記を呼んで表示・終了するだけに変更（出力文言・終了コードは不変）
         4. ✅ app に `thiserror` を追加。エラーの `Display` は CLI 文言と同一
         5. ✅ 単体テスト 7 件追加。全 267 件通過（core 258 + app 9）
+      - [x] T049b TUI 骨格（0.9.0）— 2026-10-31
+        1. ✅ `gm tui [monster|spell]` サブコマンドを追加（既存 CLI サブコマンドは無変更）
+        2. ✅ 依存に `ratatui 0.30.2` を追加（crossterm は `ratatui::crossterm` 経由）
+        3. ✅ `app/src/tui/`: `mod.rs`（起動・イベントループ）/ `app.rs`（状態）/ `action.rs`（キー→Action）/ `update.rs`（純粋な状態遷移）/ `ui/mod.rs`（描画）
+        4. ✅ `ratatui::init`/`restore` で raw mode・alternate screen・panic hook を処理。stdin/stdout が TTY でなければ起動せずエラー終了
+        5. ✅ データは端末切替前に読み込む（モンスター失敗は stderr に出して終了、スペル失敗はステータス行に表示しスペルタブを「データなし」）
+        6. ✅ 空の2タブ画面（ヘッダー: タブ＋件数、本文、ステータス行、キーヘルプ行）。`1`/`2` でタブ切替、`q`/`Ctrl-c` で終了。高さ 15 行未満は警告表示
+        7. ✅ 単体テスト 10 件追加（Action 変換・update・TestBackend 描画 80/120 桁）。全 277 件通過（core 258 + app 19）
+        8. ✅ 疑似端末で起動 → タブ切替 → 終了、alternate screen からの復帰を確認
 - [ ] T051 Phase 4: TUI selection list pane (multi-select → bulk copy/export) — future, after T050 (see TUI_DESIGN.md §4.5)
 - [ ] T044 Phase 4: Multi-system support (extend beyond SW2.5)
 - [ ] T045 Phase 4: Skill/Fairy magic CLI commands (gm skill find/list/palette)
