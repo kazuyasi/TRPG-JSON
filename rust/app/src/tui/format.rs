@@ -1,9 +1,11 @@
-//! Monster → 詳細ペイン表示用の値への整形（純粋関数）
+//! Monster / Spell → 詳細ペイン表示用の値への整形（純粋関数）
 //!
 //! 値はデータに入っている数値をそのまま表示する（ココフォリア/Udonarium 出力時の -7 補正などはかけない）。
 //! 描画（ratatui ウィジェットの組み立て）は `ui` 側で行う。
 
-use trpg_json_core::{Monster, Part};
+use serde_json::Value;
+use trpg_json_core::export::palette;
+use trpg_json_core::{Monster, Part, Spell};
 
 /// 値がないことを表す表示
 pub const NONE: &str = "-";
@@ -122,6 +124,131 @@ pub fn movement(value: i32, description: &str) -> String {
         value.to_string()
     } else {
         format!("{}({})", value, description.trim())
+    }
+}
+
+/// スペルの習得レベル（`Lv` の3種類）
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SpellLevel {
+    /// `Lv.value`: 固定レベル
+    Value(i32),
+    /// `Lv.value+`: 最低レベル
+    ValuePlus(i32),
+    /// `Lv.rank`: ランク
+    Rank(i32),
+    /// `Lv` がない・読めない
+    Unknown,
+}
+
+impl SpellLevel {
+    /// 並び順のキー（レベル系 → ランク → 不明。それぞれ数値の昇順）
+    pub fn sort_key(self) -> (u8, i32) {
+        match self {
+            SpellLevel::Value(n) | SpellLevel::ValuePlus(n) => (0, n),
+            SpellLevel::Rank(n) => (1, n),
+            SpellLevel::Unknown => (2, 0),
+        }
+    }
+
+    /// 結果リストの Lv 列（3 桁に収まる短い表記）
+    pub fn short(self) -> String {
+        match self {
+            SpellLevel::Value(n) => n.to_string(),
+            SpellLevel::ValuePlus(n) => format!("{}+", n),
+            SpellLevel::Rank(n) => format!("R{}", n),
+            SpellLevel::Unknown => NONE.to_string(),
+        }
+    }
+
+    /// 詳細ペインの見出しに出す表記
+    pub fn label(self) -> String {
+        match self {
+            SpellLevel::Value(n) => format!("Lv.{}", n),
+            SpellLevel::ValuePlus(n) => format!("Lv.{}+", n),
+            SpellLevel::Rank(n) => format!("ランク{}", n),
+            SpellLevel::Unknown => format!("Lv.{}", NONE),
+        }
+    }
+}
+
+/// `Lv` を読み取る（core の検索と同じく value → value+ → rank の順にキーを見る）
+pub fn spell_level(s: &Spell) -> SpellLevel {
+    let Some(lv) = s.extra.get("Lv").and_then(Value::as_object) else {
+        return SpellLevel::Unknown;
+    };
+    let int = |key: &str| lv.get(key).and_then(Value::as_i64).map(|n| n as i32);
+    if let Some(n) = int("value") {
+        SpellLevel::Value(n)
+    } else if let Some(n) = int("value+") {
+        SpellLevel::ValuePlus(n)
+    } else if let Some(n) = int("rank") {
+        SpellLevel::Rank(n)
+    } else {
+        SpellLevel::Unknown
+    }
+}
+
+/// 見出し行: 名前と「Lv（またはランク）・系統（schoolVariant / god があれば併記）」
+pub fn spell_title(s: &Spell) -> (String, String) {
+    let mut right = format!("{}  {}", spell_level(s).label(), text_or_none(&s.school));
+    if let Some(variant) = extra_text(s, "schoolVariant") {
+        right.push_str(&format!(" [{}]", variant));
+    }
+    if let Some(god) = extra_text(s, "god") {
+        right.push_str(&format!(" {}", god));
+    }
+    (s.name.clone(), right)
+}
+
+/// 基本値の行（ラベルと値の組の並び）
+///
+/// MP・対象・射程・時間・抵抗は値がなければ `-`、形状・属性は値がなければ省く。
+pub fn spell_summary(s: &Spell) -> Vec<Vec<(&'static str, String)>> {
+    let or_none = |r: Result<String, String>| r.unwrap_or_else(|_| NONE.to_string());
+    let mut rows = vec![
+        vec![("MP", or_none(palette::format_mp(s))), ("時間", or_none(palette::format_duration(s)))],
+        vec![("対象", or_none(palette::format_target(s)))],
+    ];
+
+    let mut range_row = vec![("射程", spell_range(s))];
+    if let Some(shape) = extra_text(s, "形状") {
+        range_row.push(("形状", shape));
+    }
+    rows.push(range_row);
+
+    let mut resist_row = vec![("抵抗", extra_text(s, "抵抗").unwrap_or_else(|| NONE.to_string()))];
+    if let Some(attr) = extra_text(s, "属性") {
+        resist_row.push(("属性", attr));
+    }
+    rows.push(resist_row);
+    rows
+}
+
+/// 射程（`射程` と `射程(m)` の両方があれば「術者(30m)」のように併記）
+pub fn spell_range(s: &Spell) -> String {
+    let range = extra_text(s, "射程");
+    let meters = extra_text(s, "射程(m)").map(|m| format!("{}m", m));
+    match (range, meters) {
+        (Some(r), Some(m)) => format!("{}({})", r, m),
+        (Some(r), None) => r,
+        (None, Some(m)) => m,
+        (None, None) => NONE.to_string(),
+    }
+}
+
+/// 詳細ペイン下部のテキスト節（効果）。空なら含めない
+pub fn spell_sections(s: &Spell) -> Vec<(String, String)> {
+    extra_text(s, "効果")
+        .map(|effect| vec![("効果".to_string(), effect)])
+        .unwrap_or_default()
+}
+
+/// 文字列または数値のフィールドを表示用の文字列にする（空・その他の型は `None`）
+fn extra_text(s: &Spell, key: &str) -> Option<String> {
+    match s.extra.get(key)? {
+        Value::String(v) if !v.trim().is_empty() => Some(v.trim().to_string()),
+        Value::Number(n) => Some(n.to_string()),
+        _ => None,
     }
 }
 
@@ -252,5 +379,110 @@ pub(crate) mod tests {
         let s = monster_sections(&m, 1);
         assert_eq!(s.len(), 1);
         assert_eq!(s[0].0, "共通特殊能力");
+    }
+
+    pub fn spell(name: &str, school: &str, extra: Value) -> Spell {
+        let Value::Object(map) = extra else { panic!("extra はオブジェクトで指定する") };
+        Spell {
+            name: name.to_string(),
+            school: school.to_string(),
+            extra: map.into_iter().collect(),
+        }
+    }
+
+    /// パレットを生成できる最小限のスペル
+    pub fn full_spell(name: &str, level: Value) -> Spell {
+        spell(
+            name,
+            "MagicCat_1",
+            serde_json::json!({
+                "Lv": level,
+                "MP": {"kind": "value", "value": 5},
+                "対象": {"kind": "個別", "個別": "1体"},
+                "時間": {"value": "一瞬"},
+                "射程": "術者",
+                "射程(m)": 30,
+                "抵抗": "半減",
+                "効果": "テスト効果",
+            }),
+        )
+    }
+
+    #[test]
+    fn test_spell_level_variants() {
+        let lv = |v: Value| spell_level(&spell("テスト", "", serde_json::json!({ "Lv": v })));
+        assert_eq!(lv(serde_json::json!({"kind": "value", "value": 3})), SpellLevel::Value(3));
+        assert_eq!(lv(serde_json::json!({"kind": "value+", "value+": 5})), SpellLevel::ValuePlus(5));
+        assert_eq!(lv(serde_json::json!({"kind": "rank", "rank": 2})), SpellLevel::Rank(2));
+        assert_eq!(lv(serde_json::json!("不正")), SpellLevel::Unknown);
+        assert_eq!(spell_level(&spell("テスト", "", serde_json::json!({}))), SpellLevel::Unknown);
+
+        assert_eq!(SpellLevel::Value(3).short(), "3");
+        assert_eq!(SpellLevel::ValuePlus(5).short(), "5+");
+        assert_eq!(SpellLevel::Rank(2).short(), "R2");
+        assert_eq!(SpellLevel::Rank(2).label(), "ランク2");
+        assert_eq!(SpellLevel::ValuePlus(5).label(), "Lv.5+");
+        // レベル系 → ランク → 不明 の順
+        assert!(SpellLevel::Value(15).sort_key() < SpellLevel::Rank(1).sort_key());
+        assert!(SpellLevel::ValuePlus(2).sort_key() < SpellLevel::Value(3).sort_key());
+        assert!(SpellLevel::Rank(9).sort_key() < SpellLevel::Unknown.sort_key());
+    }
+
+    #[test]
+    fn test_spell_title_with_variant_and_god() {
+        let s = full_spell("テストスペル", serde_json::json!({"kind": "value", "value": 9}));
+        assert_eq!(spell_title(&s), ("テストスペル".into(), "Lv.9  MagicCat_1".into()));
+
+        let s = spell(
+            "テストスペル",
+            "MagicCat_2",
+            serde_json::json!({"Lv": {"kind": "rank", "rank": 2}, "schoolVariant": "特殊", "god": "神名"}),
+        );
+        assert_eq!(spell_title(&s).1, "ランク2  MagicCat_2 [特殊] 神名");
+    }
+
+    #[test]
+    fn test_spell_summary_values_and_omissions() {
+        let s = full_spell("テスト", serde_json::json!({"kind": "value", "value": 1}));
+        let rows = spell_summary(&s);
+        assert_eq!(rows[0], vec![("MP", "5".to_string()), ("時間", "一瞬".to_string())]);
+        assert_eq!(rows[1], vec![("対象", "1体".to_string())]);
+        // 形状・属性がないので省略
+        assert_eq!(rows[2], vec![("射程", "術者(30m)".to_string())]);
+        assert_eq!(rows[3], vec![("抵抗", "半減".to_string())]);
+
+        let s = spell(
+            "テスト",
+            "",
+            serde_json::json!({
+                "MP": {"kind": "value+", "value+": 3},
+                "対象": {"kind": "エリア", "エリア": {"value": "1エリア", "半径(m)": 5, "末尾": "すべて"}},
+                "時間": {"value": 3, "unit": "R"},
+                "形状": "射撃",
+                "属性": "炎",
+            }),
+        );
+        let rows = spell_summary(&s);
+        assert_eq!(rows[0], vec![("MP", "3～".to_string()), ("時間", "3R".to_string())]);
+        assert_eq!(rows[1][0].1, "1エリア(半径5mすべて)");
+        assert_eq!(rows[2], vec![("射程", "-".to_string()), ("形状", "射撃".to_string())]);
+        assert_eq!(rows[3], vec![("抵抗", "-".to_string()), ("属性", "炎".to_string())]);
+    }
+
+    #[test]
+    fn test_spell_range_variants() {
+        let r = |v: Value| spell_range(&spell("テスト", "", v));
+        assert_eq!(r(serde_json::json!({"射程": "接触"})), "接触");
+        assert_eq!(r(serde_json::json!({"射程(m)": 10})), "10m");
+        assert_eq!(r(serde_json::json!({"射程": "術者", "射程(m)": "30"})), "術者(30m)");
+        assert_eq!(r(serde_json::json!({"射程": ""})), "-");
+    }
+
+    #[test]
+    fn test_spell_sections() {
+        let s = full_spell("テスト", serde_json::json!({"kind": "value", "value": 1}));
+        assert_eq!(spell_sections(&s), vec![("効果".to_string(), "テスト効果".to_string())]);
+        let s = spell("テスト", "", serde_json::json!({"効果": "  "}));
+        assert!(spell_sections(&s).is_empty());
     }
 }

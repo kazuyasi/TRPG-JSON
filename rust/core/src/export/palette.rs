@@ -32,7 +32,7 @@ pub fn format_magic_category(school: &str) -> String {
 /// 
 /// Spell.extra["MP"] から MP値を抽出してフォーマットする
 /// 期待される形式: {"value": 3} または {"value+": 3} または {"special": "文字列"}
-fn format_mp(spell: &Spell) -> Result<String, String> {
+pub fn format_mp(spell: &Spell) -> Result<String, String> {
     let mp_obj = spell.extra.get("MP")
         .ok_or_else(|| ERR_MISSING_MP.to_string())?;
     
@@ -69,7 +69,7 @@ fn format_mp(spell: &Spell) -> Result<String, String> {
 /// Spell.extra["対象"] から対象情報を抽出
 /// 個別: {"kind": "個別", "個別": "1体全"} → "1体全"
 /// エリア: {"kind": "エリア", "value": "2エリア", "半径(m)": "10", "末尾": "空間"} → "2エリア(半径10m空間)"
-fn format_target(spell: &Spell) -> Result<String, String> {
+pub fn format_target(spell: &Spell) -> Result<String, String> {
     let target_obj = spell.extra.get("対象")
         .ok_or_else(|| ERR_MISSING_TARGET.to_string())?;
     
@@ -166,7 +166,7 @@ fn format_range(spell: &Spell) -> Result<String, String> {
 /// Spell.extra["時間"] から時間情報を抽出
 /// 文字列: {"value": "一瞬"} → "一瞬"
 /// 整数: {"value": 3, "unit": "年"} → "3年"
-fn format_duration(spell: &Spell) -> Result<String, String> {
+pub fn format_duration(spell: &Spell) -> Result<String, String> {
     let time_obj = spell.extra.get("時間")
         .ok_or_else(|| ERR_MISSING_TIME.to_string())?;
     
