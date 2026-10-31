@@ -408,7 +408,8 @@
 ### Phase 4: Advanced Features
 - [ ] T041 Phase 4: Skill system implementation (流派特技)
 - [ ] T042 Phase 4: Fairy magic system implementation (妖精魔法)
-- [ ] T043 Phase 4: Chat palette export to clipboard
+- [x] T043 Phase 4: Chat palette export to clipboard — 2026-10-31
+      - Status: COMPLETE ✅ (covered by T048: CCFolia export copies the chat palette to the clipboard via `commands`; spell palette clipboard copy already available via `gm spell palette --copy`)
 - [x] T048 Phase 4: CCFolia (ココフォリア) clipboard export for monsters — 2026-10-31
       - Status: COMPLETE ✅
       - Owner: Claude
