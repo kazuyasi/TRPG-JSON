@@ -454,6 +454,15 @@
         6. ✅ 空の2タブ画面（ヘッダー: タブ＋件数、本文、ステータス行、キーヘルプ行）。`1`/`2` でタブ切替、`q`/`Ctrl-c` で終了。高さ 15 行未満は警告表示
         7. ✅ 単体テスト 10 件追加（Action 変換・update・TestBackend 描画 80/120 桁）。全 277 件通過（core 258 + app 19）
         8. ✅ 疑似端末で起動 → タブ切替 → 終了、alternate screen からの復帰を確認
+      - [x] T049c モンスタータブ（0.10.0）— 2026-10-31
+        1. ✅ 検索バー: 名前の部分一致（`core::query::find_multi` を使用）で入力のたびに即時再検索。`/` でフォーカス、`Enter`/`Esc` でリストへ、`Backspace`・`Ctrl-u`（クリア）。フォーカス中は端末カーソルを入力位置に置く
+        2. ✅ 結果リスト: Lv 昇順 → 名前順。カテゴリ列は「アンデッド」（全角5文字）が収まる 10 桁、残りを名前列に割り当て。`↑↓`/`jk`・`PgUp`/`PgDn`・`g`/`G`。ヒット 0 件は `format_monster_filter_conditions` の条件一覧を表示。再検索後も選択中の項目がヒットしていれば選択を保持
+        3. ✅ 詳細ペイン: 見出し・知名度/弱点値・先制値・抵抗・移動（-1 は `-`）・弱点、部位表（MP -1 は `--`、コアは `*`）、選択部位の部位特殊能力・共通特殊能力・備考（空の節は省略、折り返し＋`PgUp`/`PgDn`/`g`/`G` でスクロール）
+        4. ✅ 部位選択: 詳細ペインで `↑↓`/`jk`。既定はココフォリア出力と同じ最初のコア部位。`selected_part` は `part[]` の index で、T049d では `+1` して `ccfolia_json` に渡せばよい
+        5. ✅ `Tab`/`Shift-Tab` でペイン移動（検索 → リスト → 詳細）、フォーカス中のペインは枠を強調。キーヘルプ行はフォーカスごとに切り替え。ヘッダーに「総件数中 ヒット件数」
+        6. ✅ 新規: `tui/format.rs`（表示用整形の純粋関数）、`tui/ui/{search,list,detail}.rs`。曖昧幅の記号を避け、節見出しは `【】`、選択記号は `>`
+        7. ✅ 単体テスト 22 件追加（整形・Action 変換・update・TestBackend 描画 80/120 桁）。全 299 件通過（core 258 + app 41）
+        8. ✅ 疑似端末で起動 → 検索 → 詳細ペイン移動 → 終了を確認
 - [ ] T051 Phase 4: TUI selection list pane (multi-select → bulk copy/export) — future, after T050 (see TUI_DESIGN.md §4.5)
 - [ ] T044 Phase 4: Multi-system support (extend beyond SW2.5)
 - [ ] T045 Phase 4: Skill/Fairy magic CLI commands (gm skill find/list/palette)

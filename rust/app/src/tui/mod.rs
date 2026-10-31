@@ -5,6 +5,7 @@
 
 mod action;
 mod app;
+mod format;
 mod ui;
 mod update;
 
@@ -69,7 +70,7 @@ fn event_loop(terminal: &mut DefaultTerminal, app: &mut App) -> Result<(), TuiEr
         terminal.draw(|frame| ui::draw(frame, app))?;
 
         if let Event::Key(key) = event::read()?
-            && let Some(action) = action::from_key(key)
+            && let Some(action) = action::from_key(key, app.focus)
         {
             update::update(app, action);
         }
