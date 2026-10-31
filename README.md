@@ -142,6 +142,39 @@ Magic categories are automatically formatted:
 - Longer categories (e.g., "ハイテクノロジー") remain unchanged
 - The `{行使修正}` placeholder is preserved for dicebot substitution
 
+## TUI モード（`gm tui`）
+
+キー操作だけで「検索 → 確認 → コピー」を行える対話画面です。既存の CLI サブコマンドはそのまま使えます。
+設計の詳細は [TUI_DESIGN.md](TUI_DESIGN.md) を参照してください。
+
+```bash
+gm tui                       # モンスタータブで起動
+gm tui spell                 # スペルタブで起動
+gm tui --config path.toml    # 設定ファイルを指定（データパスは CLI と共通）
+```
+
+- 端末（TTY）上でのみ起動します（パイプ・リダイレクト時はエラー終了）
+- 画面: ヘッダー（タブ・件数）、検索バー、結果リスト、詳細ペイン、ステータス行、キーヘルプ行
+- 検索バーは名前の部分一致で、入力のたびに絞り込みます（空なら全件）
+- 幅 100 桁未満の端末では結果リストと詳細を1ペインずつ表示し、`Enter`（詳細へ）/ `Esc`（リストへ）で切り替えます
+- 高さ 15 行未満の端末では「端末が小さすぎます」と表示します
+
+### 主なキー
+
+| キー | 動作 |
+|------|------|
+| `1` / `2` | モンスター / スペルのタブへ切り替え |
+| `/` | 検索バーへ（入力中は英字も文字として入力。`Enter`/`Esc` でリストへ、`Ctrl-u` でクリア） |
+| `↑↓` / `j` `k` | 選択の移動（モンスター詳細では部位の選択、スペル詳細では本文のスクロール） |
+| `PgUp` `PgDn` / `g` `G` | ページ移動 / 先頭・末尾へ |
+| `Tab` / `Shift-Tab` | ペイン移動（検索 → 結果 → 詳細） |
+| `Enter` / `Esc` | 結果リスト → 詳細へ / 詳細 → 結果リストへ |
+| `c` | モンスター: 選択中の部位をココフォリア形式でクリップボードへコピー |
+| `y` / `Y` | スペル: 選択中 / ヒット全件のチャットパレットをコピー |
+| `J` | 選択中の項目の JSON を表示（表示中に `y` でコピー） |
+| `?` | ヘルプ（全キーバインドと検索構文） |
+| `q` / `Ctrl-c` | 終了（ヘルプ・JSON 表示中の `q` / `Esc` は閉じるだけ） |
+
 ## Export Features
 
 This tool supports exporting TRPG data to multiple formats for collaboration and data sharing.

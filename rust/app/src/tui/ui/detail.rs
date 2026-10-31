@@ -13,7 +13,7 @@ use trpg_json_core::{Monster, Spell};
 
 use super::super::app::{App, Focus, Tab};
 use super::super::format;
-use super::pane_block;
+use super::{heading, pane_block, wrapped_height};
 
 /// 部位表に一度に出す最大行数（ヘッダー除く）。超えた分は表内でスクロールする
 const MAX_PART_ROWS: u16 = 6;
@@ -103,14 +103,6 @@ fn summary_line<'a>(row: &'a [(&'static str, String)]) -> Line<'a> {
     Line::from(spans)
 }
 
-/// 節の見出し（曖昧幅の罫線を避け、全角括弧で囲む）
-fn heading(text: &str) -> Line<'static> {
-    Line::from(Span::styled(
-        format!("【{}】", text),
-        Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD),
-    ))
-}
-
 fn draw_parts(frame: &mut Frame, area: Rect, app: &App, monster: &Monster, focused: bool) {
     let right = |s: String| Cell::from(Line::from(s).alignment(Alignment::Right));
     let rows = format::part_rows(monster).into_iter().map(|r| {
@@ -185,8 +177,7 @@ fn section_lines(sections: Vec<(String, String)>) -> Vec<Line<'static>> {
 /// 折り返し・スクロール可能な本文を描画する
 fn draw_body(frame: &mut Frame, area: Rect, app: &App, lines: Vec<Line>) {
     // 折り返し後の行数を見積もり、スクロール上限を update に伝える
-    let width = area.width.max(1) as usize;
-    let wrapped: usize = lines.iter().map(|l| l.width().max(1).div_ceil(width)).sum();
+    let wrapped = wrapped_height(&lines, area.width);
     let max_scroll = wrapped.saturating_sub(area.height as usize).min(u16::MAX as usize) as u16;
     app.detail_max_scroll.set(max_scroll);
     app.detail_page.set(area.height.max(1));

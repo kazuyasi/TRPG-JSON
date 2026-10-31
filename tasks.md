@@ -479,6 +479,16 @@
         6. ✅ 新規: `tui/format.rs` に `SpellLevel` / `spell_title` / `spell_summary` / `spell_range` / `spell_sections`。キーヘルプ行（スペル用）を追加し 80 桁に収まることをテスト
         7. ✅ 単体テスト 20 件追加（整形・Action 変換・update のコピー要求/失敗/タブ別無効・描画 80/120 桁）。全 329 件通過（core 258 + app 71）
         8. ✅ 疑似端末（サンプル設定）で起動 → 検索 → `y` / `Y` → ステータス行の成功表示とクリップボードのパレットを確認
+      - [x] T049f モーダル・狭い端末対応・README（0.13.0）— 2026-10-31
+        1. ✅ ヘルプモーダル（`?`）: 全キーバインドと検索構文（段階1）を節ごとに表示。内容は新規 `tui/help.rs` の定数で持ち、キー列の桁をそろえる
+        2. ✅ JSON ビューモーダル（`J`）: 選択中のモンスター／スペルを `serde_json::to_string_pretty` で整形して表示。`y` で JSON 全文をコピー。未選択は情報表示
+        3. ✅ モーダル共通: 本文領域に重ねて表示（ステータス行・キーヘルプ行は隠さない）。`↑↓`/`jk`/`PgUp`/`PgDn`/`Space`/`g`/`G` でスクロール、`Esc`/`q`/`Enter`/開いたキーで閉じる、`Ctrl-c` で終了。表示中は他のキーを受け付けない。新規 `tui/ui/modal.rs`、`App.modal: Option<Modal>`
+        4. ✅ 狭い端末（幅 100 桁未満）: 結果リスト ⇔ 詳細の1ペイン表示。`Enter`（結果リスト → 詳細）/ `Esc`（詳細 → リスト）で切り替え（`Action::FocusDetail` を追加）
+        5. ✅ キーヘルプ行に `Enter:詳細` `J:JSON` `?:ヘルプ` を追加し、80 桁に収まるよう `PgUp/Dn`・`Tab`・`1/2` はヘルプへ移動。モーダル用のキーヘルプ行を追加
+        6. ✅ 見出し（`【】`）と折り返し行数の見積もりを `ui/mod.rs` に共通化（詳細ペインとモーダルで共用）
+        7. ✅ README に「TUI モード（`gm tui`）」の節を追加（日本語）。TUI_DESIGN.md §4.3 / §4.6 / §6 / §7.1 を更新
+        8. ✅ 単体テスト 15 件追加（Action 変換・update のモーダル開閉/スクロール/コピー/操作の遮断・描画 60/80/99/100/120 桁）。全 344 件通過（core 258 + app 86）
+        9. ✅ 疑似端末（サンプル設定、120×30 と 80×24）で `?` → `G` → `q` → `J` → `y` → `Esc` → `Enter` → `2` → `J` → `q` → `q` を確認（ステータス行の成功表示とクリップボードの JSON を確認）
 - [ ] T051 Phase 4: TUI selection list pane (multi-select → bulk copy/export) — future, after T050 (see TUI_DESIGN.md §4.5)
 - [ ] T044 Phase 4: Multi-system support (extend beyond SW2.5)
 - [ ] T045 Phase 4: Skill/Fairy magic CLI commands (gm skill find/list/palette)

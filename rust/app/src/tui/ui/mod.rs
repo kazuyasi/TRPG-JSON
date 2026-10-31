@@ -6,14 +6,23 @@ use ratatui::style::{Color, Modifier, Style};
 use ratatui::text::{Line, Span};
 use ratatui::widgets::{Block, Borders, Paragraph, Tabs, Wrap};
 
-use super::app::{App, Focus, StatusKind, Tab};
+use super::app::{App, Focus, ModalKind, StatusKind, Tab};
 
 mod detail;
 mod list;
+mod modal;
 mod search;
 
 /// 描画を行う最小の端末の高さ（これ未満は警告のみ表示）
 pub const MIN_HEIGHT: u16 = 15;
+
+/// 結果リストと詳細を左右に並べる最小の端末の幅（これ未満は1ペイン表示）
+pub const SPLIT_MIN_WIDTH: u16 = 100;
+
+/// 幅が狭く、結果リストと詳細を切り替えて1ペインずつ表示するか
+pub fn is_narrow(width: u16) -> bool {
+    width < SPLIT_MIN_WIDTH
+}
 
 /// 画面全体を描画する
 pub fn draw(frame: &mut Frame, app: &App) {
@@ -36,6 +45,23 @@ pub fn draw(frame: &mut Frame, app: &App) {
     draw_body(frame, body, app);
     draw_status(frame, status, app);
     draw_help(frame, help, app);
+    if let Some(m) = &app.modal {
+        modal::draw(frame, body, m);
+    }
+}
+
+/// 節の見出し（曖昧幅の罫線を避け、全角括弧で囲む）
+fn heading(text: &str) -> Line<'static> {
+    Line::from(Span::styled(
+        format!("【{}】", text),
+        Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD),
+    ))
+}
+
+/// 幅 `width` で折り返したときの行数の見積もり（スクロール上限の計算に使う）
+fn wrapped_height(lines: &[Line], width: u16) -> usize {
+    let width = width.max(1) as usize;
+    lines.iter().map(|l| l.width().max(1).div_ceil(width)).sum()
 }
 
 fn draw_too_small(frame: &mut Frame, area: Rect) {
@@ -90,9 +116,21 @@ fn pane_block(title: &str, focused: bool) -> Block<'_> {
 }
 
 /// 本文: 検索バーの下に結果リスト（左）と詳細（右）。モンスター・スペルとも同じ配置
+///
+/// 幅が狭い端末では左右に分けず、詳細ペインにフォーカスがあるときだけ詳細を、
+/// それ以外（検索バー・結果リスト）は結果リストを全幅で表示する。
 fn draw_body(frame: &mut Frame, area: Rect, app: &App) {
     let [search_area, panes] = Layout::vertical([Constraint::Length(1), Constraint::Min(0)]).areas(area);
     search::draw(frame, search_area, app);
+
+    if is_narrow(area.width) {
+        if app.focus == Focus::Detail {
+            detail::draw(frame, panes, app);
+        } else {
+            list::draw(frame, panes, app);
+        }
+        return;
+    }
 
     let [list_area, detail_area] =
         Layout::horizontal([Constraint::Percentage(40), Constraint::Percentage(60)]).areas(panes);
@@ -117,23 +155,32 @@ fn draw_status(frame: &mut Frame, area: Rect, app: &App) {
 }
 
 /// 現在のフォーカスで使える主要キー
+///
+/// 幅 80 桁に収まるよう短縮表記にしている。すべてのキーは `?` のヘルプで確認できる。
 fn help_text(app: &App) -> &'static str {
+    if let Some(m) = &app.modal {
+        return match m.kind {
+            ModalKind::Help => "↑↓/jk/PgUp/Dn/g/G:スクロール  Esc/q/?:閉じる  Ctrl-c:終了",
+            ModalKind::Json { .. } => {
+                "↑↓/jk/PgUp/Dn/g/G:スクロール  y:JSONをコピー  Esc/q/J:閉じる  Ctrl-c:終了"
+            }
+        };
+    }
     match (app.tab, app.focus) {
         (_, Focus::Search) => {
             "文字入力:名前で絞り込み  Enter/Esc:リストへ  Ctrl-u:クリア  ↑↓:選択  Ctrl-c:終了"
         }
-        // 幅 80 桁に収まるよう短縮表記にしている
         (Tab::Monster, Focus::List) => {
-            "↑↓/jk:選択  c:ココフォリア  PgUp/Dn:移動  /:検索  Tab:ペイン  1/2:タブ  q:終了"
+            "↑↓/jk:選択  Enter:詳細  c:ココフォリア  J:JSON  /:検索  ?:ヘルプ  q:終了"
         }
         (Tab::Monster, Focus::Detail) => {
-            "↑↓/jk:部位選択  c:ココフォリア  PgUp/Dn/g/G:本文  Tab:ペイン  Esc:リスト  q:終了"
+            "↑↓/jk:部位  PgUp/Dn:本文  c:ココフォリア  J:JSON  Esc:リスト  ?:ヘルプ  q:終了"
         }
         (Tab::Spell, Focus::List) => {
-            "↑↓/jk:選択  y:パレット  Y:全件  PgUp/Dn:頁  /:検索  Tab:ペイン  1/2:タブ  q:終了"
+            "↑↓/jk:選択  Enter:詳細  y:パレット  Y:全件  J:JSON  /:検索  ?:ヘルプ  q:終了"
         }
         (Tab::Spell, Focus::Detail) => {
-            "↑↓/jk/PgUp/Dn/g/G:本文  y:パレット  Y:全件  Tab:ペイン  Esc:リスト  q:終了"
+            "↑↓/jk/PgUp/Dn:本文  y:パレット  Y:全件  J:JSON  Esc:リスト  ?:ヘルプ  q:終了"
         }
     }
 }
@@ -189,18 +236,34 @@ mod tests {
         let mut app = sample_app();
         // Lv 昇順なので先頭はサンプル動物。テストモンスターを選ぶ
         crate::tui::update::update(&mut app, crate::tui::action::Action::Down);
-        for width in [80, 120] {
-            let rows = render(&app, width, 24);
-            assert!(contains(&rows, "1:モンスター"));
-            assert!(contains(&rows, "2:スペル"));
-            assert!(contains(&rows, "2件中 2件"));
-            assert!(contains(&rows, "検索>"));
+        // 幅 120 は左右に並べ、幅 80 は結果リスト → 詳細（Enter）を切り替えて表示する
+        for (width, steps) in [(120, vec![Focus::List]), (80, vec![Focus::List, Focus::Detail])] {
+            let mut list_rows = Vec::new();
+            let mut detail_rows = Vec::new();
+            for focus in steps {
+                app.focus = focus;
+                let rows = render(&app, width, 24);
+                if focus == Focus::List || width >= SPLIT_MIN_WIDTH {
+                    list_rows = rows.clone();
+                }
+                if focus == Focus::Detail || width >= SPLIT_MIN_WIDTH {
+                    detail_rows = rows;
+                }
+            }
+            app.focus = Focus::List;
+            let rows = &list_rows;
+            assert!(contains(rows, "1:モンスター"));
+            assert!(contains(rows, "2:スペル"));
+            assert!(contains(rows, "2件中 2件"));
+            assert!(contains(rows, "検索>"));
             // 結果リスト
-            assert!(contains(&rows, "サンプル動物"));
+            assert!(contains(rows, "サンプル動物"));
             // 全角5文字のカテゴリが見切れない
-            assert!(contains(&rows, "アンデッド"), "{width}: {rows:#?}");
-            assert!(contains(&rows, "> 6"), "{width}: {rows:#?}");
+            assert!(contains(rows, "アンデッド"), "{width}: {rows:#?}");
+            assert!(contains(rows, "> 6"), "{width}: {rows:#?}");
+            assert!(contains(rows, "q:終了"));
             // 詳細ペイン
+            let rows = detail_rows;
             assert!(contains(&rows, "Lv.6 [蛮族]"));
             assert!(contains(&rows, "知名度/弱点値 9/14"));
             assert!(contains(&rows, "地上 15(飛行) / 水中 -"));
@@ -212,8 +275,102 @@ mod tests {
             assert!(contains(&rows, "共通テスト能力"));
             // 既定はコア部位（胴体）で、胴体には部位特殊能力がない
             assert!(!contains(&rows, "テスト部位能力"));
-            assert!(contains(&rows, "q:終了"));
         }
+    }
+
+    #[test]
+    fn test_narrow_terminal_shows_one_pane() {
+        let mut app = sample_app();
+        // 結果リスト（と検索バー）にフォーカスがある間はリストだけ
+        for focus in [Focus::List, Focus::Search] {
+            app.focus = focus;
+            let rows = render(&app, SPLIT_MIN_WIDTH - 1, 24);
+            assert!(contains(&rows, "┌結果"));
+            assert!(contains(&rows, "サンプル動物"));
+            assert!(!contains(&rows, "┌詳細"), "{focus:?}: {rows:#?}");
+        }
+        assert!(contains(&render(&app, SPLIT_MIN_WIDTH - 1, 24), "Ctrl-u:クリア"));
+        // 詳細にフォーカスすると詳細だけ
+        app.focus = Focus::Detail;
+        let rows = render(&app, SPLIT_MIN_WIDTH - 1, 24);
+        assert!(contains(&rows, "┌詳細"));
+        assert!(contains(&rows, "Lv.2 [アンデッド]"), "{rows:#?}");
+        assert!(!contains(&rows, "┌結果"));
+        assert!(contains(&rows, "Esc:リスト"));
+        // 幅 100 以上は左右に並べる
+        let rows = render(&app, SPLIT_MIN_WIDTH, 24);
+        assert!(contains(&rows, "┌結果"));
+        assert!(contains(&rows, "┌詳細"));
+    }
+
+    #[test]
+    fn test_render_help_modal() {
+        use crate::tui::app::Modal;
+        let mut app = sample_app();
+        app.modal = Some(Modal::new(ModalKind::Help));
+        for width in [60, 80, 120] {
+            let rows = render(&app, width, 30);
+            assert!(contains(&rows, "ヘルプ"), "{width}: {rows:#?}");
+            assert!(contains(&rows, "【全体】"));
+            assert!(contains(&rows, "Tab / Shift-Tab"));
+            // ヘッダー・キーヘルプ行は隠さない
+            assert!(contains(&rows, "1:モンスター"));
+            assert!(contains(&rows, "Esc/q/?:閉じる"));
+            // スクロール上限が描画時に設定される（全節は 26 行に収まらない）
+            assert!(app.modal.as_ref().unwrap().max_scroll.get() > 0, "{width}");
+        }
+
+        // 最後までスクロールすると末尾の節が見える
+        let modal = app.modal.as_mut().unwrap();
+        modal.scroll = u16::MAX;
+        let rows = render(&app, 80, 30);
+        assert!(contains(&rows, "【画面】"), "{rows:#?}");
+        assert!(contains(&rows, "端末が小さすぎます"));
+    }
+
+    #[test]
+    fn test_help_modal_lists_every_section() {
+        let text: Vec<String> = modal::help_lines().iter().map(|l| l.to_string()).collect();
+        for s in crate::tui::help::SECTIONS {
+            assert!(text.contains(&format!("【{}】", s.title)), "{}", s.title);
+            for (key, desc) in s.entries {
+                assert!(
+                    text.iter().any(|l| l.contains(key) && l.contains(desc)),
+                    "{key}: {desc}"
+                );
+            }
+        }
+        // キーの列がそろっている（説明の開始桁が全行で同じ）
+        let starts: std::collections::BTreeSet<usize> = modal::help_lines()
+            .iter()
+            .filter(|l| l.spans.len() == 4)
+            .map(|l| l.spans[..3].iter().map(|s| s.width()).sum())
+            .collect();
+        assert_eq!(starts.len(), 1, "{starts:?}");
+    }
+
+    #[test]
+    fn test_render_json_modal() {
+        use crate::tui::app::Modal;
+        let mut app = sample_app();
+        crate::tui::update::update(&mut app, crate::tui::action::Action::OpenJson);
+        assert!(matches!(app.modal, Some(Modal { kind: ModalKind::Json { .. }, .. })));
+        for width in [60, 120] {
+            let rows = render(&app, width, 24);
+            assert!(contains(&rows, "JSON: サンプル動物"), "{width}: {rows:#?}");
+            assert!(contains(&rows, "\"name\": \"サンプル動物\""), "{width}: {rows:#?}");
+            assert!(contains(&rows, "y:JSONをコピー"));
+        }
+    }
+
+    #[test]
+    fn test_render_too_small_with_modal() {
+        use crate::tui::app::Modal;
+        let app = App { modal: Some(Modal::new(ModalKind::Help)), ..App::default() };
+        let rows = render(&app, 40, MIN_HEIGHT - 1);
+        assert!(contains(&rows, "端末が小さすぎます"));
+        // 最小の高さ・狭い幅でも描画で panic しない
+        render(&app, 20, MIN_HEIGHT);
     }
 
     #[test]
@@ -283,8 +440,9 @@ mod tests {
 
     #[test]
     fn test_render_spell_tab() {
-        let app = spell_app();
+        let mut app = spell_app();
         for width in [80, 120] {
+            app.focus = Focus::List;
             let rows = render(&app, width, 24);
             assert!(contains(&rows, "2件中 2件"), "{width}: {rows:#?}");
             assert!(contains(&rows, "検索>"));
@@ -293,7 +451,12 @@ mod tests {
             assert!(contains(&rows, "> 9"), "{width}: {rows:#?}");
             assert!(contains(&rows, "R2"));
             assert!(contains(&rows, "MagicCat_2"));
-            // 詳細ペイン
+            assert!(contains(&rows, "y:パレット"));
+            // 詳細ペイン（幅 80 は1ペイン表示なので詳細へ切り替える）
+            if is_narrow(width) {
+                app.focus = Focus::Detail;
+            }
+            let rows = render(&app, width, 24);
             assert!(contains(&rows, "Lv.9 MagicCat_1"));
             assert!(contains(&rows, "MP 5"));
             assert!(contains(&rows, "時間 一瞬"));
@@ -306,7 +469,6 @@ mod tests {
             assert!(contains(&rows, "テスト効果"));
             // チャットパレットはプレビューしない
             assert!(!contains(&rows, "行使修正"));
-            assert!(contains(&rows, "y:パレット"));
         }
     }
 
@@ -363,6 +525,12 @@ mod tests {
                 assert!(width <= 80, "{tab:?} {focus:?}: {width}");
             }
         }
+        for kind in [ModalKind::Help, ModalKind::Json { name: String::new(), text: String::new() }] {
+            app.modal = Some(crate::tui::app::Modal::new(kind));
+            let width = Line::from(help_text(&app)).width();
+            assert!(width <= 80, "{:?}: {width}", app.modal);
+        }
+        app.modal = None;
         app.tab = Tab::Monster;
         app.focus = Focus::Detail;
         let rows = render(&app, 80, 24);
