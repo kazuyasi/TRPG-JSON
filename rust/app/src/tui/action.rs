@@ -37,6 +37,8 @@ pub enum Action {
     Top,
     /// 末尾へ
     Bottom,
+    /// 選択中モンスターの選択部位をココフォリア形式でクリップボードへコピー
+    CopyCcfolia,
 }
 
 /// キーイベントを Action に変換する（割り当てのないキーは `None`）
@@ -80,6 +82,7 @@ pub fn from_key(key: KeyEvent, focus: Focus) -> Option<Action> {
         KeyCode::Char('1') => Some(Action::SwitchTab(Tab::Monster)),
         KeyCode::Char('2') => Some(Action::SwitchTab(Tab::Spell)),
         KeyCode::Char('/') => Some(Action::FocusSearch),
+        KeyCode::Char('c') => Some(Action::CopyCcfolia),
         KeyCode::Char('k') => Some(Action::Up),
         KeyCode::Char('j') => Some(Action::Down),
         KeyCode::Char('g') | KeyCode::Home => Some(Action::Top),
@@ -110,9 +113,15 @@ mod tests {
     }
 
     #[test]
-    fn test_plain_c_is_not_quit() {
-        // `c` は将来ココフォリアコピーに割り当てるため、終了にしてはいけない
-        assert_eq!(from_key(press(KeyCode::Char('c')), Focus::List), None);
+    fn test_plain_c_copies_ccfolia() {
+        // `c` はココフォリアコピー（Ctrl-c の終了と区別する）
+        assert_eq!(from_key(press(KeyCode::Char('c')), Focus::List), Some(Action::CopyCcfolia));
+        assert_eq!(from_key(press(KeyCode::Char('c')), Focus::Detail), Some(Action::CopyCcfolia));
+        // 検索中は文字入力
+        assert_eq!(
+            from_key(press(KeyCode::Char('c')), Focus::Search),
+            Some(Action::InsertChar('c'))
+        );
     }
 
     #[test]

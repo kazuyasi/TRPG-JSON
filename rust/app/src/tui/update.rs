@@ -1,13 +1,16 @@
 //! 状態遷移（純粋関数。I/O は行わない）
 
 use super::action::Action;
-use super::app::{App, Focus, Tab};
+use super::app::{App, Focus, StatusMessage, Tab};
+use super::effect::Effect;
+use crate::commands::monster::ccfolia_json;
 
 /// Action を App に適用する
 ///
-/// 副作用（クリップボード等）が必要になった段階で `Option<Effect>` を返すよう拡張する。
-pub fn update(app: &mut App, action: Action) {
+/// クリップボード書き込みなどの副作用が必要な場合は `Effect` を返す（実行はイベントループ側）。
+pub fn update(app: &mut App, action: Action) -> Option<Effect> {
     match action {
+        Action::CopyCcfolia if app.tab == Tab::Monster => return copy_ccfolia(app),
         Action::Quit => app.should_quit = true,
         Action::SwitchTab(tab) => app.tab = tab,
         // スペルタブの検索・一覧は T049e で実装する
@@ -37,6 +40,32 @@ pub fn update(app: &mut App, action: Action) {
             } else {
                 move_in_list(app, action);
             }
+        }
+        Action::CopyCcfolia => {}
+    }
+    None
+}
+
+/// 選択中モンスターの選択部位をココフォリアの駒 JSON にし、コピーを要求する
+///
+/// 変換に失敗した場合は Effect を返さず、ステータス行にエラーを出す。
+fn copy_ccfolia(app: &mut App) -> Option<Effect> {
+    let Some(monster) = app.selected_monster() else {
+        app.status = Some(StatusMessage::info("コピーするモンスターが選択されていません"));
+        return None;
+    };
+    // selected_part は part[] の 0 始まり index、ccfolia_json は 1 始まり
+    match ccfolia_json(monster, Some(app.selected_part + 1)) {
+        Ok(piece) => Some(Effect::CopyToClipboard {
+            text: piece.json,
+            success: format!(
+                "\"{}\" をココフォリア形式でクリップボードにコピーしました",
+                piece.part_name
+            ),
+        }),
+        Err(e) => {
+            app.status = Some(StatusMessage::error(e.to_string()));
+            None
         }
     }
 }
@@ -255,6 +284,83 @@ mod tests {
         assert_eq!(app.focus, Focus::Search);
         update(&mut app, Action::FocusPrev);
         assert_eq!(app.focus, Focus::Detail);
+    }
+
+    /// コピー要求の本文（JSON）と成功文言を取り出す
+    fn copy_request(effect: Option<Effect>) -> (serde_json::Value, String) {
+        match effect {
+            Some(Effect::CopyToClipboard { text, success }) => {
+                (serde_json::from_str(&text).expect("JSON として読めること"), success)
+            }
+            None => panic!("コピーが要求されていない"),
+        }
+    }
+
+    #[test]
+    fn test_copy_ccfolia_uses_default_core_part() {
+        let mut app = sample_app();
+        update(&mut app, Action::Bottom);
+        update(&mut app, Action::Up);
+        assert_eq!(app.selected_monster().unwrap().name, "テストモンスター");
+
+        let (json, success) = copy_request(update(&mut app, Action::CopyCcfolia));
+        assert_eq!(json["kind"], "character");
+        let name = json["data"]["name"].as_str().unwrap();
+        assert!(name.contains("胴体"), "{name}");
+        assert_eq!(success, format!("\"{name}\" をココフォリア形式でクリップボードにコピーしました"));
+        // ステータスは Effect の実行結果で設定するので、ここでは変えない
+        assert!(app.status.is_none());
+    }
+
+    #[test]
+    fn test_copy_ccfolia_follows_selected_part() {
+        let mut app = sample_app();
+        update(&mut app, Action::Bottom);
+        update(&mut app, Action::Up);
+        app.focus = Focus::Detail;
+        update(&mut app, Action::Up);
+        assert_eq!(app.selected_part, 0);
+
+        let (json, _) = copy_request(update(&mut app, Action::CopyCcfolia));
+        let name = json["data"]["name"].as_str().unwrap();
+        assert!(name.contains("頭部"), "{name}");
+    }
+
+    #[test]
+    fn test_copy_ccfolia_single_part_monster() {
+        let mut app = sample_app();
+        assert_eq!(app.selected_monster().unwrap().name, "サンプル動物");
+        let (json, success) = copy_request(update(&mut app, Action::CopyCcfolia));
+        assert_eq!(json["data"]["name"], "サンプル動物");
+        assert!(success.starts_with("\"サンプル動物\" を"));
+    }
+
+    #[test]
+    fn test_copy_ccfolia_without_selection_shows_info() {
+        let mut app = sample_app();
+        type_str(&mut app, "該当なし");
+        assert!(update(&mut app, Action::CopyCcfolia).is_none());
+        let status = app.status.as_ref().unwrap();
+        assert_eq!(status.kind, crate::tui::app::StatusKind::Info);
+        assert_eq!(status.text, "コピーするモンスターが選択されていません");
+    }
+
+    #[test]
+    fn test_copy_ccfolia_without_parts_shows_error() {
+        let monsters = vec![monster("テスト部位なし", 1, "動物", vec![])];
+        let mut app = App::new(monsters, Vec::new(), Tab::Monster);
+        assert!(update(&mut app, Action::CopyCcfolia).is_none());
+        let status = app.status.as_ref().unwrap();
+        assert_eq!(status.kind, crate::tui::app::StatusKind::Error);
+        assert_eq!(status.text, "\"テスト部位なし\" には部位データがありません");
+    }
+
+    #[test]
+    fn test_copy_ccfolia_ignored_on_spell_tab() {
+        let mut app = sample_app();
+        update(&mut app, Action::SwitchTab(Tab::Spell));
+        assert!(update(&mut app, Action::CopyCcfolia).is_none());
+        assert!(app.status.is_none());
     }
 
     #[test]

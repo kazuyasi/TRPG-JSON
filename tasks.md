@@ -463,6 +463,13 @@
         6. ✅ 新規: `tui/format.rs`（表示用整形の純粋関数）、`tui/ui/{search,list,detail}.rs`。曖昧幅の記号を避け、節見出しは `【】`、選択記号は `>`
         7. ✅ 単体テスト 22 件追加（整形・Action 変換・update・TestBackend 描画 80/120 桁）。全 299 件通過（core 258 + app 41）
         8. ✅ 疑似端末で起動 → 検索 → 詳細ペイン移動 → 終了を確認
+      - [x] T049d ココフォリアコピー（0.11.0）— 2026-10-31
+        1. ✅ `c`（結果リスト・詳細ペイン）で選択中モンスターの選択部位をココフォリア形式でクリップボードへコピー。`selected_part + 1` を `ccfolia_json` に渡す。検索バーでは文字入力、スペルタブでは無効
+        2. ✅ `update` を `Option<Effect>` 返却に変更し、新規 `tui/effect.rs`（`Effect::CopyToClipboard`）でクリップボード書き込みを実行。`update` は純粋なまま
+        3. ✅ ステータス行: 成功 `"…" をココフォリア形式でクリップボードにコピーしました`、未選択は情報、`CcfoliaError`・クリップボード失敗はエラー（CLI と同じ文言）
+        4. ✅ キーヘルプ行に `c:ココフォリア` を追加（80 桁に収まるよう短縮）
+        5. ✅ 単体テスト 10 件追加（Action 変換・update のコピー要求・Effect 実行の成功/失敗・描画）。全 309 件通過（core 258 + app 51）
+        6. ✅ 疑似端末で起動 → 詳細ペインで `c` → ステータス行の成功表示とクリップボードの JSON を確認
 - [ ] T051 Phase 4: TUI selection list pane (multi-select → bulk copy/export) — future, after T050 (see TUI_DESIGN.md §4.5)
 - [ ] T044 Phase 4: Multi-system support (extend beyond SW2.5)
 - [ ] T045 Phase 4: Skill/Fairy magic CLI commands (gm skill find/list/palette)
