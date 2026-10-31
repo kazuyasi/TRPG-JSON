@@ -7,7 +7,12 @@
 //! {"kind":"character","data":{"name":"...","status":[...],"params":[...],"commands":"..."}}
 //! ```
 //!
-//! 1回の貼り付けで取り込めるのは1キャラクターのため、モンスターの部位ごとに
+//! 仕様: https://docs.ccfolia.com/developer-api/clipboard-api （Clipboard API beta, v1.19.0）
+//! `data` は `Partial<Character>` のため必要なフィールドのみ出力する。
+//! `status` の value/max は number、`params` の value は string、`initiative` は整数。
+//! `iconUrl` は外部から設定できず、`x` `y` `active` は既定値が優先されるため出力しない。
+//!
+//! 公式の型は単一オブジェクトのみ定義しているため、モンスターの部位ごとに
 //! 1キャラクターを生成する。数値の変換規則は Udonarium エクスポートと共通
 //! （命中力・回避力・生命抵抗力・精神抵抗力は -7 して基本値に変換）。
 
