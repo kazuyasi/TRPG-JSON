@@ -439,6 +439,12 @@
       - Goal: search → inspect → copy/export with keyboard only (ratatui + crossterm)
       - Planned subtasks: T049a refactor (Result-returning export helpers) / T049b skeleton / T049c monster tab / T049d CCFolia copy / T049e spell tab / T049f modals & docs / T049g level & category filters
       - Follow-up: T050 export modal, stats view, add/delete in TUI
+      - [x] T049a 前準備リファクタ（0.8.1）— 2026-10-31
+        1. ✅ `commands::monster::ccfolia_json(monster, part) -> Result<CcfoliaPiece, CcfoliaError>` を切り出し
+        2. ✅ `commands::monster::export_monsters(monsters, format, output) -> Result<(), ExportError>` を切り出し
+        3. ✅ CLI ハンドラは上記を呼んで表示・終了するだけに変更（出力文言・終了コードは不変）
+        4. ✅ app に `thiserror` を追加。エラーの `Display` は CLI 文言と同一
+        5. ✅ 単体テスト 7 件追加。全 267 件通過（core 258 + app 9）
 - [ ] T051 Phase 4: TUI selection list pane (multi-select → bulk copy/export) — future, after T050 (see TUI_DESIGN.md §4.5)
 - [ ] T044 Phase 4: Multi-system support (extend beyond SW2.5)
 - [ ] T045 Phase 4: Skill/Fairy magic CLI commands (gm skill find/list/palette)
