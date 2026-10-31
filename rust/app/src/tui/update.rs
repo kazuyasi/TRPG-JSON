@@ -3,7 +3,7 @@
 use trpg_json_core::export::palette::generate_spell_palette;
 
 use super::action::Action;
-use super::app::{App, Focus, StatusMessage, Tab};
+use super::app::{App, Focus, Modal, ModalKind, StatusMessage, Tab};
 use super::effect::Effect;
 use crate::commands::monster::ccfolia_json;
 
@@ -11,7 +11,16 @@ use crate::commands::monster::ccfolia_json;
 ///
 /// クリップボード書き込みなどの副作用が必要な場合は `Effect` を返す（実行はイベントループ側）。
 pub fn update(app: &mut App, action: Action) -> Option<Effect> {
+    // モーダル表示中はモーダルだけを操作する（裏の画面の状態は変えない）
+    if app.modal.is_some() {
+        return update_modal(app, action);
+    }
+
     match action {
+        Action::OpenHelp => app.modal = Some(Modal::new(ModalKind::Help)),
+        Action::OpenJson => open_json(app),
+        // モーダルが無いときは何もしない
+        Action::CloseModal | Action::CopyJson => {}
         Action::CopyCcfolia if app.tab == Tab::Monster => return copy_ccfolia(app),
         Action::CopyPalette if app.tab == Tab::Spell => return copy_palette(app),
         Action::CopyAllPalettes if app.tab == Tab::Spell => return copy_all_palettes(app),
@@ -21,6 +30,7 @@ pub fn update(app: &mut App, action: Action) -> Option<Effect> {
         Action::SwitchTab(tab) => app.tab = tab,
         Action::FocusSearch => app.focus = Focus::Search,
         Action::FocusList => app.focus = Focus::List,
+        Action::FocusDetail => app.focus = Focus::Detail,
         Action::FocusNext => app.focus = app.focus.next(),
         Action::FocusPrev => app.focus = app.focus.prev(),
         Action::InsertChar(c) => {
@@ -48,6 +58,51 @@ pub fn update(app: &mut App, action: Action) -> Option<Effect> {
         }
     }
     None
+}
+
+/// モーダル表示中の操作: スクロール・閉じる・JSON のコピー・終了
+fn update_modal(app: &mut App, action: Action) -> Option<Effect> {
+    let modal = app.modal.as_mut()?;
+    match action {
+        Action::Quit => app.should_quit = true,
+        Action::CloseModal => app.modal = None,
+        Action::CopyJson => {
+            if let ModalKind::Json { name, text } = &modal.kind {
+                return Some(Effect::CopyToClipboard {
+                    text: text.clone(),
+                    success: format!("\"{}\" の JSON をクリップボードにコピーしました", name),
+                });
+            }
+        }
+        Action::Up | Action::Down | Action::PageUp | Action::PageDown | Action::Top | Action::Bottom => {
+            let max = modal.max_scroll.get();
+            modal.scroll = scrolled(modal.scroll, action, max, modal.page.get());
+        }
+        _ => {}
+    }
+    None
+}
+
+/// 選択中の項目を整形済み JSON にして JSON ビューを開く
+fn open_json(app: &mut App) {
+    let serialized = match app.tab {
+        Tab::Monster => app
+            .selected_monster()
+            .map(|m| (m.name.clone(), serde_json::to_string_pretty(m))),
+        Tab::Spell => app
+            .selected_spell()
+            .map(|s| (s.name.clone(), serde_json::to_string_pretty(s))),
+    };
+    match serialized {
+        None => app.status = Some(StatusMessage::info("JSON を表示する項目が選択されていません")),
+        Some((name, Ok(text))) => app.modal = Some(Modal::new(ModalKind::Json { name, text })),
+        Some((name, Err(e))) => {
+            app.status = Some(StatusMessage::error(format!(
+                "\"{}\" を JSON に変換できません: {}",
+                name, e
+            )))
+        }
+    }
 }
 
 /// 選択中モンスターの選択部位をココフォリアの駒 JSON にし、コピーを要求する
@@ -179,17 +234,23 @@ fn move_in_monster_detail(app: &mut App, action: Action) {
 /// 詳細ペイン本文のスクロール（上限は直近の描画で計算した値）
 fn scroll_detail(app: &mut App, action: Action) {
     let max = app.detail_max_scroll.get();
-    let page = app.detail_page.get().max(1);
+    let page = app.detail_page.get();
     let scroll = &mut app.view_mut().detail_scroll;
-    *scroll = match action {
+    *scroll = scrolled(*scroll, action, max, page);
+}
+
+/// スクロール量を Action に応じて動かす（`max` で頭打ち。`page` が 0 なら 1 行扱い）
+fn scrolled(scroll: u16, action: Action, max: u16, page: u16) -> u16 {
+    let page = page.max(1);
+    match action {
         Action::Up => scroll.saturating_sub(1),
         Action::Down => scroll.saturating_add(1).min(max),
         Action::PageUp => scroll.saturating_sub(page),
         Action::PageDown => scroll.saturating_add(page).min(max),
         Action::Top => 0,
         Action::Bottom => max,
-        _ => *scroll,
-    };
+        _ => scroll,
+    }
 }
 
 #[cfg(test)]
@@ -629,6 +690,115 @@ mod tests {
         assert!(update(&mut app, Action::CopyPalette).is_none());
         assert!(update(&mut app, Action::CopyAllPalettes).is_none());
         assert!(app.status.is_none());
+    }
+
+    // ---- モーダル・1ペイン切り替え ----
+
+    #[test]
+    fn test_enter_focuses_detail_and_esc_returns() {
+        let mut app = sample_app();
+        update(&mut app, Action::FocusDetail);
+        assert_eq!(app.focus, Focus::Detail);
+        update(&mut app, Action::FocusList);
+        assert_eq!(app.focus, Focus::List);
+    }
+
+    #[test]
+    fn test_help_modal_open_scroll_close() {
+        let mut app = sample_app();
+        update(&mut app, Action::OpenHelp);
+        assert_eq!(app.modal.as_ref().unwrap().kind, ModalKind::Help);
+
+        let modal = app.modal.as_ref().unwrap();
+        modal.max_scroll.set(10);
+        modal.page.set(4);
+        update(&mut app, Action::Down);
+        update(&mut app, Action::PageDown);
+        assert_eq!(app.modal.as_ref().unwrap().scroll, 5);
+        update(&mut app, Action::Bottom);
+        assert_eq!(app.modal.as_ref().unwrap().scroll, 10);
+        update(&mut app, Action::Down);
+        assert_eq!(app.modal.as_ref().unwrap().scroll, 10);
+        update(&mut app, Action::Top);
+        assert_eq!(app.modal.as_ref().unwrap().scroll, 0);
+        // 裏のリストは動かない
+        assert_eq!(app.monster_view.selected, 0);
+
+        // ヘルプでは y は何もしない
+        assert!(update(&mut app, Action::CopyJson).is_none());
+        update(&mut app, Action::CloseModal);
+        assert!(app.modal.is_none());
+        assert!(!app.should_quit);
+    }
+
+    #[test]
+    fn test_modal_blocks_other_actions() {
+        let mut app = sample_app();
+        update(&mut app, Action::OpenHelp);
+        for a in [Action::SwitchTab(Tab::Spell), Action::FocusSearch, Action::InsertChar('x'), Action::OpenJson] {
+            assert!(update(&mut app, a).is_none());
+        }
+        assert!(update(&mut app, Action::CopyCcfolia).is_none());
+        assert_eq!(app.tab, Tab::Monster);
+        assert_eq!(app.focus, Focus::List);
+        assert!(app.monster_view.query.is_empty());
+        assert_eq!(app.modal.as_ref().unwrap().kind, ModalKind::Help);
+        // Ctrl-c ではモーダル表示中でも終了する
+        update(&mut app, Action::Quit);
+        assert!(app.should_quit);
+    }
+
+    #[test]
+    fn test_json_modal_shows_selected_monster_and_copies() {
+        let mut app = sample_app();
+        update(&mut app, Action::Down);
+        update(&mut app, Action::Down);
+        update(&mut app, Action::OpenJson);
+        let Some(ModalKind::Json { name, text }) = app.modal.as_ref().map(|m| m.kind.clone()) else {
+            panic!("JSON ビューが開いていない");
+        };
+        assert_eq!(name, "テストモンスター");
+        let value: serde_json::Value = serde_json::from_str(&text).unwrap();
+        assert_eq!(value["name"], "テストモンスター");
+        assert!(text.contains('\n'), "整形済みであること");
+
+        let (copied, success) = copy_text(update(&mut app, Action::CopyJson));
+        assert_eq!(copied, text);
+        assert_eq!(success, "\"テストモンスター\" の JSON をクリップボードにコピーしました");
+        // コピー後もモーダルは開いたまま
+        assert!(app.modal.is_some());
+    }
+
+    #[test]
+    fn test_json_modal_for_spell() {
+        let mut app = spell_app();
+        update(&mut app, Action::OpenJson);
+        let Some(ModalKind::Json { name, text }) = app.modal.as_ref().map(|m| m.kind.clone()) else {
+            panic!("JSON ビューが開いていない");
+        };
+        assert_eq!(name, "テストの呪文");
+        let value: serde_json::Value = serde_json::from_str(&text).unwrap();
+        assert_eq!(value["name"], "テストの呪文");
+    }
+
+    #[test]
+    fn test_json_without_selection_shows_info() {
+        let mut app = sample_app();
+        type_str(&mut app, "該当なし");
+        update(&mut app, Action::OpenJson);
+        assert!(app.modal.is_none());
+        let status = app.status.as_ref().unwrap();
+        assert_eq!(status.kind, StatusKind::Info);
+        assert_eq!(status.text, "JSON を表示する項目が選択されていません");
+    }
+
+    #[test]
+    fn test_close_and_copy_json_without_modal_do_nothing() {
+        let mut app = sample_app();
+        assert!(update(&mut app, Action::CloseModal).is_none());
+        assert!(update(&mut app, Action::CopyJson).is_none());
+        assert!(app.status.is_none());
+        assert!(!app.should_quit);
     }
 
     #[test]

@@ -96,6 +96,38 @@ impl Focus {
     }
 }
 
+/// モーダルの種類
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ModalKind {
+    /// 全キーバインドと検索構文の一覧（`?`）
+    Help,
+    /// 選択中項目の生 JSON（`J`）。開いた時点の内容を保持する
+    Json {
+        /// 項目名（タイトルとコピー時の文言に使う）
+        name: String,
+        /// 整形済みの JSON
+        text: String,
+    },
+}
+
+/// 本文の上に重ねて表示するモーダル（表示中はキー入力をすべて受け取る）
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Modal {
+    pub kind: ModalKind,
+    /// 本文のスクロール量
+    pub scroll: u16,
+    /// 直近の描画でのスクロール量の上限（描画時に書き戻す）
+    pub max_scroll: Cell<u16>,
+    /// 直近の描画での表示行数（PgUp/PgDn の移動量に使う）
+    pub page: Cell<u16>,
+}
+
+impl Modal {
+    pub fn new(kind: ModalKind) -> Self {
+        Self { kind, scroll: 0, max_scroll: Cell::new(0), page: Cell::new(0) }
+    }
+}
+
 /// 検索結果リストの状態（タブごとに1つ持つ）
 ///
 /// ヒット結果は借用の寿命問題を避けるため、元データへの index で保持する。
@@ -176,6 +208,8 @@ pub struct App {
     pub detail_max_scroll: Cell<u16>,
     /// 直近の描画での詳細ペイン下部の表示行数（PgUp/PgDn の移動量に使う）
     pub detail_page: Cell<u16>,
+    /// 表示中のモーダル（なければ `None`）
+    pub modal: Option<Modal>,
     pub status: Option<StatusMessage>,
     pub should_quit: bool,
 }
