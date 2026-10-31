@@ -2,7 +2,7 @@
 
 ## 🧭 Meta
 - Project: TRPG-JSON
-- Last Updated: 2025-12-28 JST (T047 completed; Phase 3.7 fully complete)
+- Last Updated: 2026-10-31 JST (T048 CCFolia clipboard export completed; v0.8.0)
 - Responsibilities: kazuyasi (specification/approval/git operations) / Claude (proposal/implementation/testing)
 - Status: Phase 2.5 COMPLETE (T013-T027). Phase 3 COMPLETE (T028-T037). Phase 3.5 COMPLETE (T038-1/2/final). Phase 3.6 COMPLETE (T038.6, T040, T040.5). Phase 3.7 COMPLETE (T046, T047). UX improvements complete with enhanced error messages and statistics commands. Workspace version inheritance configured. Test suite: 291 total tests (251 core + 40 app). Ready for commit.
 
@@ -409,6 +409,28 @@
 - [ ] T041 Phase 4: Skill system implementation (流派特技)
 - [ ] T042 Phase 4: Fairy magic system implementation (妖精魔法)
 - [ ] T043 Phase 4: Chat palette export to clipboard
+- [x] T048 Phase 4: CCFolia (ココフォリア) clipboard export for monsters — 2026-10-31
+      - Status: COMPLETE ✅
+      - Owner: Claude
+      - Version: 0.8.0
+      - Task: Copy a monster to the clipboard as a CCFolia character piece
+
+      **Usage:**
+      ```bash
+      gm monster select -n "モンスター名" --export ccfolia             # copy first core part
+      gm monster select -n "モンスター名" --export ccfolia --part 2    # copy 2nd part
+      gm monster select -n "モンスター名" --export ccfolia --output piece.json
+      ```
+
+      **Implementation scope:**
+      1. ✅ Add `export/ccfolia.rs` in core (`{"kind":"character","data":{...}}` per part)
+      2. ✅ Field mapping: status = HP/MP/防護点, params = 命中力/回避力/生命抵抗力/精神抵抗力 (-7) + 打撃点 + ダメージ軽減, memo = 知名度/弱点値/先制値/弱点/移動速度/特殊能力
+      3. ✅ Reuse Udonarium `PartNamer` / `DataTransformer` and the same chat palette
+      4. ✅ CLI: `--export ccfolia` (clipboard by default, `--output` writes file), `--part <n>` (1-based)
+      5. ✅ Single monster only (CCFolia accepts one character per paste); multi-part defaults to first core part
+      6. ✅ Format verified against official spec: https://docs.ccfolia.com/developer-api/clipboard-api (beta v1.19.0)
+      7. ✅ 6 unit tests added; all 260 tests passing (258 core + 2 app)
+      8. ✅ Release build successful; manually verified paste into a CCFolia room
 - [ ] T044 Phase 4: Multi-system support (extend beyond SW2.5)
 - [ ] T045 Phase 4: Skill/Fairy magic CLI commands (gm skill find/list/palette)
 
