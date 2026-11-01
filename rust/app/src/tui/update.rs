@@ -145,7 +145,7 @@ fn stats_body(formatted: &str) -> String {
 
 /// ヒット中のモンスターを書き出すエクスポートモーダルを開く
 ///
-/// 形式と出力先は直前のエクスポートの値を引き継ぐ。スペルは core にエクスポーターがないため対象外。
+/// 形式・出力先・スプレッドシート ID は直前のエクスポートの値を引き継ぐ。スペルは core にエクスポーターがないため対象外。
 fn open_export(app: &mut App) {
     if app.tab == Tab::Spell {
         app.status = Some(StatusMessage::info(
@@ -158,11 +158,8 @@ fn open_export(app: &mut App) {
         app.status = Some(StatusMessage::info("エクスポートするモンスターがありません"));
         return;
     }
-    let (format, path) = app
-        .last_export
-        .clone()
-        .unwrap_or_else(|| (ExportChoice::default(), ExportChoice::default().default_path()));
-    app.modal = Some(Modal::new(ModalKind::Export(ExportForm::new(format, path, count))));
+    let form = ExportForm { count, ..app.last_export.clone().unwrap_or_default() };
+    app.modal = Some(Modal::new(ModalKind::Export(form)));
 }
 
 /// エクスポートモーダル表示中の操作: 出力先の入力・形式の切り替え・実行・キャンセル
@@ -171,11 +168,11 @@ fn update_export_form(app: &mut App, action: Action) -> Option<Effect> {
         return None;
     };
     match action {
-        Action::InsertChar(c) => form.path.push(c),
+        Action::InsertChar(c) => form.input_mut().push(c),
         Action::DeleteChar => {
-            form.path.pop();
+            form.input_mut().pop();
         }
-        Action::ClearQuery => form.path.clear(),
+        Action::ClearQuery => form.input_mut().clear(),
         Action::CycleExportFormat => form.cycle_format(),
         Action::SubmitExport => return submit_export(app),
         Action::CloseModal => app.modal = None,
@@ -190,15 +187,22 @@ fn submit_export(app: &mut App) -> Option<Effect> {
     let Some(ModalKind::Export(form)) = app.modal.as_ref().map(|m| &m.kind) else {
         return None;
     };
-    let output = form.path.trim().to_string();
+    let output = form.input().trim().to_string();
     let format = form.format;
     if output.is_empty() {
-        app.status = Some(StatusMessage::error("出力先のパスを入力してください"));
+        let message = if format.is_file() {
+            "出力先のパスを入力してください"
+        } else {
+            "スプレッドシート ID を入力してください"
+        };
+        app.status = Some(StatusMessage::error(message));
         return None;
     }
 
+    let mut remembered = form.clone();
+    *remembered.input_mut() = output.clone();
+    app.last_export = Some(remembered);
     let monsters = app.monster_view.hits.iter().map(|&i| app.monsters[i].clone()).collect();
-    app.last_export = Some((format, output.clone()));
     app.modal = None;
     Some(Effect::Export { monsters, format, output })
 }
@@ -1032,8 +1036,20 @@ mod tests {
         let form = export_form(&app);
         assert_eq!(form.format, ExportChoice::Udonarium);
         assert_eq!(form.path, "~/qe.zip");
+        // Sheets はスプレッドシート ID を別に入力する（出力先は保持）
         update(&mut app, Action::CycleExportFormat);
-        assert_eq!(export_form(&app).path, "~/qe.json");
+        let form = export_form(&app);
+        assert_eq!(form.format, ExportChoice::Sheets);
+        assert_eq!(form.input(), "");
+        type_str(&mut app, "sheet-id");
+        assert_eq!(export_form(&app).sheet_id, "sheet-id");
+        assert_eq!(export_form(&app).path, "~/qe.zip");
+        // Sheets を挟んでも、JSON に戻ると拡張子を付け替える
+        update(&mut app, Action::CycleExportFormat);
+        let form = export_form(&app);
+        assert_eq!(form.format, ExportChoice::Json);
+        assert_eq!(form.path, "~/qe.json");
+        assert_eq!(form.sheet_id, "sheet-id");
 
         // 拡張子が違えばパスはそのまま
         update(&mut app, Action::ClearQuery);
@@ -1066,6 +1082,34 @@ mod tests {
         update(&mut app, Action::OpenExport);
         let form = export_form(&app);
         assert_eq!(form.format, ExportChoice::Udonarium);
+        assert_eq!(form.path, "monsters.zip");
+    }
+
+    #[test]
+    fn test_submit_sheets_export() {
+        let mut app = sample_app();
+        update(&mut app, Action::OpenExport);
+        update(&mut app, Action::CycleExportFormat);
+        update(&mut app, Action::CycleExportFormat);
+        // 空の ID はエラー
+        assert!(update(&mut app, Action::SubmitExport).is_none());
+        assert_eq!(app.status.as_ref().unwrap().text, "スプレッドシート ID を入力してください");
+        assert!(app.modal.is_some());
+
+        type_str(&mut app, " test-sheet-id ");
+        match update(&mut app, Action::SubmitExport) {
+            Some(Effect::Export { monsters, format, output }) => {
+                assert_eq!(monsters.len(), 4);
+                assert_eq!(format, ExportChoice::Sheets);
+                assert_eq!(output, "test-sheet-id");
+            }
+            other => panic!("エクスポートが要求されていない: {other:?}"),
+        }
+        // 次に開くと Sheets と ID（前後の空白は除く）、途中で付け替えたファイルの出力先を引き継ぐ
+        update(&mut app, Action::OpenExport);
+        let form = export_form(&app);
+        assert_eq!(form.format, ExportChoice::Sheets);
+        assert_eq!(form.sheet_id, "test-sheet-id");
         assert_eq!(form.path, "monsters.zip");
     }
 

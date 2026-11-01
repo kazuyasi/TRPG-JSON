@@ -181,11 +181,12 @@ gm tui --config path.toml    # 設定ファイルを指定（データパスは 
 
 モンスタータブで `e` を押すと、ヒット中の全件（結果リストの並び順）を書き出すモーダルが開きます。
 
-- 形式: `Tab` / `↑↓` で JSON / Udonarium (ZIP) を切り替え（出力先が `.json` / `.zip` で終わっていれば拡張子も付け替え）
+- 形式: `Tab` / `↑↓` で JSON / Udonarium (ZIP) / Google Sheets を切り替え（出力先が `.json` / `.zip` で終わっていれば拡張子も付け替え）
 - 出力先: そのまま文字入力（`Backspace` で1文字削除、`Ctrl-u` でクリア）。相対パスは `gm` を起動したディレクトリが基準、先頭の `~/` はホームディレクトリ
 - `Enter` で出力、`Esc` でキャンセル。結果はステータス行に表示。同じ名前のファイルは上書きされます（CLI と同じ）
-- 次に開いたときは前回の形式と出力先が入っています
-- Google Sheets への出力とスペルのエクスポートは未対応です（Sheets は CLI の `gm monster select --export sheets` を使用）
+- 次に開いたときは前回の形式と出力先（スプレッドシート ID）が入っています
+- Google Sheets: 出力先の代わりにスプレッドシート ID を入力します。`Enter` で TUI を一時停止して通常の画面で実行し（認証が必要ならブラウザが開きます）、結果を表示したあと `Enter` で TUI に戻ります。認証の設定は CLI の `--export sheets` と同じです（下の「Google Sheets Setup」を参照）
+- スペルのエクスポートは未対応です
 - モンスターの追加・削除は TUI では行いません。CLI の `gm monster add` / `gm monster delete` を使ってください
 
 ### 検索構文

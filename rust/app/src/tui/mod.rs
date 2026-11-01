@@ -16,6 +16,10 @@ use std::io::{self, IsTerminal};
 
 use ratatui::DefaultTerminal;
 use ratatui::backend::{Backend, ClearType};
+use ratatui::crossterm::execute;
+use ratatui::crossterm::terminal::{
+    EnterAlternateScreen, LeaveAlternateScreen, disable_raw_mode, enable_raw_mode,
+};
 use ratatui::crossterm::event::{self, Event};
 use thiserror::Error;
 use trpg_json_core::io as core_io;
@@ -85,13 +89,40 @@ fn event_loop(terminal: &mut DefaultTerminal, app: &mut App) -> Result<(), TuiEr
             && let Some(effect) = update::update(app, action)
         {
             let redraw = effect.needs_full_redraw();
-            app.status = Some(effect::execute(effect));
+            let status = if effect.needs_suspend() {
+                run_suspended(terminal, effect)?
+            } else {
+                effect::execute(effect)
+            };
+            app.status = Some(status);
             if redraw {
                 force_full_redraw(terminal)?;
             }
         }
     }
     Ok(())
+}
+
+/// TUI を一時停止（raw mode・alternate screen を抜ける）して副作用を実行し、Enter で TUI に戻る
+///
+/// Google Sheets の OAuth はブラウザを開き、案内や進捗を stderr に出して完了までブロックするため、
+/// 通常の画面で実行して利用者が読めるようにする。結果も同じ画面に出し、Enter を待ってから戻る。
+fn run_suspended(terminal: &mut DefaultTerminal, effect: effect::Effect) -> io::Result<StatusMessage> {
+    execute!(terminal.backend_mut(), LeaveAlternateScreen)?;
+    disable_raw_mode()?;
+    terminal.show_cursor()?;
+
+    eprintln!("Google Sheets へエクスポートします（TUI は一時停止中です）");
+    let status = effect::execute(effect);
+    eprintln!();
+    eprintln!("{}{}", status.kind.prefix(), status.text);
+    eprint!("Enter キーで TUI に戻ります");
+    let mut line = String::new();
+    io::stdin().read_line(&mut line)?;
+
+    enable_raw_mode()?;
+    execute!(terminal.backend_mut(), EnterAlternateScreen)?;
+    Ok(status)
 }
 
 /// 画面を消し、次の描画で全セルを描き直させる（エクスポート処理が stderr に書いた文字を消す）

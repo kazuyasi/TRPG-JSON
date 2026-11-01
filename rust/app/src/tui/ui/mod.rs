@@ -142,10 +142,11 @@ fn draw_status(frame: &mut Frame, area: Rect, app: &App) {
     let Some(status) = &app.status else {
         return;
     };
-    let (prefix, color) = match status.kind {
-        StatusKind::Success => ("成功: ", Color::Green),
-        StatusKind::Info => ("情報: ", Color::Cyan),
-        StatusKind::Error => ("エラー: ", Color::Red),
+    let prefix = status.kind.prefix();
+    let color = match status.kind {
+        StatusKind::Success => Color::Green,
+        StatusKind::Info => Color::Cyan,
+        StatusKind::Error => Color::Red,
     };
     let line = Line::from(vec![
         Span::styled(prefix, Style::default().fg(color).add_modifier(Modifier::BOLD)),
@@ -407,6 +408,17 @@ mod tests {
             assert!(row_text.contains("monsters.json"), "{width}: {row_text}");
         }
 
+        // Sheets はシートID の入力欄と一時停止の注意書き
+        update(&mut app, Action::CycleExportFormat);
+        update(&mut app, Action::CycleExportFormat);
+        update(&mut app, Action::InsertChar('x'));
+        let rows = render(&app, 120, 24);
+        assert!(contains(&rows, "Google Sheets"));
+        assert!(contains(&rows, "シートID x"), "{rows:#?}");
+        assert!(contains(&rows, "TUI を一時停止します"));
+        assert!(!contains(&rows, "monsters"));
+        update(&mut app, Action::CycleExportFormat);
+
         // 長い出力先は末尾を見せ、枠からはみ出さない
         for _ in 0..80 {
             update(&mut app, Action::InsertChar('a'));
@@ -618,7 +630,7 @@ mod tests {
             ModalKind::Help,
             ModalKind::Json { name: String::new(), text: String::new() },
             ModalKind::Stats { title: String::new(), text: String::new() },
-            ModalKind::Export(crate::tui::app::ExportForm::new(Default::default(), String::new(), 0)),
+            ModalKind::Export(Default::default()),
         ] {
             app.modal = Some(crate::tui::app::Modal::new(kind));
             let width = Line::from(help_text(&app)).width();

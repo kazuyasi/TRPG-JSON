@@ -498,8 +498,8 @@
         6. ✅ ヘルプモーダルの「検索構文」節を段階2の内容に更新。README に「検索構文」の節を追加。TUI_DESIGN.md §4.3 / §5 / §6 を更新
         7. ✅ 単体テスト 15 件追加（パーサ 9・update 3・描画 3。Action 変換のテストに `←→` を追記）。全 359 件通過（core 258 + app 101）
         8. ✅ 疑似端末（サンプル設定、100×24）で `lv:abc` の警告 → `c:アンデッド` → `テ lv:6`（0 件の条件一覧）→ `→` でスペルタブ → `s:x` → `?` を確認
-- [ ] T050 Phase 4: TUI エクスポートモーダル・stats 画面 — 2026-11-01 着手
-      - Status: 🚧 実装中（T050a・T050c 完了。T050b は未着手）
+- [x] T050 Phase 4: TUI エクスポートモーダル・stats 画面 — 2026-11-01 着手、完了 2026-11-01
+      - Status: ✅ 完了（T050a〜T050c すべて実装済み。後続は T051）
       - Owner: Claude
       - Design doc: TUI_DESIGN.md §4.3 / §6 / §11
       - 範囲の決定（2026-11-01、Operator と合意）: 追加・削除は TUI に入れない。追加は JSON を作って CLI の `gm monster add`、削除も破壊的操作なので CLI の `gm monster delete` で行う（TUI_DESIGN.md Q7）
@@ -513,7 +513,6 @@
         6. ✅ キーヘルプ行に `e:出力`（80 桁に収めるため詳細ペインの `PgUp/Dn:本文` はヘルプへ移動）。ヘルプモーダルに「エクスポート」節。README に「エクスポート（`e`）」の節、TUI_DESIGN.md §4.3 / §6 / §11 / §13 を更新
         7. ✅ 単体テスト 16 件追加（Action 変換 2・update 8・Effect 実行 5・描画 1）。全 375 件通過（core 258 + app 117）
         8. ✅ 疑似端末（サンプル設定、100×24）で `e` → パス入力 → `Enter`（JSON 20 件）→ `e`（前回のパスを引き継ぎ）→ `Tab`（`.zip` に付け替え）→ `Enter`（ZIP に XML 22 件）を確認
-      - [ ] T050b Sheets エクスポート（TUI を一時停止して OAuth → 復帰）
       - [x] T050c 統計モーダル（0.16.0）— 2026-11-01
         1. ✅ 結果リスト・詳細ペインで `S`: 現在のタブの統計を core の `MonsterStats` / `SpellStats` で集計して表示（CLI の `stats` と同じ内容。core の見出し行は除く）
         2. ✅ 検索で絞り込み中は `【ヒット中 N 件（検索: …）】` → `【全件 M 件】` の順。検索構文エラーで直前の結果を残しているときは検索語を出さない。データ 0 件は情報表示
@@ -521,6 +520,15 @@
         4. ✅ ヘルプモーダル・キーヘルプ行（モーダル用）・README・TUI_DESIGN.md §4.3 / §6 を更新
         5. ✅ 単体テスト 7 件追加（Action 変換 1・update 5・描画 1）。全 382 件通過（core 258 + app 124）
         6. ✅ 疑似端末（サンプル設定、100×30）で `/` → `ゴ` → `Enter` → `S` → `G` → `q` を確認
+      - [x] T050b Sheets エクスポート（0.17.0）— 2026-11-01
+        1. ✅ エクスポートモーダルの形式に Google Sheets を追加（JSON → Udonarium → Sheets の順）。入力欄は「シートID」で、ファイルの出力先とは別に保持（`ExportForm.path` / `sheet_id`、`input()` / `input_mut()`）
+        2. ✅ ID が空なら「スプレッドシート ID を入力してください」。`~` の展開はファイル形式のみ。`App.last_export` を `ExportForm` に変更し ID も引き継ぐ
+        3. ✅ 実行は TUI を一時停止（`tui::run_suspended`: alternate screen を抜けて raw mode 解除 → `export_monsters` → 結果を表示 → `Enter` 待ち → 復帰・全面再描画）。OAuth の案内・進捗は通常の画面で読める。結果はステータス行にも表示（`Effect::needs_suspend`）
+        4. ✅ `StatusKind::prefix()` を追加し、ステータス行と一時停止中の結果表示で共用
+        5. ✅ README のエクスポート節、TUI_DESIGN.md §2 / §4.3 / §7.4 / §12 を更新
+        6. ✅ 単体テスト 3 件追加（update 1・Effect 2）、既存テスト 2 件を Sheets 込みに更新。全 385 件通過（core 258 + app 127）
+        7. ✅ 疑似端末（サンプル設定、100×24）で `e` → `Tab` `Tab` → 短い ID → `Enter` → 一時停止画面にエラーと案内 → `Enter` で TUI に戻りステータス行にエラーを確認
+        8. ⚠️ 実際の OAuth 認証・Sheets API への書き込みは未確認（認証情報とスプレッドシートが必要。Operator による手動確認を推奨）
 - [ ] T051 Phase 4: TUI selection list pane (multi-select → bulk copy/export) — future, after T050 (see TUI_DESIGN.md §4.5)
 - [ ] T044 Phase 4: Multi-system support (extend beyond SW2.5)
 - [ ] T045 Phase 4: Skill/Fairy magic CLI commands (gm skill find/list/palette)

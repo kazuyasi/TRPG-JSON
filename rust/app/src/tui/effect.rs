@@ -27,7 +27,7 @@ pub enum Effect {
         /// 書き出すモンスター（結果リストの並び順）
         monsters: Vec<Monster>,
         format: ExportChoice,
-        /// 入力された出力先（`~/` は実行時にホームディレクトリへ展開する）
+        /// 入力された出力先（ファイル形式の `~/` は実行時にホームディレクトリへ展開する）。Sheets はスプレッドシート ID
         output: String,
     },
 }
@@ -38,6 +38,14 @@ impl Effect {
     /// core のエクスポート処理は進捗を stderr に書くため、alternate screen 上に文字が残る。
     pub fn needs_full_redraw(&self) -> bool {
         matches!(self, Effect::Export { .. })
+    }
+
+    /// 実行中は TUI を一時停止して通常の画面に戻す必要があるか
+    ///
+    /// Google Sheets は OAuth でブラウザを開き、認証の案内や進捗を stderr に出しながら
+    /// 完了まで処理をブロックするため、利用者がその出力を読めるようにする。
+    pub fn needs_suspend(&self) -> bool {
+        matches!(self, Effect::Export { format: ExportChoice::Sheets, .. })
     }
 }
 
@@ -54,7 +62,11 @@ fn execute_with(effect: Effect, copy: impl FnOnce(&str) -> io::Result<()>) -> St
             Err(e) => StatusMessage::error(format!("クリップボードへのコピーに失敗しました: {}", e)),
         },
         Effect::Export { monsters, format, output } => {
-            let path = expand_home(&output, dirs::home_dir().as_deref());
+            let path = if format.is_file() {
+                expand_home(&output, dirs::home_dir().as_deref())
+            } else {
+                output
+            };
             match export_monsters(&monsters, format.format_name(), &path) {
                 // 文言は CLI の `monster select --export` と同じ
                 Ok(()) => StatusMessage::success(format!(
@@ -164,6 +176,26 @@ mod tests {
     #[test]
     fn test_copy_does_not_need_redraw() {
         assert!(!copy_effect().needs_full_redraw());
+        assert!(!copy_effect().needs_suspend());
+    }
+
+    #[test]
+    fn test_only_sheets_export_suspends() {
+        assert!(!export_effect(ExportChoice::Json, "out.json".into()).needs_suspend());
+        assert!(!export_effect(ExportChoice::Udonarium, "out.zip".into()).needs_suspend());
+        let sheets = export_effect(ExportChoice::Sheets, "id".into());
+        assert!(sheets.needs_suspend());
+        assert!(sheets.needs_full_redraw());
+    }
+
+    #[test]
+    fn test_sheets_export_with_invalid_id_reports_error_without_auth() {
+        // ID の検証は認証より前に行われるので、ネットワークやブラウザには触れない
+        let status = execute(export_effect(ExportChoice::Sheets, "~/not an id".into()));
+        assert_eq!(status.kind, StatusKind::Error);
+        assert!(status.text.starts_with("エクスポートに失敗しました: "), "{}", status.text);
+        // ファイル形式でないので ~ は展開しない
+        assert!(status.text.contains("'~/not an id'"), "{}", status.text);
     }
 
     #[test]

@@ -60,10 +60,10 @@ pub fn draw(frame: &mut Frame, area: Rect, modal: &Modal) {
     frame.render_widget(para, rect);
 }
 
-/// エクスポートモーダルの項目名の幅（全角3文字）
-const EXPORT_LABEL_WIDTH: usize = 6;
+/// エクスポートモーダルの項目名の幅（「シートID」の 8 桁）
+const EXPORT_LABEL_WIDTH: usize = 8;
 
-/// エクスポートモーダルの本文。出力先の行は `EXPORT_PATH_ROW` 行目
+/// エクスポートモーダルの本文。入力欄（出力先 / シートID）の行は `EXPORT_PATH_ROW` 行目
 pub fn export_lines(form: &ExportForm) -> Vec<Line<'static>> {
     let label = |text: &str| {
         let pad = EXPORT_LABEL_WIDTH.saturating_sub(Line::from(text).width());
@@ -87,16 +87,24 @@ pub fn export_lines(form: &ExportForm) -> Vec<Line<'static>> {
     }
 
     let dim = Style::default().fg(Color::DarkGray);
+    let notes: [&str; 2] = if form.format.is_file() {
+        ["相対パスは gm を起動したディレクトリが基準。~/ はホーム", "同じ名前のファイルがあれば上書きします"]
+    } else {
+        [
+            "実行中は TUI を一時停止します（認証が必要ならブラウザが開きます）",
+            "設定は CLI の --export sheets と同じ（README 参照）",
+        ]
+    };
     vec![
         Line::from(vec![
             label("対象"),
             Span::raw(format!("ヒット中のモンスター {} 件（結果リストの並び順）", form.count)),
         ]),
         Line::from(formats),
-        Line::from(vec![label("出力先"), Span::raw(form.path.clone())]),
+        Line::from(vec![label(form.format.input_label()), Span::raw(form.input().to_string())]),
         Line::from(""),
-        Line::from(Span::styled("相対パスは gm を起動したディレクトリが基準。~/ はホーム", dim)),
-        Line::from(Span::styled("同じ名前のファイルがあれば上書きします", dim)),
+        Line::from(Span::styled(notes[0], dim)),
+        Line::from(Span::styled(notes[1], dim)),
     ]
 }
 
@@ -129,7 +137,7 @@ fn draw_export(frame: &mut Frame, area: Rect, form: &ExportForm) {
     if lines[path_row].width() > avail {
         let label = lines[path_row].spans[0].clone();
         let room = avail.saturating_sub(label.width() + 1);
-        lines[path_row] = Line::from(vec![label, Span::styled("<", Style::default().fg(Color::DarkGray)), Span::raw(tail_fitting(&form.path, room))]);
+        lines[path_row] = Line::from(vec![label, Span::styled("<", Style::default().fg(Color::DarkGray)), Span::raw(tail_fitting(form.input(), room))]);
     }
     let cursor_x = lines[path_row].width() as u16;
 

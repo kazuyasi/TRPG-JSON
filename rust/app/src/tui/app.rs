@@ -44,6 +44,17 @@ pub enum StatusKind {
     Error,
 }
 
+impl StatusKind {
+    /// 表示時に本文の前に付ける文言（CLI と同じ）
+    pub fn prefix(self) -> &'static str {
+        match self {
+            StatusKind::Success => "成功: ",
+            StatusKind::Info => "情報: ",
+            StatusKind::Error => "エラー: ",
+        }
+    }
+}
+
 /// ステータス行のメッセージ（CLI の `process::exit` の代わりに使う）
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct StatusMessage {
@@ -121,24 +132,25 @@ pub enum ModalKind {
 }
 
 /// TUI のエクスポートモーダルで選べる形式
-///
-/// Google Sheets は OAuth でブラウザを開くため別扱い（T050b）。
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum ExportChoice {
     #[default]
     Json,
     Udonarium,
+    /// Google Sheets（OAuth でブラウザを開くため、実行中は TUI を一時停止する）
+    Sheets,
 }
 
 impl ExportChoice {
     /// 表示順
-    pub const ALL: [ExportChoice; 2] = [ExportChoice::Json, ExportChoice::Udonarium];
+    pub const ALL: [ExportChoice; 3] = [ExportChoice::Json, ExportChoice::Udonarium, ExportChoice::Sheets];
 
     /// モーダルに表示する名前
     pub fn label(self) -> &'static str {
         match self {
             ExportChoice::Json => "JSON",
             ExportChoice::Udonarium => "Udonarium (ZIP)",
+            ExportChoice::Sheets => "Google Sheets",
         }
     }
 
@@ -147,20 +159,27 @@ impl ExportChoice {
         match self {
             ExportChoice::Json => "json",
             ExportChoice::Udonarium => "udonarium",
+            ExportChoice::Sheets => "sheets",
         }
     }
 
-    /// 出力ファイルの拡張子
+    /// ファイルへ書き出す形式か（Sheets はスプレッドシート ID を入力する）
+    pub fn is_file(self) -> bool {
+        !matches!(self, ExportChoice::Sheets)
+    }
+
+    /// 出力ファイルの拡張子（ファイル形式以外は空）
     pub fn extension(self) -> &'static str {
         match self {
             ExportChoice::Json => ".json",
             ExportChoice::Udonarium => ".zip",
+            ExportChoice::Sheets => "",
         }
     }
 
-    /// 初めて開いたときの出力先
-    pub fn default_path(self) -> String {
-        format!("monsters{}", self.extension())
+    /// 入力欄の項目名
+    pub fn input_label(self) -> &'static str {
+        if self.is_file() { "出力先" } else { "シートID" }
     }
 
     /// 次の形式（最後の次は先頭）
@@ -171,26 +190,53 @@ impl ExportChoice {
 }
 
 /// エクスポートモーダルの入力内容
+///
+/// ファイルの出力先とスプレッドシート ID は別々に持ち、形式を切り替えても失わない。
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ExportForm {
     pub format: ExportChoice,
-    /// 出力先のパス（入力中の文字列）
+    /// ファイルの出力先（JSON / Udonarium）
     pub path: String,
+    /// スプレッドシート ID（Sheets）
+    pub sheet_id: String,
     /// 書き出す件数（開いた時点のヒット件数）
     pub count: usize,
 }
 
+impl Default for ExportForm {
+    /// 初めて開いたときの値（JSON / `monsters.json`）
+    fn default() -> Self {
+        Self {
+            format: ExportChoice::Json,
+            path: format!("monsters{}", ExportChoice::Json.extension()),
+            sheet_id: String::new(),
+            count: 0,
+        }
+    }
+}
+
 impl ExportForm {
-    pub fn new(format: ExportChoice, path: String, count: usize) -> Self {
-        Self { format, path, count }
+    /// 選択中の形式の入力欄の内容
+    pub fn input(&self) -> &str {
+        if self.format.is_file() { &self.path } else { &self.sheet_id }
     }
 
-    /// 形式を切り替える。出力先が前の形式の拡張子で終わっていれば拡張子も付け替える
+    /// 選択中の形式の入力欄（変更用）
+    pub fn input_mut(&mut self) -> &mut String {
+        if self.format.is_file() { &mut self.path } else { &mut self.sheet_id }
+    }
+
+    /// 形式を切り替える。ファイル形式に移るとき、出力先が他のファイル形式の拡張子で終わっていれば付け替える
     pub fn cycle_format(&mut self) {
-        let old = self.format;
-        let new = old.next();
-        if let Some(stem) = self.path.strip_suffix(old.extension()) {
-            self.path = format!("{}{}", stem, new.extension());
+        let new = self.format.next();
+        if new.is_file() {
+            let other = ExportChoice::ALL
+                .iter()
+                .filter(|c| c.is_file() && **c != new)
+                .find_map(|c| self.path.strip_suffix(c.extension()));
+            if let Some(stem) = other {
+                self.path = format!("{}{}", stem, new.extension());
+            }
         }
         self.format = new;
     }
@@ -301,8 +347,8 @@ pub struct App {
     pub detail_page: Cell<u16>,
     /// 表示中のモーダル（なければ `None`）
     pub modal: Option<Modal>,
-    /// 直前にエクスポートした形式と出力先（次に開いたときの初期値）
-    pub last_export: Option<(ExportChoice, String)>,
+    /// 直前に実行したエクスポートの入力内容（次に開いたときの初期値）
+    pub last_export: Option<ExportForm>,
     pub status: Option<StatusMessage>,
     pub should_quit: bool,
 }
