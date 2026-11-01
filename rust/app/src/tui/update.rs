@@ -24,6 +24,7 @@ pub fn update(app: &mut App, action: Action) -> Option<Effect> {
         Action::OpenJson => open_json(app),
         Action::OpenExport => open_export(app),
         Action::OpenStats => open_stats(app),
+        Action::Reload => return Some(Effect::Reload(app.sources.clone())),
         // モーダルが無いときは何もしない
         Action::CloseModal | Action::CopyJson | Action::CycleExportFormat | Action::SubmitExport => {}
         Action::CopyCcfolia if app.tab == Tab::Monster => return copy_ccfolia(app),
@@ -414,7 +415,7 @@ fn scrolled(scroll: u16, action: Action, max: u16, page: u16) -> u16 {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::tui::app::ExportChoice;
+    use crate::tui::app::{DataSources, ExportChoice, ReloadedData};
     use crate::tui::format::tests::{monster, part};
 
     fn sample_app() -> App {
@@ -1342,5 +1343,155 @@ mod tests {
         assert!(update(&mut app, Action::SubmitExport).is_none());
         assert!(update(&mut app, Action::CycleExportFormat).is_none());
         assert!(app.status.is_none());
+    }
+
+    // ---- データの再読み込み（R） ----
+
+    fn reloaded(monsters: Result<Vec<Monster>, &str>, spells: Result<Vec<Spell>, &str>) -> ReloadedData {
+        ReloadedData {
+            monsters: monsters.map_err(str::to_string),
+            spells: spells.map_err(str::to_string),
+        }
+    }
+
+    #[test]
+    fn test_reload_requests_effect_with_sources() {
+        let mut app = sample_app();
+        app.sources = DataSources { monster_paths: vec!["m.json".into()], spell_paths: vec!["s.json".into()] };
+        match update(&mut app, Action::Reload) {
+            Some(Effect::Reload(sources)) => assert_eq!(sources, app.sources),
+            other => panic!("再読み込みが要求されていない: {other:?}"),
+        }
+        // モーダル表示中は読み直さない
+        update(&mut app, Action::OpenHelp);
+        assert!(update(&mut app, Action::Reload).is_none());
+    }
+
+    #[test]
+    fn test_reload_keeps_query_tab_and_selected_item() {
+        let mut app = sample_app();
+        update(&mut app, Action::FocusSearch);
+        type_str(&mut app, "テスト");
+        update(&mut app, Action::FocusList);
+        update(&mut app, Action::Bottom);
+        update(&mut app, Action::Up);
+        update(&mut app, Action::FocusDetail);
+        assert_eq!(app.selected_monster().unwrap().name, "テストモンスター");
+        app.selected_part = 0;
+        app.monster_view.detail_scroll = 2;
+
+        // 先頭に新しい項目が増え、別の項目が消えた（元データの index はずれる）
+        let monsters = vec![
+            monster("テストの新顔", 2, "蛮族", vec![part("", true)]),
+            monster("テストモンスター", 6, "蛮族", vec![part("頭部", false), part("胴体", true)]),
+            monster("テストの戦士", 3, "蛮族", vec![part("", true)]),
+            monster("サンプル動物", 1, "動物", vec![part("", true)]),
+        ];
+        let status = app.apply_reload(reloaded(Ok(monsters), Ok(Vec::new())));
+        assert_eq!(status.kind, StatusKind::Success);
+        assert_eq!(status.text, "データを再読み込みしました（モンスター 4 件・スペル 0 件）");
+        assert_eq!(app.tab, Tab::Monster);
+        assert_eq!(app.focus, Focus::Detail);
+        assert_eq!(app.monster_view.query, "テスト");
+        assert_eq!(names(&app), vec!["テストの新顔", "テストの戦士", "テストモンスター"]);
+        assert_eq!(app.selected_monster().unwrap().name, "テストモンスター");
+        // 同じ項目なので部位の選択とスクロールも保つ
+        assert_eq!(app.selected_part, 0);
+        assert_eq!(app.monster_view.detail_scroll, 2);
+    }
+
+    #[test]
+    fn test_reload_selects_same_row_when_item_removed() {
+        let mut app = sample_app();
+        update(&mut app, Action::Down);
+        assert_eq!(app.selected_monster().unwrap().name, "テストの戦士");
+        app.monster_view.detail_scroll = 3;
+        let monsters = vec![
+            monster("サンプル動物", 1, "動物", vec![part("", true)]),
+            monster("テストモンスター", 6, "蛮族", vec![part("頭部", false), part("胴体", true)]),
+        ];
+        app.apply_reload(reloaded(Ok(monsters), Ok(Vec::new())));
+        // 同じ行（2 行目）を選び、詳細ペインは既定に戻す
+        assert_eq!(app.selected_monster().unwrap().name, "テストモンスター");
+        assert_eq!(app.selected_part, 1);
+        assert_eq!(app.monster_view.detail_scroll, 0);
+
+        // 全件消えても panic しない
+        app.apply_reload(reloaded(Ok(Vec::new()), Ok(Vec::new())));
+        assert!(app.selected_monster().is_none());
+        assert_eq!(app.monster_view.selected, 0);
+    }
+
+    #[test]
+    fn test_reload_resets_part_when_out_of_range() {
+        let mut app = sample_app();
+        update(&mut app, Action::FocusSearch);
+        type_str(&mut app, "テストモンスター");
+        update(&mut app, Action::FocusList);
+        update(&mut app, Action::Top);
+        assert_eq!(app.selected_monster().unwrap().name, "テストモンスター");
+        app.selected_part = 0;
+        update(&mut app, Action::FocusDetail);
+        update(&mut app, Action::Down);
+        assert_eq!(app.selected_part, 1);
+        // 部位が1つに減った
+        let monsters = vec![monster("テストモンスター", 6, "蛮族", vec![part("", true)])];
+        app.apply_reload(reloaded(Ok(monsters), Ok(Vec::new())));
+        assert_eq!(app.selected_monster().unwrap().name, "テストモンスター");
+        assert_eq!(app.selected_part, 0);
+    }
+
+    #[test]
+    fn test_reload_failure_keeps_current_data() {
+        let mut app = spell_app();
+        update(&mut app, Action::Down);
+        let before = spell_names(&app).iter().map(|s| s.to_string()).collect::<Vec<_>>();
+        let selected = app.selected_spell().unwrap().name.clone();
+
+        let status = app.apply_reload(reloaded(Err("壊れたファイル"), Err("見つかりません")));
+        assert_eq!(status.kind, StatusKind::Error);
+        assert_eq!(
+            status.text,
+            "モンスターデータを読み込めません（前のデータのままです）: 壊れたファイル / \
+             スペルデータを読み込めません（前のデータのままです）: 見つかりません"
+        );
+        assert_eq!(app.monsters.len(), 1);
+        assert_eq!(spell_names(&app), before);
+        assert_eq!(app.selected_spell().unwrap().name, selected);
+    }
+
+    #[test]
+    fn test_reload_applies_only_successful_kind() {
+        let mut app = spell_app();
+        update(&mut app, Action::Down);
+        assert_eq!(app.selected_spell().unwrap().name, "テストスペル");
+        app.spell_view.detail_scroll = 4;
+        let spells = vec![full_spell("テストスペル", lv(3)), full_spell("テストの新呪文", lv(2))];
+        let status = app.apply_reload(reloaded(Err("壊れたファイル"), Ok(spells)));
+        assert_eq!(status.kind, StatusKind::Error);
+        assert!(status.text.starts_with("モンスターデータを読み込めません"), "{}", status.text);
+        assert_eq!(app.monsters.len(), 1);
+        assert_eq!(spell_names(&app), vec!["テストの新呪文", "テストスペル"]);
+        assert_eq!(app.selected_spell().unwrap().name, "テストスペル");
+        assert_eq!(app.spell_view.detail_scroll, 4);
+    }
+
+    #[test]
+    fn test_reload_with_invalid_query_uses_last_valid_filter() {
+        let mut app = sample_app();
+        type_str(&mut app, "モンスター");
+        assert_eq!(app.monster_view.hits.len(), 2);
+        app.monster_view.query = "モンスター lv:".into();
+        app.refresh_monster_hits();
+        assert!(app.monster_view.query_error.is_some());
+
+        let monsters = vec![
+            monster("テストモンスター", 6, "蛮族", vec![part("", true)]),
+            monster("サンプル動物", 1, "動物", vec![part("", true)]),
+        ];
+        app.apply_reload(reloaded(Ok(monsters), Ok(Vec::new())));
+        // 直前に解釈できた「モンスター」で作り直し、警告は残す
+        assert_eq!(names(&app), vec!["テストモンスター"]);
+        assert!(app.monster_view.query_error.is_some());
     }
 }

@@ -2,7 +2,7 @@
 
 ## 🧭 Meta
 - Project: TRPG-JSON
-- Last Updated: 2026-11-01 JST (T053 TUI 1行入力のカーソル移動; v0.18.0)
+- Last Updated: 2026-11-01 JST (T054 TUI データ再読み込みキー; v0.19.0)
 - Responsibilities: kazuyasi (specification/approval/git operations) / Claude (proposal/implementation/testing)
 - Status: Phase 2.5 COMPLETE (T013-T027). Phase 3 COMPLETE (T028-T037). Phase 3.5 COMPLETE (T038-1/2/final). Phase 3.6 COMPLETE (T038.6, T040, T040.5). Phase 3.7 COMPLETE (T046, T047). UX improvements complete with enhanced error messages and statistics commands. Workspace version inheritance configured. Test suite: 291 total tests (251 core + 40 app). Ready for commit.
 
@@ -16,8 +16,8 @@
    - Status: All Phase 3.7 tasks complete and ready for commit
 
 ## 🚧 In Progress
-- 実装中のタスクはなし（T053 は 2026-11-01 に `claude/T053` で完了、マージ待ち）
-- 次の候補（Phase 4 内、優先度順）: T054 データ再読み込みキー（要検討）→ T051 選択リストペイン
+- 実装中のタスクはなし（T054 は 2026-11-01 に `claude/T054` で完了、マージ待ち）
+- 次の候補（Phase 4 内）: T051 選択リストペイン
 
 ---
 
@@ -558,10 +558,25 @@
         2. ✅ 検索バーで `←` `→` `Home` `End` `Ctrl-a` `Ctrl-e` `Delete` が効き、検索バー以外では `←→` がタブ切り替えのまま
         3. ✅ 枠より長い入力が枠からはみ出さず、入力した分だけ末尾側から表示される。途中・先頭へ戻したときも隠れた側に `<` / `>` が出る
         4. ✅ エクスポートモーダルで `←→` はカーソル移動、`Tab` / `↑↓` は形式切り替え
-- [ ] T054 TUI データ再読み込みキー — 2026-11-01 登録（要検討）
-      - Status: 未着手・採否未定
+- [x] T054 TUI データ再読み込みキー（feat, 0.19.0）— 2026-11-01 登録、完了 2026-11-01
+      - Status: ✅ 完了
       - 背景: TUI はデータを起動時に一度だけ読む。CLI の `add` / `delete` やエディタでデータを直したあと、反映するには TUI の再起動が必要
-      - 方針案: `R` で設定のデータファイルを読み直し、検索語・タブ・できれば選択中の項目を保ったまま結果を作り直す。読み込みに失敗したら今のデータを残し、ステータス行にエラーを出す
+      - 決定: キーは方針案どおり `R`（2026-11-01、Operator が実装を許可）
+      - 実装:
+        1. ✅ 結果リスト・詳細ペインで `R`（`Action::Reload`）。検索バーでは文字入力、モーダル・エクスポートフォームでは無効
+        2. ✅ 起動時のデータファイルを `App.sources`（`DataSources`）に保持。`update` は `Effect::Reload` を返し、`effect::execute` が `effect::load_data` で読み直して `App::apply_reload` を適用（`execute` は `&mut App` を受け取るように変更）
+        3. ✅ 検索語・タブ・フォーカスはそのまま両タブの結果を作り直す。選択中の項目は名前で探し（同名は最初のもの）、見つからなければ同じ行（末尾を超えれば末尾）。同じ項目なら部位の選択（範囲外なら既定）と本文のスクロールも保つ
+        4. ✅ 検索語が解釈できない状態なら直前に解釈できた条件で作り直し、警告は残す
+        5. ✅ 読み込みに失敗した種類（モンスター / スペル）は前のデータのまま、ステータス行に `… を読み込めません（前のデータのままです）: …`。成功した種類は反映。全部成功なら `データを再読み込みしました（モンスター N 件・スペル M 件）`
+        6. ✅ スペルの読み込み（未設定なら空）を `effect::load_spells` にまとめ、起動時と共用。ヒット結果の計算を `monster_hits` / `spell_hits` に分離
+        7. ✅ ヘルプモーダルの「全体」節・README のキー表・TUI_DESIGN.md §4.3 / §6 / §9 を更新（キーヘルプ行は 80 桁に収めるため追加しない。`S` と同じ扱い）
+        8. ✅ 単体テスト 10 件追加（Action 変換 1・update/apply_reload 7・Effect 実行 2）。全 416 件通過（core 258 + app 158）
+      - Operator 確認（実端末、2026-11-01）: 1〜5 すべて OK
+        1. ✅ `gm tui` を起動したまま、別の端末で `gm monster add <JSON>` を実行 → TUI で `R` → 追加したモンスターが結果リストに出て、ステータス行に「成功: データを再読み込みしました（モンスター N 件・スペル M 件）」
+        2. ✅ 検索語を入れてリストの途中の項目を選び、詳細ペインで部位を変えた状態で、別の項目を `gm monster delete` → `R` → 検索語・タブ・選択中の項目・部位の選択がそのまま
+        3. ✅ 選択中の項目そのものを削除して `R` → 同じ行の項目（末尾なら末尾）が選ばれる
+        4. ✅ データファイルをエディタで壊して（JSON の構文エラーなど）`R` → ステータス行にエラー、画面のデータは前のまま。直して `R` で復帰
+        5. ✅ 検索バーで `R` を押すと文字として入力される／ヘルプ（`?`）表示中の `R` は何も起きない
 - [ ] T051 Phase 4: TUI selection list pane (multi-select → bulk copy/export) — future, after T050 (see TUI_DESIGN.md §4.5)
 - [ ] T044 Phase 4: Multi-system support (extend beyond SW2.5)
 - [ ] T045 Phase 4: Skill/Fairy magic CLI commands (gm skill find/list/palette)

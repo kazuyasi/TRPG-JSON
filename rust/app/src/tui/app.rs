@@ -323,6 +323,34 @@ impl ListView {
         self.offset.set(0);
         self.selected_index() != previous
     }
+
+    /// データを読み直したあとのヒット結果に差し替える（元データの index は読み直しで変わる）
+    ///
+    /// `keep` が直前の選択と同じ項目のヒット内位置を返せばそこを選ぶ。見つからなければ
+    /// 同じ行（末尾を超えれば末尾）を選ぶ。同じ項目を選べたら `true` を返す。
+    fn replace_hits_after_reload(&mut self, hits: Vec<usize>, keep: Option<usize>) -> bool {
+        let previous_row = self.selected;
+        self.hits = hits;
+        let kept = keep.is_some();
+        self.selected = keep.unwrap_or_else(|| previous_row.min(self.hits.len().saturating_sub(1)));
+        // 表示位置はなるべく動かさない（選択が見えるよう描画時に ratatui が調整する）
+        self.offset.set(self.offset.get().min(self.selected));
+        kept
+    }
+}
+
+/// データファイルの設定（`R` での再読み込みに使う）
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct DataSources {
+    pub monster_paths: Vec<String>,
+    pub spell_paths: Vec<String>,
+}
+
+/// データファイルを読み直した結果（失敗は CLI の「エラー: 」以降の文言）
+#[derive(Debug)]
+pub struct ReloadedData {
+    pub monsters: Result<Vec<Monster>, String>,
+    pub spells: Result<Vec<Spell>, String>,
 }
 
 /// TUI 全体の状態
@@ -350,6 +378,8 @@ pub struct App {
     pub modal: Option<Modal>,
     /// 直前に実行したエクスポートの入力内容（次に開いたときの初期値）
     pub last_export: Option<ExportForm>,
+    /// 読み込んだデータファイル（`R` で読み直す）
+    pub sources: DataSources,
     pub status: Option<StatusMessage>,
     pub should_quit: bool,
 }
@@ -427,15 +457,7 @@ impl App {
         };
         self.monster_view.query_error = None;
 
-        let monsters = &self.monsters;
-        let mut hits: Vec<usize> = (0..monsters.len()).filter(|&i| filter.matches(&monsters[i])).collect();
-        hits.sort_by(|&a, &b| {
-            monsters[a]
-                .level
-                .cmp(&monsters[b].level)
-                .then_with(|| monsters[a].name.cmp(&monsters[b].name))
-        });
-
+        let hits = monster_hits(&self.monsters, &filter);
         self.monster_filter = filter;
         if self.monster_view.replace_hits(hits) {
             self.reset_monster_detail();
@@ -455,18 +477,84 @@ impl App {
         };
         self.spell_view.query_error = None;
 
-        let spells = &self.spells;
-        let mut hits: Vec<usize> = (0..spells.len()).filter(|&i| filter.matches(&spells[i])).collect();
-        hits.sort_by(|&a, &b| {
-            format::spell_level(&spells[a])
-                .sort_key()
-                .cmp(&format::spell_level(&spells[b]).sort_key())
-                .then_with(|| spells[a].name.cmp(&spells[b].name))
-        });
-
+        let hits = spell_hits(&self.spells, &filter);
         self.spell_filter = filter;
         if self.spell_view.replace_hits(hits) {
             self.spell_view.detail_scroll = 0;
+        }
+    }
+
+    /// 読み直したデータに差し替え、検索語・タブ・選択中の項目を保ったまま結果を作り直す
+    ///
+    /// 読み込みに失敗した種類は今のデータを残す。結果をステータス行のメッセージで返す。
+    pub fn apply_reload(&mut self, data: ReloadedData) -> StatusMessage {
+        let mut errors = Vec::new();
+        match data.monsters {
+            Ok(monsters) => self.replace_monsters(monsters),
+            Err(e) => errors.push(format!("モンスターデータを読み込めません（前のデータのままです）: {}", e)),
+        }
+        match data.spells {
+            Ok(spells) => self.replace_spells(spells),
+            Err(e) => errors.push(format!("スペルデータを読み込めません（前のデータのままです）: {}", e)),
+        }
+        if errors.is_empty() {
+            StatusMessage::success(format!(
+                "データを再読み込みしました（モンスター {} 件・スペル {} 件）",
+                self.monsters.len(),
+                self.spells.len()
+            ))
+        } else {
+            StatusMessage::error(errors.join(" / "))
+        }
+    }
+
+    /// モンスターを差し替える。選択中の項目は名前で探し、部位の選択とスクロールも保つ
+    fn replace_monsters(&mut self, monsters: Vec<Monster>) {
+        let previous = self.selected_monster().map(|m| m.name.clone());
+        self.monsters = monsters;
+        let filter = self.reload_monster_filter();
+        let hits = monster_hits(&self.monsters, &filter);
+        let keep = position_by_name(&hits, previous.as_deref(), |i| &self.monsters[i].name);
+        self.monster_filter = filter;
+        let kept = self.monster_view.replace_hits_after_reload(hits, keep);
+        let part_count = self.selected_monster().map_or(0, |m| m.part.len());
+        if !kept || self.selected_part >= part_count {
+            self.reset_monster_detail();
+        }
+    }
+
+    /// スペルを差し替える。選択中の項目は名前で探し、本文のスクロールも保つ
+    fn replace_spells(&mut self, spells: Vec<Spell>) {
+        let previous = self.selected_spell().map(|s| s.name.clone());
+        self.spells = spells;
+        let filter = self.reload_spell_filter();
+        let hits = spell_hits(&self.spells, &filter);
+        let keep = position_by_name(&hits, previous.as_deref(), |i| &self.spells[i].name);
+        self.spell_filter = filter;
+        if !self.spell_view.replace_hits_after_reload(hits, keep) {
+            self.spell_view.detail_scroll = 0;
+        }
+    }
+
+    /// 再読み込みで使うモンスターの検索条件（検索語を解釈できなければ直前に解釈できた条件）
+    fn reload_monster_filter(&mut self) -> MonsterQuery {
+        match parse_monster_query(&self.monster_view.query) {
+            Ok(q) => {
+                self.monster_view.query_error = None;
+                q
+            }
+            Err(_) => self.monster_filter.clone(),
+        }
+    }
+
+    /// 再読み込みで使うスペルの検索条件（検索語を解釈できなければ直前に解釈できた条件）
+    fn reload_spell_filter(&mut self) -> SpellQuery {
+        match parse_spell_query(&self.spell_view.query) {
+            Ok(q) => {
+                self.spell_view.query_error = None;
+                q
+            }
+            Err(_) => self.spell_filter.clone(),
         }
     }
 
@@ -483,4 +571,34 @@ impl App {
         self.selected_part = self.selected_monster().map(format::default_part_index).unwrap_or(0);
         self.monster_view.detail_scroll = 0;
     }
+}
+
+/// 条件に合うモンスターの index（Lv 昇順 → 名前順）
+fn monster_hits(monsters: &[Monster], filter: &MonsterQuery) -> Vec<usize> {
+    let mut hits: Vec<usize> = (0..monsters.len()).filter(|&i| filter.matches(&monsters[i])).collect();
+    hits.sort_by(|&a, &b| {
+        monsters[a]
+            .level
+            .cmp(&monsters[b].level)
+            .then_with(|| monsters[a].name.cmp(&monsters[b].name))
+    });
+    hits
+}
+
+/// 条件に合うスペルの index（Lv 昇順 → ランク昇順 → 名前順）
+fn spell_hits(spells: &[Spell], filter: &SpellQuery) -> Vec<usize> {
+    let mut hits: Vec<usize> = (0..spells.len()).filter(|&i| filter.matches(&spells[i])).collect();
+    hits.sort_by(|&a, &b| {
+        format::spell_level(&spells[a])
+            .sort_key()
+            .cmp(&format::spell_level(&spells[b]).sort_key())
+            .then_with(|| spells[a].name.cmp(&spells[b].name))
+    });
+    hits
+}
+
+/// ヒット中で名前が `name` の最初の項目の位置
+fn position_by_name<'a>(hits: &[usize], name: Option<&str>, name_of: impl Fn(usize) -> &'a String) -> Option<usize> {
+    let name = name?;
+    hits.iter().position(|&i| name_of(i) == name)
 }

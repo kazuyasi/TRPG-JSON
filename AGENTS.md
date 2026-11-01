@@ -32,6 +32,30 @@ cargo run --bin gm -- --help  # Run CLI
 - **Operator:** You, the user, act as the Operator. You are responsible for providing instructions, supervising tasks, and managing the project's direction, the `main` branch, merges into `main`, and pushes.
 - **AI Agent:** I, the AI, am responsible for implementation, testing, and documentation according to the Operator's instructions. I may perform git operations (creating branches, committing, etc.) only on branches other than `main`. I will never commit to or modify the `main` branch directly; before starting work, I will create or switch to a working branch.
 
+## コミットメッセージ
+
+ドキュメントの日本語化に合わせて、コミットメッセージも日本語で書く（2026-11-01 から。それ以前の英語のコミットは書き換えない）。
+
+- 形式は `<型>：<件名>`（型・件名・本文すべて日本語。区切りは全角コロン `：`）
+- 型は次のどれか（括弧内は従来の conventional commits の型）
+  - `機能`（feat）: 機能の追加。バージョンの minor を上げる
+  - `修正`（fix）: 不具合の修正。バージョンの patch を上げる
+  - `文書`（docs）: ドキュメント・tasks.md だけの変更
+  - `整理`（refactor）: 動きを変えないコードの整理。バージョンの patch を上げる
+  - `テスト`（test）: テストだけの追加・変更
+  - `雑務`（chore）: 依存関係・設定などその他
+- 対象（TUI / CLI / core など）は件名の中で書く（例: `機能：TUI に…`）
+- タスク ID は件名の末尾に全角括弧で付ける（例: `（T054）`）
+- コードの識別子・コマンド・キー・ファイル名は原文のまま書く（例: `Effect::Reload`、`gm monster add`、`R`、`tasks.md`）
+- 本文が必要なら、件名のあとに空行を入れ、変更点を `- ` の箇条書きで書く
+- 例:
+  ```
+  機能：TUI に R キーでデータファイルを読み直す操作を追加（T054）
+
+  - 検索語・タブ・選択中の項目を保ったまま結果を作り直す
+  - 読み込みに失敗した種類は前のデータのままにし、ステータス行にエラーを表示
+  ```
+
 ## AI Behavior and Ethics Policy (Anthropic AI Constitution)
 
 This project adopts the principles of Anthropic's Constitutional AI to guide the agent's behavior. The agent must adhere to these principles during all tasks.

@@ -8,7 +8,9 @@ use std::path::Path;
 
 use trpg_json_core::Monster;
 
-use super::app::{ExportChoice, StatusMessage};
+use trpg_json_core::io as core_io;
+
+use super::app::{App, DataSources, ExportChoice, ReloadedData, StatusMessage};
 use crate::commands::monster::export_monsters;
 use crate::utils;
 
@@ -30,6 +32,8 @@ pub enum Effect {
         /// 入力された出力先（ファイル形式の `~/` は実行時にホームディレクトリへ展開する）。Sheets はスプレッドシート ID
         output: String,
     },
+    /// データファイルを読み直して App のデータを差し替える（`R`）
+    Reload(DataSources),
 }
 
 impl Effect {
@@ -50,13 +54,16 @@ impl Effect {
 }
 
 /// 副作用を実行し、結果をステータス行のメッセージで返す
-pub fn execute(effect: Effect) -> StatusMessage {
-    execute_with(effect, utils::copy_to_clipboard)
+///
+/// 再読み込みは読み込んだデータを `app` に適用する（他の副作用は `app` に触れない）。
+pub fn execute(effect: Effect, app: &mut App) -> StatusMessage {
+    execute_with(effect, app, utils::copy_to_clipboard)
 }
 
 /// クリップボード書き込みを差し替えて実行する（テスト用に分離）
-fn execute_with(effect: Effect, copy: impl FnOnce(&str) -> io::Result<()>) -> StatusMessage {
+fn execute_with(effect: Effect, app: &mut App, copy: impl FnOnce(&str) -> io::Result<()>) -> StatusMessage {
     match effect {
+        Effect::Reload(sources) => app.apply_reload(load_data(&sources)),
         Effect::CopyToClipboard { text, success } => match copy(&text) {
             Ok(()) => StatusMessage::success(success),
             Err(e) => StatusMessage::error(format!("クリップボードへのコピーに失敗しました: {}", e)),
@@ -78,6 +85,22 @@ fn execute_with(effect: Effect, copy: impl FnOnce(&str) -> io::Result<()>) -> St
             }
         }
     }
+}
+
+/// 設定のデータファイルを読み直す（失敗した種類は `Err` にエラーの文言を入れる）
+pub fn load_data(sources: &DataSources) -> ReloadedData {
+    ReloadedData {
+        monsters: core_io::load_multiple_json_arrays(&sources.monster_paths).map_err(|e| e.to_string()),
+        spells: load_spells(&sources.spell_paths),
+    }
+}
+
+/// スペルを読み込む（データファイルが未設定なら空）
+pub fn load_spells(paths: &[String]) -> Result<Vec<trpg_json_core::Spell>, String> {
+    if paths.is_empty() {
+        return Ok(Vec::new());
+    }
+    core_io::load_multiple_spells_json_arrays(paths).map_err(|e| e.to_string())
 }
 
 /// 先頭の `~`（単独または `~/`）をホームディレクトリに置き換える
@@ -111,7 +134,7 @@ mod tests {
     #[test]
     fn test_copy_success_passes_text_and_reports_success() {
         let copied = RefCell::new(String::new());
-        let status = execute_with(copy_effect(), |t| {
+        let status = execute_with(copy_effect(), &mut App::default(), |t| {
             copied.replace(t.to_string());
             Ok(())
         });
@@ -122,7 +145,7 @@ mod tests {
 
     #[test]
     fn test_copy_failure_reports_error() {
-        let status = execute_with(copy_effect(), |_| Err(io::Error::other("テスト用の失敗")));
+        let status = execute_with(copy_effect(), &mut App::default(), |_| Err(io::Error::other("テスト用の失敗")));
         assert_eq!(status.kind, StatusKind::Error);
         assert_eq!(status.text, "クリップボードへのコピーに失敗しました: テスト用の失敗");
     }
@@ -145,7 +168,7 @@ mod tests {
         let effect = export_effect(ExportChoice::Json, path.clone());
         assert!(effect.needs_full_redraw());
 
-        let status = execute(effect);
+        let status = execute(effect, &mut App::default());
         assert_eq!(status.kind, StatusKind::Success, "{}", status.text);
         assert_eq!(status.text, format!("2 件のモンスターを {} にエクスポートしました", path));
         let value: serde_json::Value = serde_json::from_str(&std::fs::read_to_string(&path).unwrap()).unwrap();
@@ -157,7 +180,7 @@ mod tests {
     fn test_export_udonarium_writes_zip() {
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("sub").join("out.zip").to_string_lossy().to_string();
-        let status = execute(export_effect(ExportChoice::Udonarium, path.clone()));
+        let status = execute(export_effect(ExportChoice::Udonarium, path.clone()), &mut App::default());
         assert_eq!(status.kind, StatusKind::Success, "{}", status.text);
         // ZIP のローカルファイルヘッダ
         assert!(std::fs::read(&path).unwrap().starts_with(b"PK"));
@@ -168,7 +191,7 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         // ディレクトリには書き込めない
         let path = dir.path().to_string_lossy().to_string();
-        let status = execute(export_effect(ExportChoice::Json, path));
+        let status = execute(export_effect(ExportChoice::Json, path), &mut App::default());
         assert_eq!(status.kind, StatusKind::Error);
         assert!(status.text.starts_with("エクスポートに失敗しました: "), "{}", status.text);
     }
@@ -191,7 +214,7 @@ mod tests {
     #[test]
     fn test_sheets_export_with_invalid_id_reports_error_without_auth() {
         // ID の検証は認証より前に行われるので、ネットワークやブラウザには触れない
-        let status = execute(export_effect(ExportChoice::Sheets, "~/not an id".into()));
+        let status = execute(export_effect(ExportChoice::Sheets, "~/not an id".into()), &mut App::default());
         assert_eq!(status.kind, StatusKind::Error);
         assert!(status.text.starts_with("エクスポートに失敗しました: "), "{}", status.text);
         // ファイル形式でないので ~ は展開しない
@@ -208,5 +231,43 @@ mod tests {
         assert_eq!(expand_home("dir/~/out.json", Some(home)), "dir/~/out.json");
         assert_eq!(expand_home("out.json", Some(home)), "out.json");
         assert_eq!(expand_home("~/out.json", None), "~/out.json");
+    }
+
+    #[test]
+    fn test_reload_effect_reads_files_and_applies_to_app() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("monsters.json");
+        let write = |names: &[&str]| {
+            let monsters: Vec<Monster> = names.iter().map(|n| monster(n, 3, "蛮族", vec![part("", true)])).collect();
+            std::fs::write(&path, serde_json::to_string(&monsters).unwrap()).unwrap();
+        };
+        write(&["テストモンスター"]);
+        let sources = DataSources {
+            monster_paths: vec![path.to_string_lossy().to_string()],
+            spell_paths: Vec::new(),
+        };
+        let mut app = App::new(Vec::new(), Vec::new(), crate::tui::app::Tab::Monster);
+        app.sources = sources.clone();
+
+        let status = execute(Effect::Reload(sources.clone()), &mut app);
+        assert_eq!(status.kind, StatusKind::Success, "{}", status.text);
+        assert_eq!(app.monsters.len(), 1);
+
+        // ファイルを直して読み直すと反映される
+        write(&["テストモンスター", "サンプル動物"]);
+        execute(Effect::Reload(sources.clone()), &mut app);
+        assert_eq!(app.monsters.len(), 2);
+        assert!(!Effect::Reload(sources).needs_full_redraw());
+    }
+
+    #[test]
+    fn test_load_data_reports_missing_files() {
+        let dir = tempfile::tempdir().unwrap();
+        let missing = dir.path().join("none.json").to_string_lossy().to_string();
+        let data = load_data(&DataSources { monster_paths: vec![missing.clone()], spell_paths: vec![missing] });
+        assert!(data.monsters.is_err());
+        assert!(data.spells.is_err());
+        // スペルのデータファイルが未設定なら空
+        assert_eq!(load_spells(&[]).unwrap().len(), 0);
     }
 }
