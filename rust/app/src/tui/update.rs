@@ -3,7 +3,7 @@
 use trpg_json_core::export::palette::generate_spell_palette;
 
 use super::action::Action;
-use super::app::{App, Focus, Modal, ModalKind, StatusMessage, Tab};
+use super::app::{App, ExportChoice, ExportForm, Focus, Modal, ModalKind, StatusMessage, Tab};
 use super::effect::Effect;
 use crate::commands::monster::ccfolia_json;
 
@@ -19,8 +19,9 @@ pub fn update(app: &mut App, action: Action) -> Option<Effect> {
     match action {
         Action::OpenHelp => app.modal = Some(Modal::new(ModalKind::Help)),
         Action::OpenJson => open_json(app),
+        Action::OpenExport => open_export(app),
         // モーダルが無いときは何もしない
-        Action::CloseModal | Action::CopyJson => {}
+        Action::CloseModal | Action::CopyJson | Action::CycleExportFormat | Action::SubmitExport => {}
         Action::CopyCcfolia if app.tab == Tab::Monster => return copy_ccfolia(app),
         Action::CopyPalette if app.tab == Tab::Spell => return copy_palette(app),
         Action::CopyAllPalettes if app.tab == Tab::Spell => return copy_all_palettes(app),
@@ -62,6 +63,9 @@ pub fn update(app: &mut App, action: Action) -> Option<Effect> {
 
 /// モーダル表示中の操作: スクロール・閉じる・JSON のコピー・終了
 fn update_modal(app: &mut App, action: Action) -> Option<Effect> {
+    if app.modal.as_ref().is_some_and(Modal::is_form) {
+        return update_export_form(app, action);
+    }
     let modal = app.modal.as_mut()?;
     match action {
         Action::Quit => app.should_quit = true,
@@ -81,6 +85,66 @@ fn update_modal(app: &mut App, action: Action) -> Option<Effect> {
         _ => {}
     }
     None
+}
+
+/// ヒット中のモンスターを書き出すエクスポートモーダルを開く
+///
+/// 形式と出力先は直前のエクスポートの値を引き継ぐ。スペルは core にエクスポーターがないため対象外。
+fn open_export(app: &mut App) {
+    if app.tab == Tab::Spell {
+        app.status = Some(StatusMessage::info(
+            "スペルのエクスポートには対応していません（モンスタータブで使えます）",
+        ));
+        return;
+    }
+    let count = app.monster_view.hits.len();
+    if count == 0 {
+        app.status = Some(StatusMessage::info("エクスポートするモンスターがありません"));
+        return;
+    }
+    let (format, path) = app
+        .last_export
+        .clone()
+        .unwrap_or_else(|| (ExportChoice::default(), ExportChoice::default().default_path()));
+    app.modal = Some(Modal::new(ModalKind::Export(ExportForm::new(format, path, count))));
+}
+
+/// エクスポートモーダル表示中の操作: 出力先の入力・形式の切り替え・実行・キャンセル
+fn update_export_form(app: &mut App, action: Action) -> Option<Effect> {
+    let Some(ModalKind::Export(form)) = app.modal.as_mut().map(|m| &mut m.kind) else {
+        return None;
+    };
+    match action {
+        Action::InsertChar(c) => form.path.push(c),
+        Action::DeleteChar => {
+            form.path.pop();
+        }
+        Action::ClearQuery => form.path.clear(),
+        Action::CycleExportFormat => form.cycle_format(),
+        Action::SubmitExport => return submit_export(app),
+        Action::CloseModal => app.modal = None,
+        Action::Quit => app.should_quit = true,
+        _ => {}
+    }
+    None
+}
+
+/// 入力内容を確定してモーダルを閉じ、ヒット中のモンスター（結果リストの並び順）の書き出しを要求する
+fn submit_export(app: &mut App) -> Option<Effect> {
+    let Some(ModalKind::Export(form)) = app.modal.as_ref().map(|m| &m.kind) else {
+        return None;
+    };
+    let output = form.path.trim().to_string();
+    let format = form.format;
+    if output.is_empty() {
+        app.status = Some(StatusMessage::error("出力先のパスを入力してください"));
+        return None;
+    }
+
+    let monsters = app.monster_view.hits.iter().map(|&i| app.monsters[i].clone()).collect();
+    app.last_export = Some((format, output.clone()));
+    app.modal = None;
+    Some(Effect::Export { monsters, format, output })
 }
 
 /// 選択中の項目を整形済み JSON にして JSON ビューを開く
@@ -480,7 +544,7 @@ mod tests {
             Some(Effect::CopyToClipboard { text, success }) => {
                 (serde_json::from_str(&text).expect("JSON として読めること"), success)
             }
-            None => panic!("コピーが要求されていない"),
+            other => panic!("コピーが要求されていない: {other:?}"),
         }
     }
 
@@ -581,7 +645,7 @@ mod tests {
     fn copy_text(effect: Option<Effect>) -> (String, String) {
         match effect {
             Some(Effect::CopyToClipboard { text, success }) => (text, success),
-            None => panic!("コピーが要求されていない"),
+            other => panic!("コピーが要求されていない: {other:?}"),
         }
     }
 
@@ -874,5 +938,141 @@ mod tests {
         }
         assert!(app.selected_spell().is_none());
         assert!(update(&mut app, Action::CopyPalette).is_none());
+    }
+
+    // ---- エクスポートモーダル ----
+
+    fn export_form(app: &App) -> ExportForm {
+        match app.modal.as_ref().map(|m| &m.kind) {
+            Some(ModalKind::Export(form)) => form.clone(),
+            other => panic!("エクスポートモーダルが開いていない: {other:?}"),
+        }
+    }
+
+    #[test]
+    fn test_open_export_with_defaults() {
+        let mut app = sample_app();
+        type_str(&mut app, "テスト");
+        update(&mut app, Action::OpenExport);
+        let form = export_form(&app);
+        assert_eq!(form.format, ExportChoice::Json);
+        assert_eq!(form.path, "monsters.json");
+        assert_eq!(form.count, 3);
+    }
+
+    #[test]
+    fn test_export_form_input_and_format_cycle() {
+        let mut app = sample_app();
+        update(&mut app, Action::OpenExport);
+        update(&mut app, Action::ClearQuery);
+        // q や e も文字として入る
+        type_str(&mut app, "~/qe.json");
+        update(&mut app, Action::DeleteChar);
+        type_str(&mut app, "n");
+        assert_eq!(export_form(&app).path, "~/qe.json");
+
+        // 形式を変えると拡張子も付け替える
+        update(&mut app, Action::CycleExportFormat);
+        let form = export_form(&app);
+        assert_eq!(form.format, ExportChoice::Udonarium);
+        assert_eq!(form.path, "~/qe.zip");
+        update(&mut app, Action::CycleExportFormat);
+        assert_eq!(export_form(&app).path, "~/qe.json");
+
+        // 拡張子が違えばパスはそのまま
+        update(&mut app, Action::ClearQuery);
+        type_str(&mut app, "out.txt");
+        update(&mut app, Action::CycleExportFormat);
+        assert_eq!(export_form(&app).path, "out.txt");
+
+        // 裏の検索バーには入らない
+        assert!(app.monster_view.query.is_empty());
+    }
+
+    #[test]
+    fn test_submit_export_requests_hits_in_list_order() {
+        let mut app = sample_app();
+        type_str(&mut app, "テスト");
+        update(&mut app, Action::OpenExport);
+        update(&mut app, Action::CycleExportFormat);
+        match update(&mut app, Action::SubmitExport) {
+            Some(Effect::Export { monsters, format, output }) => {
+                let names: Vec<&str> = monsters.iter().map(|m| m.name.as_str()).collect();
+                assert_eq!(names, vec!["テストの戦士", "テストモンスター", "テストモンスターB"]);
+                assert_eq!(format, ExportChoice::Udonarium);
+                assert_eq!(output, "monsters.zip");
+            }
+            other => panic!("エクスポートが要求されていない: {other:?}"),
+        }
+        assert!(app.modal.is_none());
+
+        // 次に開くと前回の形式と出力先を引き継ぐ
+        update(&mut app, Action::OpenExport);
+        let form = export_form(&app);
+        assert_eq!(form.format, ExportChoice::Udonarium);
+        assert_eq!(form.path, "monsters.zip");
+    }
+
+    #[test]
+    fn test_submit_export_with_empty_path_keeps_modal() {
+        let mut app = sample_app();
+        update(&mut app, Action::OpenExport);
+        update(&mut app, Action::ClearQuery);
+        type_str(&mut app, "  ");
+        assert!(update(&mut app, Action::SubmitExport).is_none());
+        assert!(app.modal.is_some());
+        let status = app.status.as_ref().unwrap();
+        assert_eq!(status.kind, StatusKind::Error);
+        assert_eq!(status.text, "出力先のパスを入力してください");
+    }
+
+    #[test]
+    fn test_cancel_export_does_not_remember_input() {
+        let mut app = sample_app();
+        update(&mut app, Action::OpenExport);
+        type_str(&mut app, "x");
+        update(&mut app, Action::CloseModal);
+        assert!(app.modal.is_none());
+        assert!(app.last_export.is_none());
+        update(&mut app, Action::OpenExport);
+        assert_eq!(export_form(&app).path, "monsters.json");
+    }
+
+    #[test]
+    fn test_export_form_quit_and_ignored_actions() {
+        let mut app = sample_app();
+        update(&mut app, Action::OpenExport);
+        for a in [Action::SwitchTab(Tab::Spell), Action::Down, Action::CopyCcfolia, Action::OpenHelp] {
+            assert!(update(&mut app, a).is_none());
+        }
+        assert_eq!(app.tab, Tab::Monster);
+        assert_eq!(app.monster_view.selected, 0);
+        assert!(app.modal.as_ref().unwrap().is_form());
+        update(&mut app, Action::Quit);
+        assert!(app.should_quit);
+    }
+
+    #[test]
+    fn test_open_export_without_hits_or_on_spell_tab() {
+        let mut app = sample_app();
+        type_str(&mut app, "該当なし");
+        update(&mut app, Action::OpenExport);
+        assert!(app.modal.is_none());
+        assert_eq!(app.status.as_ref().unwrap().text, "エクスポートするモンスターがありません");
+
+        let mut app = spell_app();
+        update(&mut app, Action::OpenExport);
+        assert!(app.modal.is_none());
+        let status = app.status.as_ref().unwrap();
+        assert_eq!(status.kind, StatusKind::Info);
+        assert!(status.text.starts_with("スペルのエクスポートには対応していません"));
+    }
+
+    #[test]
+    fn test_export_actions_without_modal_do_nothing() {
+        let mut app = sample_app();
+        assert!(update(&mut app, Action::SubmitExport).is_none());
+        assert!(update(&mut app, Action::CycleExportFormat).is_none());
+        assert!(app.status.is_none());
     }
 }

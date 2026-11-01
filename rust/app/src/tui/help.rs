@@ -58,6 +58,16 @@ pub const SECTIONS: &[HelpSection] = &[
         ],
     },
     HelpSection {
+        title: "エクスポート",
+        entries: &[
+            ("e", "モンスター: ヒット中の全件をファイルへ出力"),
+            ("Tab / ↑↓", "形式を切り替え（JSON / Udonarium ZIP）"),
+            ("文字入力", "出力先のパス（~/ はホーム）"),
+            ("Ctrl-u", "出力先をクリア"),
+            ("Enter / Esc", "出力する / キャンセル"),
+        ],
+    },
+    HelpSection {
         title: "ヘルプ・JSON ビュー",
         entries: &[
             ("↑↓ / j k", "1行スクロール"),

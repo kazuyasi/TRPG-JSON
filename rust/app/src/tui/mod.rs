@@ -15,6 +15,7 @@ mod update;
 use std::io::{self, IsTerminal};
 
 use ratatui::DefaultTerminal;
+use ratatui::backend::{Backend, ClearType};
 use ratatui::crossterm::event::{self, Event};
 use thiserror::Error;
 use trpg_json_core::io as core_io;
@@ -72,12 +73,33 @@ fn event_loop(terminal: &mut DefaultTerminal, app: &mut App) -> Result<(), TuiEr
     while !app.should_quit {
         terminal.draw(|frame| ui::draw(frame, app))?;
 
-        if let Event::Key(key) = event::read()?
-            && let Some(action) = action::from_key(key, app.focus, app.modal.is_some())
+        let Event::Key(key) = event::read()? else {
+            continue;
+        };
+        // 入力フォームのモーダルでは英字も文字入力として扱う
+        let action = match &app.modal {
+            Some(m) if m.is_form() => action::from_form_key(key),
+            m => action::from_key(key, app.focus, m.is_some()),
+        };
+        if let Some(action) = action
             && let Some(effect) = update::update(app, action)
         {
+            let redraw = effect.needs_full_redraw();
             app.status = Some(effect::execute(effect));
+            if redraw {
+                force_full_redraw(terminal)?;
+            }
         }
     }
+    Ok(())
+}
+
+/// 画面を消し、次の描画で全セルを描き直させる（エクスポート処理が stderr に書いた文字を消す）
+///
+/// `Terminal::clear` は端末へカーソル位置を問い合わせ、応答しない端末ではエラーになるため使わない。
+/// 描画直後の現在バッファは空なので、`swap_buffers` で直前の内容も捨てると次の描画が全面の差分になる。
+fn force_full_redraw(terminal: &mut DefaultTerminal) -> io::Result<()> {
+    terminal.backend_mut().clear_region(ClearType::All)?;
+    terminal.swap_buffers();
     Ok(())
 }

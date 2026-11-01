@@ -109,6 +109,84 @@ pub enum ModalKind {
         /// 整形済みの JSON
         text: String,
     },
+    /// ヒット中のモンスターをファイルへ書き出すフォーム（`e`）
+    Export(ExportForm),
+}
+
+/// TUI のエクスポートモーダルで選べる形式
+///
+/// Google Sheets は OAuth でブラウザを開くため別扱い（T050b）。
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum ExportChoice {
+    #[default]
+    Json,
+    Udonarium,
+}
+
+impl ExportChoice {
+    /// 表示順
+    pub const ALL: [ExportChoice; 2] = [ExportChoice::Json, ExportChoice::Udonarium];
+
+    /// モーダルに表示する名前
+    pub fn label(self) -> &'static str {
+        match self {
+            ExportChoice::Json => "JSON",
+            ExportChoice::Udonarium => "Udonarium (ZIP)",
+        }
+    }
+
+    /// `export_monsters` に渡す形式名（CLI の `--export` と同じ）
+    pub fn format_name(self) -> &'static str {
+        match self {
+            ExportChoice::Json => "json",
+            ExportChoice::Udonarium => "udonarium",
+        }
+    }
+
+    /// 出力ファイルの拡張子
+    pub fn extension(self) -> &'static str {
+        match self {
+            ExportChoice::Json => ".json",
+            ExportChoice::Udonarium => ".zip",
+        }
+    }
+
+    /// 初めて開いたときの出力先
+    pub fn default_path(self) -> String {
+        format!("monsters{}", self.extension())
+    }
+
+    /// 次の形式（最後の次は先頭）
+    pub fn next(self) -> Self {
+        let i = Self::ALL.iter().position(|&c| c == self).unwrap_or(0);
+        Self::ALL[(i + 1) % Self::ALL.len()]
+    }
+}
+
+/// エクスポートモーダルの入力内容
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ExportForm {
+    pub format: ExportChoice,
+    /// 出力先のパス（入力中の文字列）
+    pub path: String,
+    /// 書き出す件数（開いた時点のヒット件数）
+    pub count: usize,
+}
+
+impl ExportForm {
+    pub fn new(format: ExportChoice, path: String, count: usize) -> Self {
+        Self { format, path, count }
+    }
+
+    /// 形式を切り替える。出力先が前の形式の拡張子で終わっていれば拡張子も付け替える
+    pub fn cycle_format(&mut self) {
+        let old = self.format;
+        let new = old.next();
+        if let Some(stem) = self.path.strip_suffix(old.extension()) {
+            self.path = format!("{}{}", stem, new.extension());
+        }
+        self.format = new;
+    }
 }
 
 /// 本文の上に重ねて表示するモーダル（表示中はキー入力をすべて受け取る）
@@ -126,6 +204,11 @@ pub struct Modal {
 impl Modal {
     pub fn new(kind: ModalKind) -> Self {
         Self { kind, scroll: 0, max_scroll: Cell::new(0), page: Cell::new(0) }
+    }
+
+    /// 文字入力を受け付けるフォームか（キーの解釈を切り替える）
+    pub fn is_form(&self) -> bool {
+        matches!(self.kind, ModalKind::Export(_))
     }
 }
 
@@ -211,6 +294,8 @@ pub struct App {
     pub detail_page: Cell<u16>,
     /// 表示中のモーダル（なければ `None`）
     pub modal: Option<Modal>,
+    /// 直前にエクスポートした形式と出力先（次に開いたときの初期値）
+    pub last_export: Option<(ExportChoice, String)>,
     pub status: Option<StatusMessage>,
     pub should_quit: bool,
 }
