@@ -350,66 +350,207 @@ pub fn handle_add(data_paths: &[String], file: &str) {
         }
     };
 
-    // 現在のデータを読み込む
-    let mut monsters = utils::load_monsters_or_exit(data_paths);
+    let result = add_monster_to_files(data_paths, &new_monster, |paths| {
+        utils::confirm_action(&format!(
+            "\"{}\" という名前のモンスターは既に存在します（{}）。上書きしますか？",
+            new_monster.name,
+            paths.join(", ")
+        ))
+    });
 
-    // 重複チェック
-    if let Some(_duplicate) = query::find_by_exact_name(&monsters, &new_monster.name) {
-        // 確認ダイアログを表示
-        if !utils::confirm_action(&format!(
-            "\"{}\" という名前のモンスターは既に存在します。上書きしますか？",
-            new_monster.name
-        )) {
+    match result {
+        Ok(AddOutcome::Added { path }) => {
+            println!("成功: \"{}\" を {} に追加しました", new_monster.name, path);
+        }
+        Ok(AddOutcome::Replaced { paths }) => {
+            println!(
+                "成功: \"{}\" を上書きしました（{}）",
+                new_monster.name,
+                paths.join(", ")
+            );
+        }
+        Err(MonsterFileError::Cancelled) => {
             eprintln!("キャンセルされました");
             process::exit(1);
         }
-
-        // 既存のモンスターを削除
-        monsters.retain(|m| m.name != new_monster.name);
+        Err(e) => {
+            eprintln!("エラー: {}", e);
+            process::exit(1);
+        }
     }
-
-    // モンスターを追加
-    monsters.push(new_monster.clone());
-
-    // ファイルに保存（最初のファイルに保存）
-    if let Err(e) = io::save_json_array_file(&data_paths[0], &monsters) {
-        eprintln!("エラー: ファイルに保存できません: {}", e);
-        process::exit(1);
-    }
-
-    println!("成功: \"{}\" を追加しました", new_monster.name);
 }
 
 /// 削除コマンドのハンドラ
 pub fn handle_delete(data_paths: &[String], name: &str) {
-    // 現在のデータを読み込む
-    let mut monsters = utils::load_monsters_or_exit(data_paths);
+    let result = delete_monster_from_files(data_paths, name, |paths| {
+        if paths.len() > 1 {
+            utils::confirm_action(&format!(
+                "\"{}\" は {} 個のファイルにあります（{}）。すべてから削除しますか？",
+                name,
+                paths.len(),
+                paths.join(", ")
+            ))
+        } else {
+            utils::confirm_action(&format!("\"{}\" を {} から削除しますか？", name, paths[0]))
+        }
+    });
 
-    // 完全一致で検索
-    if query::find_by_exact_name(&monsters, name).is_none() {
-        eprintln!(
-            "エラー: \"{}\" という名前のモンスターが見つかりません",
-            name
-        );
-        process::exit(1);
+    match result {
+        Ok(paths) => {
+            println!("成功: \"{}\" を削除しました（{}）", name, paths.join(", "));
+        }
+        Err(MonsterFileError::Cancelled) => {
+            eprintln!("キャンセルされました");
+            process::exit(1);
+        }
+        Err(e) => {
+            eprintln!("エラー: {}", e);
+            process::exit(1);
+        }
+    }
+}
+
+/// モンスターデータファイルの追加・削除のエラー
+///
+/// 表示文言は CLI のエラーメッセージ（「エラー: 」以降）と同一。
+#[derive(Debug, Error)]
+pub enum MonsterFileError {
+    #[error("モンスターのデータファイルが設定されていません")]
+    NoDataFile,
+
+    #[error("{path} を読み込めません: {source}")]
+    Load { path: String, source: io::IoError },
+
+    #[error("{path} に保存できません: {source}")]
+    Save { path: String, source: io::IoError },
+
+    #[error("\"{0}\" という名前のモンスターが見つかりません")]
+    NotFound(String),
+
+    #[error("キャンセルされました")]
+    Cancelled,
+}
+
+/// 追加の結果
+#[derive(Debug, PartialEq, Eq)]
+pub enum AddOutcome {
+    /// 新規として最初のファイルの末尾に追加した
+    Added { path: String },
+    /// 既存のモンスターを、それを含む各ファイル内で置き換えた
+    Replaced { paths: Vec<String> },
+}
+
+/// 各データファイルを個別に読み込む（保存時にファイルの境界を保つため）
+fn load_each_file(data_paths: &[String]) -> Result<Vec<Vec<Monster>>, MonsterFileError> {
+    if data_paths.is_empty() {
+        return Err(MonsterFileError::NoDataFile);
+    }
+    data_paths
+        .iter()
+        .map(|path| {
+            io::load_json_array(path).map_err(|source| MonsterFileError::Load {
+                path: path.clone(),
+                source,
+            })
+        })
+        .collect()
+}
+
+fn save_file(path: &str, monsters: &[Monster]) -> Result<(), MonsterFileError> {
+    io::save_json_array_file(path, monsters).map_err(|source| MonsterFileError::Save {
+        path: path.to_string(),
+        source,
+    })
+}
+
+/// 名前が完全一致するモンスターを含むファイルのインデックス
+fn files_containing(files: &[Vec<Monster>], name: &str) -> Vec<usize> {
+    files
+        .iter()
+        .enumerate()
+        .filter(|(_, monsters)| query::find_by_exact_name(monsters, name).is_some())
+        .map(|(i, _)| i)
+        .collect()
+}
+
+/// 同名の最初の項目をその位置で置き換え、以降の同名の項目は取り除く
+fn replace_by_name(monsters: &mut Vec<Monster>, new_monster: &Monster) {
+    let mut replaced = false;
+    monsters.retain_mut(|m| {
+        if m.name != new_monster.name {
+            return true;
+        }
+        if replaced {
+            return false;
+        }
+        *m = new_monster.clone();
+        replaced = true;
+        true
+    });
+}
+
+/// モンスターをデータファイルへ追加する
+///
+/// 同名のモンスターがなければ最初のファイルの末尾に追加する。あれば `confirm` に
+/// 該当ファイルのパスを渡し、承認されたら該当ファイルそれぞれで置き換える。
+/// 書き換えるのは該当するファイルだけで、他のファイルには触れない。
+pub fn add_monster_to_files(
+    data_paths: &[String],
+    new_monster: &Monster,
+    confirm: impl FnOnce(&[&str]) -> bool,
+) -> Result<AddOutcome, MonsterFileError> {
+    let mut files = load_each_file(data_paths)?;
+    let holders = files_containing(&files, &new_monster.name);
+
+    if holders.is_empty() {
+        files[0].push(new_monster.clone());
+        save_file(&data_paths[0], &files[0])?;
+        return Ok(AddOutcome::Added {
+            path: data_paths[0].clone(),
+        });
     }
 
-    // 確認ダイアログを表示
-    if !utils::confirm_action(&format!("\"{}\" を削除しますか？", name)) {
-        eprintln!("キャンセルされました");
-        process::exit(1);
+    let paths: Vec<&str> = holders.iter().map(|&i| data_paths[i].as_str()).collect();
+    if !confirm(&paths) {
+        return Err(MonsterFileError::Cancelled);
     }
 
-    // モンスターを削除
-    monsters.retain(|m| m.name != name);
+    for &i in &holders {
+        replace_by_name(&mut files[i], new_monster);
+        save_file(&data_paths[i], &files[i])?;
+    }
+    Ok(AddOutcome::Replaced {
+        paths: paths.into_iter().map(String::from).collect(),
+    })
+}
 
-    // ファイルに保存（最初のファイルに保存）
-    if let Err(e) = io::save_json_array_file(&data_paths[0], &monsters) {
-        eprintln!("エラー: ファイルに保存できません: {}", e);
-        process::exit(1);
+/// 名前が完全一致するモンスターをデータファイルから削除する
+///
+/// `confirm` に該当ファイルのパスを渡し、承認されたら該当ファイルすべてから削除する。
+/// 書き換えるのは該当するファイルだけで、他のファイルには触れない。
+/// 戻り値は書き換えたファイルのパス。
+pub fn delete_monster_from_files(
+    data_paths: &[String],
+    name: &str,
+    confirm: impl FnOnce(&[&str]) -> bool,
+) -> Result<Vec<String>, MonsterFileError> {
+    let mut files = load_each_file(data_paths)?;
+    let holders = files_containing(&files, name);
+
+    if holders.is_empty() {
+        return Err(MonsterFileError::NotFound(name.to_string()));
     }
 
-    println!("成功: \"{}\" を削除しました", name);
+    let paths: Vec<&str> = holders.iter().map(|&i| data_paths[i].as_str()).collect();
+    if !confirm(&paths) {
+        return Err(MonsterFileError::Cancelled);
+    }
+
+    for &i in &holders {
+        files[i].retain(|m| m.name != name);
+        save_file(&data_paths[i], &files[i])?;
+    }
+    Ok(paths.into_iter().map(String::from).collect())
 }
 
 /// 統計コマンドのハンドラ
@@ -426,7 +567,9 @@ pub fn handle_stats(data_paths: &[String]) {
 #[cfg(test)]
 mod tests {
     use super::{
-        ccfolia_json, export_monsters, select_exact_match_if_available, CcfoliaError, ExportError,
+        add_monster_to_files, ccfolia_json, delete_monster_from_files, export_monsters,
+        replace_by_name, select_exact_match_if_available, AddOutcome, CcfoliaError, ExportError,
+        MonsterFileError,
     };
     use std::collections::HashMap;
     use trpg_json_core::{Monster, Part};
@@ -564,6 +707,228 @@ mod tests {
 
         let content = std::fs::read_to_string(&path).unwrap();
         assert!(content.contains("テストモンスター"));
+    }
+
+    // ---- add / delete（ファイルごとの保存）----
+
+    struct TwoFiles {
+        _dir: tempfile::TempDir,
+        paths: Vec<String>,
+    }
+
+    /// 2ファイル構成: 1つ目に A・B、2つ目に C・D
+    fn two_files() -> TwoFiles {
+        let dir = tempfile::tempdir().unwrap();
+        let first = dir.path().join("first.json");
+        let second = dir.path().join("second.json");
+        trpg_json_core::io::save_json_array_file(
+            &first,
+            &[sample_monster("モンスターA", 1, "分類1"), sample_monster("モンスターB", 2, "分類1")],
+        )
+        .unwrap();
+        trpg_json_core::io::save_json_array_file(
+            &second,
+            &[sample_monster("モンスターC", 3, "分類2"), sample_monster("モンスターD", 4, "分類2")],
+        )
+        .unwrap();
+        TwoFiles {
+            _dir: dir,
+            paths: vec![
+                first.to_string_lossy().to_string(),
+                second.to_string_lossy().to_string(),
+            ],
+        }
+    }
+
+    fn names_in(path: &str) -> Vec<(String, i32)> {
+        trpg_json_core::io::load_json_array(path)
+            .unwrap()
+            .into_iter()
+            .map(|m| (m.name, m.level))
+            .collect()
+    }
+
+    fn owned(v: &[(&str, i32)]) -> Vec<(String, i32)> {
+        v.iter().map(|(n, l)| (n.to_string(), *l)).collect()
+    }
+
+    #[test]
+    fn add_new_monster_goes_to_first_file_only() {
+        let f = two_files();
+        let second_before = std::fs::read_to_string(&f.paths[1]).unwrap();
+
+        let outcome = add_monster_to_files(
+            &f.paths,
+            &sample_monster("モンスターE", 5, "分類3"),
+            |_| panic!("新規追加で確認してはいけない"),
+        )
+        .unwrap();
+
+        assert_eq!(outcome, AddOutcome::Added { path: f.paths[0].clone() });
+        assert_eq!(
+            names_in(&f.paths[0]),
+            owned(&[("モンスターA", 1), ("モンスターB", 2), ("モンスターE", 5)])
+        );
+        assert_eq!(std::fs::read_to_string(&f.paths[1]).unwrap(), second_before);
+    }
+
+    #[test]
+    fn add_overwrite_rewrites_only_the_file_holding_the_monster() {
+        let f = two_files();
+        let first_before = std::fs::read_to_string(&f.paths[0]).unwrap();
+        let mut asked = Vec::new();
+
+        let outcome = add_monster_to_files(
+            &f.paths,
+            &sample_monster("モンスターC", 9, "分類2"),
+            |paths| {
+                asked = paths.iter().map(|p| p.to_string()).collect();
+                true
+            },
+        )
+        .unwrap();
+
+        assert_eq!(asked, vec![f.paths[1].clone()]);
+        assert_eq!(outcome, AddOutcome::Replaced { paths: vec![f.paths[1].clone()] });
+        // 位置を保ったまま置き換わる
+        assert_eq!(
+            names_in(&f.paths[1]),
+            owned(&[("モンスターC", 9), ("モンスターD", 4)])
+        );
+        assert_eq!(std::fs::read_to_string(&f.paths[0]).unwrap(), first_before);
+    }
+
+    #[test]
+    fn add_overwrite_cancelled_changes_nothing() {
+        let f = two_files();
+        let before: Vec<String> =
+            f.paths.iter().map(|p| std::fs::read_to_string(p).unwrap()).collect();
+
+        let err = add_monster_to_files(&f.paths, &sample_monster("モンスターA", 9, "分類1"), |_| {
+            false
+        })
+        .unwrap_err();
+
+        assert!(matches!(err, MonsterFileError::Cancelled));
+        for (p, b) in f.paths.iter().zip(before) {
+            assert_eq!(std::fs::read_to_string(p).unwrap(), b);
+        }
+    }
+
+    #[test]
+    fn add_overwrite_replaces_in_every_file_holding_the_name() {
+        let f = two_files();
+        trpg_json_core::io::save_json_array_file(
+            &f.paths[1],
+            &[sample_monster("モンスターA", 1, "分類1"), sample_monster("モンスターD", 4, "分類2")],
+        )
+        .unwrap();
+
+        let outcome =
+            add_monster_to_files(&f.paths, &sample_monster("モンスターA", 7, "分類1"), |paths| {
+                assert_eq!(paths.len(), 2);
+                true
+            })
+            .unwrap();
+
+        assert_eq!(outcome, AddOutcome::Replaced { paths: f.paths.clone() });
+        assert_eq!(
+            names_in(&f.paths[0]),
+            owned(&[("モンスターA", 7), ("モンスターB", 2)])
+        );
+        assert_eq!(
+            names_in(&f.paths[1]),
+            owned(&[("モンスターA", 7), ("モンスターD", 4)])
+        );
+    }
+
+    #[test]
+    fn delete_rewrites_only_the_file_holding_the_monster() {
+        let f = two_files();
+        let first_before = std::fs::read_to_string(&f.paths[0]).unwrap();
+
+        let paths = delete_monster_from_files(&f.paths, "モンスターD", |p| {
+            assert_eq!(p, [f.paths[1].as_str()]);
+            true
+        })
+        .unwrap();
+
+        assert_eq!(paths, vec![f.paths[1].clone()]);
+        assert_eq!(names_in(&f.paths[1]), owned(&[("モンスターC", 3)]));
+        // 1つ目のファイルは書き換えない（2つ目の内容が複製されない）
+        assert_eq!(std::fs::read_to_string(&f.paths[0]).unwrap(), first_before);
+    }
+
+    #[test]
+    fn delete_from_first_file_does_not_copy_second_file() {
+        let f = two_files();
+        let second_before = std::fs::read_to_string(&f.paths[1]).unwrap();
+
+        delete_monster_from_files(&f.paths, "モンスターA", |_| true).unwrap();
+
+        assert_eq!(names_in(&f.paths[0]), owned(&[("モンスターB", 2)]));
+        assert_eq!(std::fs::read_to_string(&f.paths[1]).unwrap(), second_before);
+    }
+
+    #[test]
+    fn delete_removes_from_all_files_holding_the_name() {
+        let f = two_files();
+        trpg_json_core::io::save_json_array_file(
+            &f.paths[1],
+            &[sample_monster("モンスターB", 2, "分類1"), sample_monster("モンスターD", 4, "分類2")],
+        )
+        .unwrap();
+
+        let paths = delete_monster_from_files(&f.paths, "モンスターB", |p| p.len() == 2).unwrap();
+
+        assert_eq!(paths, f.paths);
+        assert_eq!(names_in(&f.paths[0]), owned(&[("モンスターA", 1)]));
+        assert_eq!(names_in(&f.paths[1]), owned(&[("モンスターD", 4)]));
+    }
+
+    #[test]
+    fn delete_unknown_name_and_cancel_change_nothing() {
+        let f = two_files();
+        let before: Vec<String> =
+            f.paths.iter().map(|p| std::fs::read_to_string(p).unwrap()).collect();
+
+        let err = delete_monster_from_files(&f.paths, "存在しない", |_| {
+            panic!("見つからないときは確認しない")
+        })
+        .unwrap_err();
+        assert_eq!(err.to_string(), "\"存在しない\" という名前のモンスターが見つかりません");
+
+        let err = delete_monster_from_files(&f.paths, "モンスターA", |_| false).unwrap_err();
+        assert!(matches!(err, MonsterFileError::Cancelled));
+
+        for (p, b) in f.paths.iter().zip(before) {
+            assert_eq!(std::fs::read_to_string(p).unwrap(), b);
+        }
+    }
+
+    #[test]
+    fn add_and_delete_reject_empty_data_paths() {
+        let m = sample_monster("モンスターA", 1, "分類1");
+        assert!(matches!(
+            add_monster_to_files(&[], &m, |_| true),
+            Err(MonsterFileError::NoDataFile)
+        ));
+        assert!(matches!(
+            delete_monster_from_files(&[], "モンスターA", |_| true),
+            Err(MonsterFileError::NoDataFile)
+        ));
+    }
+
+    #[test]
+    fn replace_by_name_keeps_position_and_drops_duplicates_in_same_file() {
+        let mut v = vec![
+            sample_monster("X", 1, "c"),
+            sample_monster("Y", 1, "c"),
+            sample_monster("X", 2, "c"),
+        ];
+        replace_by_name(&mut v, &sample_monster("X", 9, "c"));
+        let got: Vec<(String, i32)> = v.into_iter().map(|m| (m.name, m.level)).collect();
+        assert_eq!(got, owned(&[("X", 9), ("Y", 1)]));
     }
 
     #[test]

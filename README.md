@@ -48,6 +48,11 @@ gm monster add monster.json
 gm monster delete "monster name"
 ```
 
+データファイルを複数設定している場合の保存先:
+- `add`（新規）: 設定の最初のファイルの末尾に追加します
+- `add`（同名あり）: 確認のうえ、そのモンスターを含むファイルだけを書き換えます（位置はそのまま）
+- `delete`: 確認のうえ、そのモンスターを含むファイルだけを書き換えます。同名が複数のファイルにあるときは、確認メッセージにファイルを列挙し、すべてから削除します
+
 ### Spell Management
 
 The tool includes comprehensive spell management capabilities for querying and manipulating spell data.
