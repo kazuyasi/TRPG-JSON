@@ -498,6 +498,37 @@
         6. ✅ ヘルプモーダルの「検索構文」節を段階2の内容に更新。README に「検索構文」の節を追加。TUI_DESIGN.md §4.3 / §5 / §6 を更新
         7. ✅ 単体テスト 15 件追加（パーサ 9・update 3・描画 3。Action 変換のテストに `←→` を追記）。全 359 件通過（core 258 + app 101）
         8. ✅ 疑似端末（サンプル設定、100×24）で `lv:abc` の警告 → `c:アンデッド` → `テ lv:6`（0 件の条件一覧）→ `→` でスペルタブ → `s:x` → `?` を確認
+- [x] T050 Phase 4: TUI エクスポートモーダル・stats 画面 — 2026-11-01 着手、完了 2026-11-01
+      - Status: ✅ 完了（T050a〜T050c すべて実装済み。後続は T051）
+      - Owner: Claude
+      - Design doc: TUI_DESIGN.md §4.3 / §6 / §11
+      - 範囲の決定（2026-11-01、Operator と合意）: 追加・削除は TUI に入れない。追加は JSON を作って CLI の `gm monster add`、削除も破壊的操作なので CLI の `gm monster delete` で行う（TUI_DESIGN.md Q7）
+      - Planned subtasks: T050a エクスポートモーダル（JSON / Udonarium）/ T050b Sheets エクスポート（TUI 一時停止 → OAuth → 復帰）/ T050c stats 画面
+      - [x] T050a エクスポートモーダル（0.15.0）— 2026-11-01
+        1. ✅ モンスタータブの結果リスト・詳細ペインで `e`: ヒット中の全件（結果リストの並び順）を書き出すモーダル。ヒット 0 件・スペルタブは情報表示で開かない
+        2. ✅ 形式は JSON / Udonarium (ZIP)。`Tab`/`Shift-Tab`/`↑↓` で切り替え、出力先が前の形式の拡張子で終わっていれば付け替え
+        3. ✅ 出力先は文字入力（`Backspace`・`Ctrl-u`）。入力フォーム専用のキー解釈 `action::from_form_key`（`q` なども文字として入る）。`Enter` で実行、`Esc` でキャンセル、空なら「出力先のパスを入力してください」
+        4. ✅ `Effect::Export` → `commands::monster::export_monsters`（CLI と共通）。先頭の `~` / `~/` はホームへ展開。成功・失敗の文言は CLI と同じ。前回の形式と出力先を `App.last_export` に保持
+        5. ✅ Udonarium エクスポーターが stderr に書く進捗で画面が崩れないよう、実行後に全面を描き直す（`clear_region(All)` + `swap_buffers`。`Terminal::clear` はカーソル位置の問い合わせに応答しない端末でエラーになるため使わない）
+        6. ✅ キーヘルプ行に `e:出力`（80 桁に収めるため詳細ペインの `PgUp/Dn:本文` はヘルプへ移動）。ヘルプモーダルに「エクスポート」節。README に「エクスポート（`e`）」の節、TUI_DESIGN.md §4.3 / §6 / §11 / §13 を更新
+        7. ✅ 単体テスト 16 件追加（Action 変換 2・update 8・Effect 実行 5・描画 1）。全 375 件通過（core 258 + app 117）
+        8. ✅ 疑似端末（サンプル設定、100×24）で `e` → パス入力 → `Enter`（JSON 20 件）→ `e`（前回のパスを引き継ぎ）→ `Tab`（`.zip` に付け替え）→ `Enter`（ZIP に XML 22 件）を確認
+      - [x] T050c 統計モーダル（0.16.0）— 2026-11-01
+        1. ✅ 結果リスト・詳細ペインで `S`: 現在のタブの統計を core の `MonsterStats` / `SpellStats` で集計して表示（CLI の `stats` と同じ内容。core の見出し行は除く）
+        2. ✅ 検索で絞り込み中は `【ヒット中 N 件（検索: …）】` → `【全件 M 件】` の順。検索構文エラーで直前の結果を残しているときは検索語を出さない。データ 0 件は情報表示
+        3. ✅ スクロールは JSON ビューと共通。`Esc`/`q`/`Enter`/`S` で閉じる。`ModalKind::Stats` を追加
+        4. ✅ ヘルプモーダル・キーヘルプ行（モーダル用）・README・TUI_DESIGN.md §4.3 / §6 を更新
+        5. ✅ 単体テスト 7 件追加（Action 変換 1・update 5・描画 1）。全 382 件通過（core 258 + app 124）
+        6. ✅ 疑似端末（サンプル設定、100×30）で `/` → `ゴ` → `Enter` → `S` → `G` → `q` を確認
+      - [x] T050b Sheets エクスポート（0.17.0）— 2026-11-01
+        1. ✅ エクスポートモーダルの形式に Google Sheets を追加（JSON → Udonarium → Sheets の順）。入力欄は「シートID」で、ファイルの出力先とは別に保持（`ExportForm.path` / `sheet_id`、`input()` / `input_mut()`）
+        2. ✅ ID が空なら「スプレッドシート ID を入力してください」。`~` の展開はファイル形式のみ。`App.last_export` を `ExportForm` に変更し ID も引き継ぐ
+        3. ✅ 実行は TUI を一時停止（`tui::run_suspended`: alternate screen を抜けて raw mode 解除 → `export_monsters` → 結果を表示 → `Enter` 待ち → 復帰・全面再描画）。OAuth の案内・進捗は通常の画面で読める。結果はステータス行にも表示（`Effect::needs_suspend`）
+        4. ✅ `StatusKind::prefix()` を追加し、ステータス行と一時停止中の結果表示で共用
+        5. ✅ README のエクスポート節、TUI_DESIGN.md §2 / §4.3 / §7.4 / §12 を更新
+        6. ✅ 単体テスト 3 件追加（update 1・Effect 2）、既存テスト 2 件を Sheets 込みに更新。全 385 件通過（core 258 + app 127）
+        7. ✅ 疑似端末（サンプル設定、100×24）で `e` → `Tab` `Tab` → 短い ID → `Enter` → 一時停止画面にエラーと案内 → `Enter` で TUI に戻りステータス行にエラーを確認
+        8. ⚠️ 実際の OAuth 認証・Sheets API への書き込みは未確認（認証情報とスプレッドシートが必要。Operator による手動確認を推奨）
 - [ ] T051 Phase 4: TUI selection list pane (multi-select → bulk copy/export) — future, after T050 (see TUI_DESIGN.md §4.5)
 - [ ] T044 Phase 4: Multi-system support (extend beyond SW2.5)
 - [ ] T045 Phase 4: Skill/Fairy magic CLI commands (gm skill find/list/palette)
@@ -509,6 +540,13 @@
 ---
 
 ## ⚠️ Known Issues & Tech Debt
+
+### ⚠️ OPEN: `gm monster add` / `delete` が全ファイルの内容を最初のファイルへ保存する
+- **Location**: `rust/app/src/commands/monster.rs` - `handle_add` / `handle_delete`
+- **Status**: 未対応（2026-11-01 に T050 の検討中に発見・再現確認）
+- **内容**: 設定の全モンスターファイルを `load_multiple_json_arrays` でまとめて読み込み、その配列を `data_paths[0]` に保存している。モンスターのデータファイルを複数設定していると、2つ目以降の内容が1つ目のファイルにも書き込まれ重複する（2ファイル構成で `delete` を実行し、2つ目の内容が1つ目へ複製されることを確認）
+- **影響**: データファイルを1つだけ使っている場合は問題なし
+- **対応案**: 対象のモンスターを含むファイルだけを読み書きする（追加は最初のファイル、または指定したファイルへ）
 
 ### ✅ RESOLVED: I/O Tests - Spell Multiple File Loading (T036.5)
 - **Location**: `rust/core/src/io.rs` - `test_load_multiple_spells_json_arrays*` (2 tests)

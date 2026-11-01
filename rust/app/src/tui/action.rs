@@ -53,6 +53,14 @@ pub enum Action {
     CloseModal,
     /// JSON ビューの内容をクリップボードへコピー
     CopyJson,
+    /// 統計モーダルを開く
+    OpenStats,
+    /// ヒット中のモンスターのエクスポートモーダルを開く
+    OpenExport,
+    /// エクスポート形式を切り替える
+    CycleExportFormat,
+    /// 入力した内容でエクスポートする
+    SubmitExport,
 }
 
 /// キーイベントを Action に変換する（割り当てのないキーは `None`）
@@ -109,6 +117,8 @@ pub fn from_key(key: KeyEvent, focus: Focus, modal_open: bool) -> Option<Action>
         KeyCode::Char('Y') => Some(Action::CopyAllPalettes),
         KeyCode::Char('?') => Some(Action::OpenHelp),
         KeyCode::Char('J') => Some(Action::OpenJson),
+        KeyCode::Char('e') => Some(Action::OpenExport),
+        KeyCode::Char('S') => Some(Action::OpenStats),
         KeyCode::Char('k') => Some(Action::Up),
         KeyCode::Char('j') => Some(Action::Down),
         KeyCode::Char('g') | KeyCode::Home => Some(Action::Top),
@@ -126,7 +136,7 @@ fn from_modal_key(code: KeyCode, ctrl: bool) -> Option<Action> {
     }
     match code {
         // 開いたキーをもう一度押しても閉じる
-        KeyCode::Esc | KeyCode::Enter | KeyCode::Char('q' | '?' | 'J') => Some(Action::CloseModal),
+        KeyCode::Esc | KeyCode::Enter | KeyCode::Char('q' | '?' | 'J' | 'S') => Some(Action::CloseModal),
         KeyCode::Up | KeyCode::Char('k') => Some(Action::Up),
         KeyCode::Down | KeyCode::Char('j') => Some(Action::Down),
         KeyCode::PageUp => Some(Action::PageUp),
@@ -138,10 +148,69 @@ fn from_modal_key(code: KeyCode, ctrl: bool) -> Option<Action> {
     }
 }
 
+/// 入力フォームのモーダル（エクスポート）表示中のキー
+///
+/// 英字・数字はすべて出力先への文字入力として扱う（`q` などで閉じない）。
+pub fn from_form_key(key: KeyEvent) -> Option<Action> {
+    if key.kind != KeyEventKind::Press {
+        return None;
+    }
+    if key.modifiers.contains(KeyModifiers::CONTROL) {
+        return match key.code {
+            KeyCode::Char('c') => Some(Action::Quit),
+            KeyCode::Char('u') => Some(Action::ClearQuery),
+            _ => None,
+        };
+    }
+    match key.code {
+        KeyCode::Esc => Some(Action::CloseModal),
+        KeyCode::Enter => Some(Action::SubmitExport),
+        KeyCode::Tab | KeyCode::BackTab | KeyCode::Up | KeyCode::Down => Some(Action::CycleExportFormat),
+        KeyCode::Backspace => Some(Action::DeleteChar),
+        KeyCode::Char(c) => Some(Action::InsertChar(c)),
+        _ => None,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use ratatui::crossterm::event::KeyEventState;
+
+    #[test]
+    fn test_e_opens_export_outside_search() {
+        assert_eq!(from_key(press(KeyCode::Char('e')), Focus::List, false), Some(Action::OpenExport));
+        assert_eq!(from_key(press(KeyCode::Char('e')), Focus::Detail, false), Some(Action::OpenExport));
+        assert_eq!(from_key(press(KeyCode::Char('e')), Focus::Search, false), Some(Action::InsertChar('e')));
+        assert_eq!(from_key(press(KeyCode::Char('e')), Focus::List, true), None);
+    }
+
+    #[test]
+    fn test_shift_s_opens_stats() {
+        let shift_s = KeyEvent::new(KeyCode::Char('S'), KeyModifiers::SHIFT);
+        assert_eq!(from_key(shift_s, Focus::List, false), Some(Action::OpenStats));
+        assert_eq!(from_key(shift_s, Focus::Detail, false), Some(Action::OpenStats));
+        assert_eq!(from_key(shift_s, Focus::Search, false), Some(Action::InsertChar('S')));
+        // 統計の表示中にもう一度押すと閉じる
+        assert_eq!(from_key(shift_s, Focus::List, true), Some(Action::CloseModal));
+    }
+
+    #[test]
+    fn test_form_keys() {
+        for c in ['q', 'e', 'J', '?', '~', '/', 'テ'] {
+            assert_eq!(from_form_key(press(KeyCode::Char(c))), Some(Action::InsertChar(c)), "{c}");
+        }
+        assert_eq!(from_form_key(press(KeyCode::Backspace)), Some(Action::DeleteChar));
+        assert_eq!(from_form_key(ctrl('u')), Some(Action::ClearQuery));
+        assert_eq!(from_form_key(ctrl('c')), Some(Action::Quit));
+        assert_eq!(from_form_key(ctrl('x')), None);
+        assert_eq!(from_form_key(press(KeyCode::Esc)), Some(Action::CloseModal));
+        assert_eq!(from_form_key(press(KeyCode::Enter)), Some(Action::SubmitExport));
+        for code in [KeyCode::Tab, KeyCode::BackTab, KeyCode::Up, KeyCode::Down] {
+            assert_eq!(from_form_key(press(code)), Some(Action::CycleExportFormat), "{code:?}");
+        }
+        assert_eq!(from_form_key(press(KeyCode::Left)), None);
+    }
 
     fn press(code: KeyCode) -> KeyEvent {
         KeyEvent::new(code, KeyModifiers::NONE)

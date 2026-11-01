@@ -142,10 +142,11 @@ fn draw_status(frame: &mut Frame, area: Rect, app: &App) {
     let Some(status) = &app.status else {
         return;
     };
-    let (prefix, color) = match status.kind {
-        StatusKind::Success => ("成功: ", Color::Green),
-        StatusKind::Info => ("情報: ", Color::Cyan),
-        StatusKind::Error => ("エラー: ", Color::Red),
+    let prefix = status.kind.prefix();
+    let color = match status.kind {
+        StatusKind::Success => Color::Green,
+        StatusKind::Info => Color::Cyan,
+        StatusKind::Error => Color::Red,
     };
     let line = Line::from(vec![
         Span::styled(prefix, Style::default().fg(color).add_modifier(Modifier::BOLD)),
@@ -164,6 +165,10 @@ fn help_text(app: &App) -> &'static str {
             ModalKind::Json { .. } => {
                 "↑↓/jk/PgUp/Dn/g/G:スクロール  y:JSONをコピー  Esc/q/J:閉じる  Ctrl-c:終了"
             }
+            ModalKind::Stats { .. } => "↑↓/jk/PgUp/Dn/g/G:スクロール  Esc/q/S:閉じる  Ctrl-c:終了",
+            ModalKind::Export(_) => {
+                "文字入力:出力先  Tab/↑↓:形式  Ctrl-u:クリア  Enter:出力  Esc:キャンセル"
+            }
         };
     }
     match (app.tab, app.focus) {
@@ -171,10 +176,10 @@ fn help_text(app: &App) -> &'static str {
             "文字入力:名前で絞り込み  Enter/Esc:リストへ  Ctrl-u:クリア  ↑↓:選択  Ctrl-c:終了"
         }
         (Tab::Monster, Focus::List) => {
-            "↑↓/jk:選択  Enter:詳細  c:ココフォリア  J:JSON  /:検索  ?:ヘルプ  q:終了"
+            "↑↓/jk:選択  Enter:詳細  c:ココフォリア  e:出力  J:JSON  /:検索  ?:ヘルプ  q:終了"
         }
         (Tab::Monster, Focus::Detail) => {
-            "↑↓/jk:部位  PgUp/Dn:本文  c:ココフォリア  J:JSON  Esc:リスト  ?:ヘルプ  q:終了"
+            "↑↓/jk:部位  c:ココフォリア  e:出力  J:JSON  Esc:リスト  ?:ヘルプ  q:終了"
         }
         (Tab::Spell, Focus::List) => {
             "↑↓/jk:選択  Enter:詳細  y:パレット  Y:全件  J:JSON  /:検索  ?:ヘルプ  q:終了"
@@ -361,6 +366,71 @@ mod tests {
             assert!(contains(&rows, "\"name\": \"サンプル動物\""), "{width}: {rows:#?}");
             assert!(contains(&rows, "y:JSONをコピー"));
         }
+    }
+
+    #[test]
+    fn test_render_stats_modal() {
+        use crate::tui::action::Action;
+        use crate::tui::update::update;
+        let mut app = sample_app();
+        app.monster_view.query = "テスト".into();
+        app.refresh_monster_hits();
+        update(&mut app, Action::OpenStats);
+        for width in [60, 120] {
+            let rows = render(&app, width, 30);
+            assert!(contains(&rows, "モンスター統計"), "{width}: {rows:#?}");
+            assert!(contains(&rows, "【ヒット中 1 件（検索: テスト）】"), "{width}: {rows:#?}");
+            assert!(contains(&rows, "【全件 2 件】"));
+            assert!(contains(&rows, "レベル分布"));
+            assert!(contains(&rows, "Esc/q/S:閉じる"));
+        }
+    }
+
+    #[test]
+    fn test_render_export_modal() {
+        use crate::tui::action::Action;
+        use crate::tui::update::update;
+        let mut app = sample_app();
+        update(&mut app, Action::OpenExport);
+        for width in [60, 80, 120] {
+            let mut terminal = Terminal::new(TestBackend::new(width, 24)).unwrap();
+            terminal.draw(|f| draw(f, &app)).unwrap();
+            let rows = render(&app, width, 24);
+            assert!(contains(&rows, "エクスポート"), "{width}: {rows:#?}");
+            assert!(contains(&rows, "ヒット中のモンスター 2 件"), "{width}: {rows:#?}");
+            assert!(contains(&rows, "JSON"));
+            assert!(contains(&rows, "Udonarium (ZIP)"));
+            assert!(contains(&rows, "出力先 monsters.json"), "{width}: {rows:#?}");
+            assert!(contains(&rows, "Esc:キャンセル"));
+            // カーソルは出力先の末尾（行は出力先の行）
+            let pos = terminal.get_cursor_position().unwrap();
+            let row_text = &rows[pos.y as usize];
+            assert!(row_text.contains("monsters.json"), "{width}: {row_text}");
+        }
+
+        // Sheets はシートID の入力欄と一時停止の注意書き
+        update(&mut app, Action::CycleExportFormat);
+        update(&mut app, Action::CycleExportFormat);
+        update(&mut app, Action::InsertChar('x'));
+        let rows = render(&app, 120, 24);
+        assert!(contains(&rows, "Google Sheets"));
+        assert!(contains(&rows, "シートID x"), "{rows:#?}");
+        assert!(contains(&rows, "TUI を一時停止します"));
+        assert!(!contains(&rows, "monsters"));
+        update(&mut app, Action::CycleExportFormat);
+
+        // 長い出力先は末尾を見せ、枠からはみ出さない
+        for _ in 0..80 {
+            update(&mut app, Action::InsertChar('a'));
+        }
+        update(&mut app, Action::InsertChar('Z'));
+        let mut terminal = Terminal::new(TestBackend::new(60, 24)).unwrap();
+        terminal.draw(|f| draw(f, &app)).unwrap();
+        let rows = render(&app, 60, 24);
+        assert!(contains(&rows, "出力先 <aaa"), "{rows:#?}");
+        assert!(contains(&rows, "aZ│"), "{rows:#?}");
+        let pos = terminal.get_cursor_position().unwrap();
+        assert!(pos.x < 59, "{pos:?}");
     }
 
     #[test]
@@ -556,7 +626,12 @@ mod tests {
                 assert!(width <= 80, "{tab:?} {focus:?}: {width}");
             }
         }
-        for kind in [ModalKind::Help, ModalKind::Json { name: String::new(), text: String::new() }] {
+        for kind in [
+            ModalKind::Help,
+            ModalKind::Json { name: String::new(), text: String::new() },
+            ModalKind::Stats { title: String::new(), text: String::new() },
+            ModalKind::Export(Default::default()),
+        ] {
             app.modal = Some(crate::tui::app::Modal::new(kind));
             let width = Line::from(help_text(&app)).width();
             assert!(width <= 80, "{:?}: {width}", app.modal);
