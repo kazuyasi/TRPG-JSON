@@ -2,7 +2,7 @@
 
 ## 🧭 Meta
 - Project: TRPG-JSON
-- Last Updated: 2026-10-31 JST (T048 CCFolia clipboard export completed; v0.8.0)
+- Last Updated: 2026-11-01 JST (T050 TUI エクスポート・統計モーダル完了; v0.17.0。後続タスク T052〜T054 を登録)
 - Responsibilities: kazuyasi (specification/approval/git operations) / Claude (proposal/implementation/testing)
 - Status: Phase 2.5 COMPLETE (T013-T027). Phase 3 COMPLETE (T028-T037). Phase 3.5 COMPLETE (T038-1/2/final). Phase 3.6 COMPLETE (T038.6, T040, T040.5). Phase 3.7 COMPLETE (T046, T047). UX improvements complete with enhanced error messages and statistics commands. Workspace version inheritance configured. Test suite: 291 total tests (251 core + 40 app). Ready for commit.
 
@@ -16,9 +16,8 @@
    - Status: All Phase 3.7 tasks complete and ready for commit
 
 ## 🚧 In Progress
-- Currently no active implementation tasks
-- Phase 3.7 complete; ready for git commit
-- Next phase suggestions: Phase 4 (Advanced Features) or continue data addition work
+- 実装中のタスクはなし（T050 は 2026-11-01 にマージ済み）
+- 次の候補（Phase 4 内、優先度順）: T052 CLI add/delete の保存先修正 → T053 TUI 1行入力のカーソル移動 → T054 データ再読み込みキー（要検討）→ T051 選択リストペイン
 
 ---
 
@@ -529,6 +528,28 @@
         6. ✅ 単体テスト 3 件追加（update 1・Effect 2）、既存テスト 2 件を Sheets 込みに更新。全 385 件通過（core 258 + app 127）
         7. ✅ 疑似端末（サンプル設定、100×24）で `e` → `Tab` `Tab` → 短い ID → `Enter` → 一時停止画面にエラーと案内 → `Enter` で TUI に戻りステータス行にエラーを確認
         8. ⚠️ 実際の OAuth 認証・Sheets API への書き込みは未確認（認証情報とスプレッドシートが必要。Operator による手動確認を推奨）
+- [ ] T052 CLI `monster add` / `delete` の保存先修正（fix）— 2026-11-01 登録
+      - Status: 未着手（優先度: 高。データファイルを複数使う構成でデータが重複するため）
+      - 背景: Known Issues「`gm monster add` / `delete` が全ファイルの内容を最初のファイルへ保存する」
+      - 方針案:
+        1. 削除: 対象のモンスターを含むファイルを特定し、そのファイルだけを読み直して書き戻す。複数ファイルに同名がある場合は一覧を出して中止するか、すべてから削除するかを決める（要確認）
+        2. 追加: 新規は最初のファイルへ（現行仕様どおり）。同名の上書きは、既存のモンスターがあるファイルを書き換える
+        3. 書き込み前に読み直すため、`load_multiple_json_arrays` の結果は保存に使わない
+        4. 2ファイル構成の単体テストを追加（add 新規・add 上書き・delete。他のファイルが変わらないこと）
+      - 未決事項: 複数ファイルに同名があるときの扱い、`add` の保存先を選ぶオプション（`--file` など）を足すか
+- [ ] T053 TUI 1行入力のカーソル移動（検索バー・エクスポートの入力欄）— 2026-11-01 登録
+      - Status: 未着手（範囲は Operator と相談して決める）
+      - 背景: 今の入力欄は末尾への追加・削除しかできず、長いパスや検索語の途中を直せない。エクスポートモーダルの形式切り替えは `↑↓` / `Tab` のままにし、`←→` はカーソル移動に使う（2026-11-01 合意）
+      - 方針案:
+        1. 1行入力の部品（入力文字列＋カーソル位置）を新規 `tui/input.rs` に作り、検索バーとエクスポートの入力欄で共用する
+        2. `←` / `→`: 1文字移動（全角も1文字）、`Home` / `End`（`Ctrl-a` / `Ctrl-e`）: 先頭・末尾、`Backspace`: カーソルの前を削除、`Delete`: カーソル位置を削除、文字はカーソル位置に挿入
+        3. 枠に収まらない入力は、カーソルが見える位置まで横にずらして表示する（今は末尾を表示し、先頭を `<` で省いている）
+        4. 端末カーソル（IME の変換窓の位置）を入力のカーソル位置に合わせる
+      - 未決事項: 範囲（エクスポートの入力欄だけにするか、検索バーも含めるか）、版の上げ方（fix で 0.17.1 か feat で 0.18.0）
+- [ ] T054 TUI データ再読み込みキー — 2026-11-01 登録（要検討）
+      - Status: 未着手・採否未定
+      - 背景: TUI はデータを起動時に一度だけ読む。CLI の `add` / `delete` やエディタでデータを直したあと、反映するには TUI の再起動が必要
+      - 方針案: `R` で設定のデータファイルを読み直し、検索語・タブ・できれば選択中の項目を保ったまま結果を作り直す。読み込みに失敗したら今のデータを残し、ステータス行にエラーを出す
 - [ ] T051 Phase 4: TUI selection list pane (multi-select → bulk copy/export) — future, after T050 (see TUI_DESIGN.md §4.5)
 - [ ] T044 Phase 4: Multi-system support (extend beyond SW2.5)
 - [ ] T045 Phase 4: Skill/Fairy magic CLI commands (gm skill find/list/palette)
