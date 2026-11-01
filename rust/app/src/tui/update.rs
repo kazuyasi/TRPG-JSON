@@ -5,7 +5,7 @@ use trpg_json_core::stats::{MonsterStats, SpellStats};
 use trpg_json_core::{Monster, Spell};
 
 use super::action::Action;
-use super::app::{App, ExportChoice, ExportForm, Focus, Modal, ModalKind, StatusMessage, Tab};
+use super::app::{App, ExportForm, Focus, Modal, ModalKind, StatusMessage, Tab};
 use super::effect::Effect;
 use crate::commands::monster::ccfolia_json;
 
@@ -380,6 +380,7 @@ fn scrolled(scroll: u16, action: Action, max: u16, page: u16) -> u16 {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::tui::app::ExportChoice;
     use crate::tui::format::tests::{monster, part};
 
     fn sample_app() -> App {
