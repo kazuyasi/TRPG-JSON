@@ -1,6 +1,8 @@
 //! 状態遷移（純粋関数。I/O は行わない）
 
 use trpg_json_core::export::palette::generate_spell_palette;
+use trpg_json_core::stats::{MonsterStats, SpellStats};
+use trpg_json_core::{Monster, Spell};
 
 use super::action::Action;
 use super::app::{App, ExportChoice, ExportForm, Focus, Modal, ModalKind, StatusMessage, Tab};
@@ -20,6 +22,7 @@ pub fn update(app: &mut App, action: Action) -> Option<Effect> {
         Action::OpenHelp => app.modal = Some(Modal::new(ModalKind::Help)),
         Action::OpenJson => open_json(app),
         Action::OpenExport => open_export(app),
+        Action::OpenStats => open_stats(app),
         // モーダルが無いときは何もしない
         Action::CloseModal | Action::CopyJson | Action::CycleExportFormat | Action::SubmitExport => {}
         Action::CopyCcfolia if app.tab == Tab::Monster => return copy_ccfolia(app),
@@ -85,6 +88,59 @@ fn update_modal(app: &mut App, action: Action) -> Option<Effect> {
         _ => {}
     }
     None
+}
+
+/// 現在のタブの統計モーダルを開く（CLI の `stats` と同じ集計）
+///
+/// 検索で絞り込んでいるときは「ヒット中」の統計を先に出し、続けて全件の統計を出す。
+fn open_stats(app: &mut App) {
+    let total = app.total_count();
+    if total == 0 {
+        app.status = Some(StatusMessage::info("統計を表示するデータがありません"));
+        return;
+    }
+    let view = app.view();
+    let hits = &view.hits;
+    let filtered = !hits.is_empty() && hits.len() < total;
+    let (title, all, hit) = match app.tab {
+        Tab::Monster => {
+            let hit = filtered.then(|| {
+                let v: Vec<Monster> = hits.iter().map(|&i| app.monsters[i].clone()).collect();
+                MonsterStats::calculate(&v).format()
+            });
+            ("モンスター統計", MonsterStats::calculate(&app.monsters).format(), hit)
+        }
+        Tab::Spell => {
+            let hit = filtered.then(|| {
+                let v: Vec<Spell> = hits.iter().map(|&i| app.spells[i].clone()).collect();
+                SpellStats::calculate(&v).format()
+            });
+            ("スペル統計", SpellStats::calculate(&app.spells).format(), hit)
+        }
+    };
+
+    let mut text = String::new();
+    if let Some(hit) = hit {
+        let query = view.query.trim();
+        let label = if view.query_error.is_none() && !query.is_empty() {
+            format!("【ヒット中 {} 件（検索: {}）】", hits.len(), query)
+        } else {
+            format!("【ヒット中 {} 件】", hits.len())
+        };
+        text.push_str(&format!("{}\n{}\n", label, stats_body(&hit)));
+    }
+    text.push_str(&format!("【全件 {} 件】\n{}", total, stats_body(&all)));
+    app.modal = Some(Modal::new(ModalKind::Stats { title: title.to_string(), text }));
+}
+
+/// core の `format()` の出力から見出し行（「モンスター統計:」など）を除き、字下げを1段浅くする
+fn stats_body(formatted: &str) -> String {
+    formatted
+        .lines()
+        .skip(1)
+        .map(|l| l.strip_prefix("  ").unwrap_or(l))
+        .collect::<Vec<_>>()
+        .join("\n")
 }
 
 /// ヒット中のモンスターを書き出すエクスポートモーダルを開く
@@ -1066,6 +1122,77 @@ mod tests {
         let status = app.status.as_ref().unwrap();
         assert_eq!(status.kind, StatusKind::Info);
         assert!(status.text.starts_with("スペルのエクスポートには対応していません"));
+    }
+
+    // ---- 統計モーダル ----
+
+    fn stats_text(app: &App) -> (String, String) {
+        match app.modal.as_ref().map(|m| &m.kind) {
+            Some(ModalKind::Stats { title, text }) => (title.clone(), text.clone()),
+            other => panic!("統計モーダルが開いていない: {other:?}"),
+        }
+    }
+
+    #[test]
+    fn test_stats_without_filter_shows_all_only() {
+        let mut app = sample_app();
+        update(&mut app, Action::OpenStats);
+        let (title, text) = stats_text(&app);
+        assert_eq!(title, "モンスター統計");
+        assert!(text.starts_with("【全件 4 件】\n総数: 4\n"), "{text}");
+        assert!(!text.contains("ヒット中"));
+        assert!(text.contains("カテゴリ分布"));
+        // core の見出し行は出さない
+        assert!(!text.contains("モンスター統計:"));
+    }
+
+    #[test]
+    fn test_stats_with_filter_shows_hits_then_all() {
+        let mut app = sample_app();
+        type_str(&mut app, "テスト lv:6");
+        update(&mut app, Action::OpenStats);
+        let (_, text) = stats_text(&app);
+        let hit = text.find("【ヒット中 2 件（検索: テスト lv:6）】\n総数: 2").expect(&text);
+        let all = text.find("【全件 4 件】\n総数: 4").expect(&text);
+        assert!(hit < all);
+
+        // 開いた後はスクロール・閉じるだけ（裏の状態は変わらない）
+        update(&mut app, Action::Down);
+        assert_eq!(app.monster_view.selected, 0);
+        assert!(update(&mut app, Action::CopyJson).is_none());
+        update(&mut app, Action::CloseModal);
+        assert!(app.modal.is_none());
+    }
+
+    #[test]
+    fn test_stats_for_spell_tab() {
+        let mut app = spell_app();
+        type_str(&mut app, "テストスペル");
+        update(&mut app, Action::OpenStats);
+        let (title, text) = stats_text(&app);
+        assert_eq!(title, "スペル統計");
+        assert!(text.contains("【ヒット中 2 件（検索: テストスペル）】"), "{text}");
+        assert!(text.contains("【全件 5 件】"));
+        assert!(text.contains("系統分布"));
+    }
+
+    #[test]
+    fn test_stats_with_invalid_query_omits_query_text() {
+        let mut app = sample_app();
+        type_str(&mut app, "モンスター");
+        app.monster_view.query.push_str(" lv:");
+        app.refresh_monster_hits();
+        update(&mut app, Action::OpenStats);
+        let (_, text) = stats_text(&app);
+        assert!(text.starts_with("【ヒット中 2 件】\n"), "{text}");
+    }
+
+    #[test]
+    fn test_stats_without_data_shows_info() {
+        let mut app = App::new(Vec::new(), Vec::new(), Tab::Spell);
+        update(&mut app, Action::OpenStats);
+        assert!(app.modal.is_none());
+        assert_eq!(app.status.as_ref().unwrap().text, "統計を表示するデータがありません");
     }
 
     #[test]

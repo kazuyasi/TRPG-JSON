@@ -164,6 +164,7 @@ fn help_text(app: &App) -> &'static str {
             ModalKind::Json { .. } => {
                 "↑↓/jk/PgUp/Dn/g/G:スクロール  y:JSONをコピー  Esc/q/J:閉じる  Ctrl-c:終了"
             }
+            ModalKind::Stats { .. } => "↑↓/jk/PgUp/Dn/g/G:スクロール  Esc/q/S:閉じる  Ctrl-c:終了",
             ModalKind::Export(_) => {
                 "文字入力:出力先  Tab/↑↓:形式  Ctrl-u:クリア  Enter:出力  Esc:キャンセル"
             }
@@ -363,6 +364,24 @@ mod tests {
             assert!(contains(&rows, "JSON: サンプル動物"), "{width}: {rows:#?}");
             assert!(contains(&rows, "\"name\": \"サンプル動物\""), "{width}: {rows:#?}");
             assert!(contains(&rows, "y:JSONをコピー"));
+        }
+    }
+
+    #[test]
+    fn test_render_stats_modal() {
+        use crate::tui::action::Action;
+        use crate::tui::update::update;
+        let mut app = sample_app();
+        app.monster_view.query = "テスト".into();
+        app.refresh_monster_hits();
+        update(&mut app, Action::OpenStats);
+        for width in [60, 120] {
+            let rows = render(&app, width, 30);
+            assert!(contains(&rows, "モンスター統計"), "{width}: {rows:#?}");
+            assert!(contains(&rows, "【ヒット中 1 件（検索: テスト）】"), "{width}: {rows:#?}");
+            assert!(contains(&rows, "【全件 2 件】"));
+            assert!(contains(&rows, "レベル分布"));
+            assert!(contains(&rows, "Esc/q/S:閉じる"));
         }
     }
 
@@ -598,6 +617,7 @@ mod tests {
         for kind in [
             ModalKind::Help,
             ModalKind::Json { name: String::new(), text: String::new() },
+            ModalKind::Stats { title: String::new(), text: String::new() },
             ModalKind::Export(crate::tui::app::ExportForm::new(Default::default(), String::new(), 0)),
         ] {
             app.modal = Some(crate::tui::app::Modal::new(kind));

@@ -53,6 +53,8 @@ pub enum Action {
     CloseModal,
     /// JSON ビューの内容をクリップボードへコピー
     CopyJson,
+    /// 統計モーダルを開く
+    OpenStats,
     /// ヒット中のモンスターのエクスポートモーダルを開く
     OpenExport,
     /// エクスポート形式を切り替える
@@ -116,6 +118,7 @@ pub fn from_key(key: KeyEvent, focus: Focus, modal_open: bool) -> Option<Action>
         KeyCode::Char('?') => Some(Action::OpenHelp),
         KeyCode::Char('J') => Some(Action::OpenJson),
         KeyCode::Char('e') => Some(Action::OpenExport),
+        KeyCode::Char('S') => Some(Action::OpenStats),
         KeyCode::Char('k') => Some(Action::Up),
         KeyCode::Char('j') => Some(Action::Down),
         KeyCode::Char('g') | KeyCode::Home => Some(Action::Top),
@@ -133,7 +136,7 @@ fn from_modal_key(code: KeyCode, ctrl: bool) -> Option<Action> {
     }
     match code {
         // 開いたキーをもう一度押しても閉じる
-        KeyCode::Esc | KeyCode::Enter | KeyCode::Char('q' | '?' | 'J') => Some(Action::CloseModal),
+        KeyCode::Esc | KeyCode::Enter | KeyCode::Char('q' | '?' | 'J' | 'S') => Some(Action::CloseModal),
         KeyCode::Up | KeyCode::Char('k') => Some(Action::Up),
         KeyCode::Down | KeyCode::Char('j') => Some(Action::Down),
         KeyCode::PageUp => Some(Action::PageUp),
@@ -180,6 +183,16 @@ mod tests {
         assert_eq!(from_key(press(KeyCode::Char('e')), Focus::Detail, false), Some(Action::OpenExport));
         assert_eq!(from_key(press(KeyCode::Char('e')), Focus::Search, false), Some(Action::InsertChar('e')));
         assert_eq!(from_key(press(KeyCode::Char('e')), Focus::List, true), None);
+    }
+
+    #[test]
+    fn test_shift_s_opens_stats() {
+        let shift_s = KeyEvent::new(KeyCode::Char('S'), KeyModifiers::SHIFT);
+        assert_eq!(from_key(shift_s, Focus::List, false), Some(Action::OpenStats));
+        assert_eq!(from_key(shift_s, Focus::Detail, false), Some(Action::OpenStats));
+        assert_eq!(from_key(shift_s, Focus::Search, false), Some(Action::InsertChar('S')));
+        // 統計の表示中にもう一度押すと閉じる
+        assert_eq!(from_key(shift_s, Focus::List, true), Some(Action::CloseModal));
     }
 
     #[test]

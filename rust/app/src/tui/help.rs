@@ -18,6 +18,7 @@ pub const SECTIONS: &[HelpSection] = &[
             ("/", "検索バーへ"),
             ("?", "このヘルプ"),
             ("J", "選択中の項目の JSON を表示"),
+            ("S", "統計（ヒット中と全件）を表示"),
             ("q / Ctrl-c", "終了"),
         ],
     },
@@ -68,13 +69,13 @@ pub const SECTIONS: &[HelpSection] = &[
         ],
     },
     HelpSection {
-        title: "ヘルプ・JSON ビュー",
+        title: "ヘルプ・JSON ビュー・統計",
         entries: &[
             ("↑↓ / j k", "1行スクロール"),
             ("PgUp / PgDn / Space", "1ページスクロール"),
             ("g / G", "先頭 / 末尾へ"),
             ("y", "JSON ビュー: 表示中の JSON をコピー"),
-            ("Esc / q / Enter", "閉じる"),
+            ("Esc / q / Enter", "閉じる（開いたキーをもう一度押しても閉じる）"),
         ],
     },
     HelpSection {

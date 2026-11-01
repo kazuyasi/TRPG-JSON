@@ -499,7 +499,7 @@
         7. ✅ 単体テスト 15 件追加（パーサ 9・update 3・描画 3。Action 変換のテストに `←→` を追記）。全 359 件通過（core 258 + app 101）
         8. ✅ 疑似端末（サンプル設定、100×24）で `lv:abc` の警告 → `c:アンデッド` → `テ lv:6`（0 件の条件一覧）→ `→` でスペルタブ → `s:x` → `?` を確認
 - [ ] T050 Phase 4: TUI エクスポートモーダル・stats 画面 — 2026-11-01 着手
-      - Status: 🚧 実装中（T050a 完了。T050b / T050c は未着手）
+      - Status: 🚧 実装中（T050a・T050c 完了。T050b は未着手）
       - Owner: Claude
       - Design doc: TUI_DESIGN.md §4.3 / §6 / §11
       - 範囲の決定（2026-11-01、Operator と合意）: 追加・削除は TUI に入れない。追加は JSON を作って CLI の `gm monster add`、削除も破壊的操作なので CLI の `gm monster delete` で行う（TUI_DESIGN.md Q7）
@@ -514,7 +514,13 @@
         7. ✅ 単体テスト 16 件追加（Action 変換 2・update 8・Effect 実行 5・描画 1）。全 375 件通過（core 258 + app 117）
         8. ✅ 疑似端末（サンプル設定、100×24）で `e` → パス入力 → `Enter`（JSON 20 件）→ `e`（前回のパスを引き継ぎ）→ `Tab`（`.zip` に付け替え）→ `Enter`（ZIP に XML 22 件）を確認
       - [ ] T050b Sheets エクスポート（TUI を一時停止して OAuth → 復帰）
-      - [ ] T050c stats 画面
+      - [x] T050c 統計モーダル（0.16.0）— 2026-11-01
+        1. ✅ 結果リスト・詳細ペインで `S`: 現在のタブの統計を core の `MonsterStats` / `SpellStats` で集計して表示（CLI の `stats` と同じ内容。core の見出し行は除く）
+        2. ✅ 検索で絞り込み中は `【ヒット中 N 件（検索: …）】` → `【全件 M 件】` の順。検索構文エラーで直前の結果を残しているときは検索語を出さない。データ 0 件は情報表示
+        3. ✅ スクロールは JSON ビューと共通。`Esc`/`q`/`Enter`/`S` で閉じる。`ModalKind::Stats` を追加
+        4. ✅ ヘルプモーダル・キーヘルプ行（モーダル用）・README・TUI_DESIGN.md §4.3 / §6 を更新
+        5. ✅ 単体テスト 7 件追加（Action 変換 1・update 5・描画 1）。全 382 件通過（core 258 + app 124）
+        6. ✅ 疑似端末（サンプル設定、100×30）で `/` → `ゴ` → `Enter` → `S` → `G` → `q` を確認
 - [ ] T051 Phase 4: TUI selection list pane (multi-select → bulk copy/export) — future, after T050 (see TUI_DESIGN.md §4.5)
 - [ ] T044 Phase 4: Multi-system support (extend beyond SW2.5)
 - [ ] T045 Phase 4: Skill/Fairy magic CLI commands (gm skill find/list/palette)

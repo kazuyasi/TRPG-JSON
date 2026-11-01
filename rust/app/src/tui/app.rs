@@ -109,6 +109,13 @@ pub enum ModalKind {
         /// 整形済みの JSON
         text: String,
     },
+    /// ヒット中の項目と全件の統計（`S`）。開いた時点の内容を保持する
+    Stats {
+        /// タイトル（「モンスター統計」など）
+        title: String,
+        /// 整形済みの本文（`【】` で始まる行は節見出し）
+        text: String,
+    },
     /// ヒット中のモンスターをファイルへ書き出すフォーム（`e`）
     Export(ExportForm),
 }

@@ -22,6 +22,16 @@ pub fn draw(frame: &mut Frame, area: Rect, modal: &Modal) {
             " y:コピー  Esc/q:閉じる ",
             text.lines().map(|l| Line::from(l.to_string())).collect(),
         ),
+        ModalKind::Stats { title, text } => (
+            format!(" {} ", title),
+            " Esc/q:閉じる ",
+            text.lines()
+                .map(|l| match l.strip_prefix('【').and_then(|r| r.strip_suffix('】')) {
+                    Some(h) => heading(h),
+                    None => Line::from(format!(" {}", l)),
+                })
+                .collect(),
+        ),
         ModalKind::Export(form) => {
             draw_export(frame, area, form);
             return;
