@@ -26,7 +26,7 @@ use thiserror::Error;
 use trpg_json_core::io as core_io;
 
 pub use app::Tab;
-use app::{App, StatusMessage};
+use app::{App, DataSources, StatusMessage};
 
 /// TUI 起動・実行時のエラー（`Display` は CLI の「エラー: 」以降の文言）
 #[derive(Debug, Error)]
@@ -52,20 +52,17 @@ pub fn run(monster_paths: &[String], spell_paths: &[String], initial_tab: Tab) -
     }
 
     let monsters = core_io::load_multiple_json_arrays(monster_paths)?;
-    let (spells, status) = if spell_paths.is_empty() {
-        (Vec::new(), None)
-    } else {
-        match core_io::load_multiple_spells_json_arrays(spell_paths) {
-            Ok(s) => (s, None),
-            Err(e) => (
-                Vec::new(),
-                Some(StatusMessage::error(format!("スペルデータを読み込めません: {}", e))),
-            ),
-        }
+    let (spells, status) = match effect::load_spells(spell_paths) {
+        Ok(s) => (s, None),
+        Err(e) => (Vec::new(), Some(StatusMessage::error(format!("スペルデータを読み込めません: {}", e)))),
     };
 
     let mut app = App::new(monsters, spells, initial_tab);
     app.status = status;
+    app.sources = DataSources {
+        monster_paths: monster_paths.to_vec(),
+        spell_paths: spell_paths.to_vec(),
+    };
 
     // raw mode + alternate screen に入る。panic 時に端末を戻す hook も ratatui::init が設定する
     let mut terminal = ratatui::init();
@@ -91,9 +88,9 @@ fn event_loop(terminal: &mut DefaultTerminal, app: &mut App) -> Result<(), TuiEr
         {
             let redraw = effect.needs_full_redraw();
             let status = if effect.needs_suspend() {
-                run_suspended(terminal, effect)?
+                run_suspended(terminal, effect, app)?
             } else {
-                effect::execute(effect)
+                effect::execute(effect, app)
             };
             app.status = Some(status);
             if redraw {
@@ -108,13 +105,13 @@ fn event_loop(terminal: &mut DefaultTerminal, app: &mut App) -> Result<(), TuiEr
 ///
 /// Google Sheets の OAuth はブラウザを開き、案内や進捗を stderr に出して完了までブロックするため、
 /// 通常の画面で実行して利用者が読めるようにする。結果も同じ画面に出し、Enter を待ってから戻る。
-fn run_suspended(terminal: &mut DefaultTerminal, effect: effect::Effect) -> io::Result<StatusMessage> {
+fn run_suspended(terminal: &mut DefaultTerminal, effect: effect::Effect, app: &mut App) -> io::Result<StatusMessage> {
     execute!(terminal.backend_mut(), LeaveAlternateScreen)?;
     disable_raw_mode()?;
     terminal.show_cursor()?;
 
     eprintln!("Google Sheets へエクスポートします（TUI は一時停止中です）");
-    let status = effect::execute(effect);
+    let status = effect::execute(effect, app);
     eprintln!();
     eprintln!("{}{}", status.kind.prefix(), status.text);
     eprint!("Enter キーで TUI に戻ります");

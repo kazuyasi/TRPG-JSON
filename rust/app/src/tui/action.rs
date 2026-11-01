@@ -71,6 +71,8 @@ pub enum Action {
     CycleExportFormat,
     /// 入力した内容でエクスポートする
     SubmitExport,
+    /// 設定のデータファイルを読み直す
+    Reload,
 }
 
 /// キーイベントを Action に変換する（割り当てのないキーは `None`）
@@ -125,6 +127,7 @@ pub fn from_key(key: KeyEvent, focus: Focus, modal_open: bool) -> Option<Action>
         KeyCode::Char('J') => Some(Action::OpenJson),
         KeyCode::Char('e') => Some(Action::OpenExport),
         KeyCode::Char('S') => Some(Action::OpenStats),
+        KeyCode::Char('R') => Some(Action::Reload),
         KeyCode::Char('k') => Some(Action::Up),
         KeyCode::Char('j') => Some(Action::Down),
         KeyCode::Char('g') | KeyCode::Home => Some(Action::Top),
@@ -217,6 +220,20 @@ mod tests {
         assert_eq!(from_key(shift_s, Focus::Search, false), Some(Action::InsertChar('S')));
         // 統計の表示中にもう一度押すと閉じる
         assert_eq!(from_key(shift_s, Focus::List, true), Some(Action::CloseModal));
+    }
+
+    #[test]
+    fn test_shift_r_reloads_outside_search_and_modal() {
+        let shift_r = KeyEvent::new(KeyCode::Char('R'), KeyModifiers::SHIFT);
+        assert_eq!(from_key(shift_r, Focus::List, false), Some(Action::Reload));
+        assert_eq!(from_key(shift_r, Focus::Detail, false), Some(Action::Reload));
+        assert_eq!(from_key(press(KeyCode::Char('R')), Focus::List, false), Some(Action::Reload));
+        // 検索中は文字入力、モーダル表示中・入力フォームでは読み直さない
+        assert_eq!(from_key(shift_r, Focus::Search, false), Some(Action::InsertChar('R')));
+        assert_eq!(from_key(shift_r, Focus::List, true), None);
+        assert_eq!(from_form_key(shift_r), Some(Action::InsertChar('R')));
+        // 小文字の r は割り当てなし
+        assert_eq!(from_key(press(KeyCode::Char('r')), Focus::List, false), None);
     }
 
     #[test]
