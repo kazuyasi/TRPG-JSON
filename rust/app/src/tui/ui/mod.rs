@@ -396,6 +396,37 @@ mod tests {
     }
 
     #[test]
+    fn test_render_no_hits_lists_level_and_category() {
+        let mut app = sample_app();
+        app.monster_view.query = "テスト lv:99 cat:蛮族".into();
+        app.refresh_monster_hits();
+        let rows = render(&app, 120, 24);
+        assert!(contains(&rows, "name: \"テスト\""));
+        assert!(contains(&rows, "level: 99"));
+        assert!(contains(&rows, "category: \"蛮族\""));
+    }
+
+    #[test]
+    fn test_render_invalid_query_warning() {
+        let mut app = sample_app();
+        app.focus = Focus::Search;
+        app.monster_view.query = "lv:abc".into();
+        app.refresh_monster_hits();
+        let rows = render(&app, 80, 24);
+        assert!(contains(&rows, "検索> lv:abc  [lv: の値は整数で指定してください（abc）]"));
+        // 直前（全件）の結果が残る
+        assert!(contains(&rows, "2件中 2件"));
+    }
+
+    #[test]
+    fn test_render_search_placeholder_per_tab() {
+        let app = sample_app();
+        assert!(contains(&render(&app, 80, 24), "例: テスト lv:6 cat:蛮族"));
+        let app = spell_app();
+        assert!(contains(&render(&app, 80, 24), "例: テスト lv:3 s:MagicCat_1"));
+    }
+
+    #[test]
     fn test_render_search_focus_sets_cursor_and_help() {
         let mut app = sample_app();
         app.focus = Focus::Search;

@@ -8,6 +8,7 @@ mod app;
 mod effect;
 mod format;
 mod help;
+mod query;
 mod ui;
 mod update;
 
