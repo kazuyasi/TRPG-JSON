@@ -5,6 +5,7 @@ use std::cell::Cell;
 use trpg_json_core::{Monster, Spell};
 
 use super::format;
+use super::input::LineInput;
 use super::query::{MonsterQuery, SpellQuery, parse_monster_query, parse_spell_query};
 
 /// 表示中のタブ
@@ -196,9 +197,9 @@ impl ExportChoice {
 pub struct ExportForm {
     pub format: ExportChoice,
     /// ファイルの出力先（JSON / Udonarium）
-    pub path: String,
+    pub path: LineInput,
     /// スプレッドシート ID（Sheets）
-    pub sheet_id: String,
+    pub sheet_id: LineInput,
     /// 書き出す件数（開いた時点のヒット件数）
     pub count: usize,
 }
@@ -208,8 +209,8 @@ impl Default for ExportForm {
     fn default() -> Self {
         Self {
             format: ExportChoice::Json,
-            path: format!("monsters{}", ExportChoice::Json.extension()),
-            sheet_id: String::new(),
+            path: format!("monsters{}", ExportChoice::Json.extension()).into(),
+            sheet_id: LineInput::default(),
             count: 0,
         }
     }
@@ -217,12 +218,12 @@ impl Default for ExportForm {
 
 impl ExportForm {
     /// 選択中の形式の入力欄の内容
-    pub fn input(&self) -> &str {
+    pub fn input(&self) -> &LineInput {
         if self.format.is_file() { &self.path } else { &self.sheet_id }
     }
 
     /// 選択中の形式の入力欄（変更用）
-    pub fn input_mut(&mut self) -> &mut String {
+    pub fn input_mut(&mut self) -> &mut LineInput {
         if self.format.is_file() { &mut self.path } else { &mut self.sheet_id }
     }
 
@@ -235,7 +236,7 @@ impl ExportForm {
                 .filter(|c| c.is_file() && **c != new)
                 .find_map(|c| self.path.strip_suffix(c.extension()));
             if let Some(stem) = other {
-                self.path = format!("{}{}", stem, new.extension());
+                self.path = format!("{}{}", stem, new.extension()).into();
             }
         }
         self.format = new;
@@ -270,8 +271,8 @@ impl Modal {
 /// ヒット結果は借用の寿命問題を避けるため、元データへの index で保持する。
 #[derive(Debug, Default)]
 pub struct ListView {
-    /// 検索バーの入力文字列
-    pub query: String,
+    /// 検索バーの入力（文字列とカーソル位置）
+    pub query: LineInput,
     /// ヒットした項目の index（表示順）
     pub hits: Vec<usize>,
     /// `hits` 内での選択位置

@@ -7,6 +7,7 @@ use ratatui::text::{Line, Span};
 use ratatui::widgets::{Block, Borders, Paragraph, Tabs, Wrap};
 
 use super::app::{App, Focus, ModalKind, StatusKind, Tab};
+use super::input::LineInput;
 
 mod detail;
 mod list;
@@ -167,13 +168,13 @@ fn help_text(app: &App) -> &'static str {
             }
             ModalKind::Stats { .. } => "↑↓/jk/PgUp/Dn/g/G:スクロール  Esc/q/S:閉じる  Ctrl-c:終了",
             ModalKind::Export(_) => {
-                "文字入力:出力先  Tab/↑↓:形式  Ctrl-u:クリア  Enter:出力  Esc:キャンセル"
+                "←→:カーソル  Tab/↑↓:形式  Ctrl-u:クリア  Enter:出力  Esc:キャンセル"
             }
         };
     }
     match (app.tab, app.focus) {
         (_, Focus::Search) => {
-            "文字入力:名前で絞り込み  Enter/Esc:リストへ  Ctrl-u:クリア  ↑↓:選択  Ctrl-c:終了"
+            "文字入力:絞り込み  ←→:カーソル  Enter/Esc:リストへ  Ctrl-u:クリア  Ctrl-c:終了"
         }
         (Tab::Monster, Focus::List) => {
             "↑↓/jk:選択  Enter:詳細  c:ココフォリア  e:出力  J:JSON  /:検索  ?:ヘルプ  q:終了"
@@ -188,6 +189,21 @@ fn help_text(app: &App) -> &'static str {
             "↑↓/jk/PgUp/Dn:本文  y:パレット  Y:全件  J:JSON  Esc:リスト  ?:ヘルプ  q:終了"
         }
     }
+}
+
+/// 幅 `width` の入力欄に出す内容（省いた側は暗い `<` / `>`）と、入力欄の左端から見たカーソルの桁
+fn input_spans(input: &LineInput, width: usize, style: Style) -> (Vec<Span<'static>>, u16) {
+    let view = input.view(width);
+    let marker = Style::default().fg(Color::DarkGray);
+    let mut spans = Vec::with_capacity(3);
+    if view.clipped_left {
+        spans.push(Span::styled("<", marker));
+    }
+    spans.push(Span::styled(view.text, style));
+    if view.clipped_right {
+        spans.push(Span::styled(">", marker));
+    }
+    (spans, view.cursor_col)
 }
 
 fn draw_help(frame: &mut Frame, area: Rect, app: &App) {
@@ -431,6 +447,18 @@ mod tests {
         assert!(contains(&rows, "aZ│"), "{rows:#?}");
         let pos = terminal.get_cursor_position().unwrap();
         assert!(pos.x < 59, "{pos:?}");
+
+        // 先頭へ移動すると先頭を見せ、末尾を `>` で省く。カーソルは入力欄の先頭
+        update(&mut app, Action::CursorHome);
+        let mut terminal = Terminal::new(TestBackend::new(60, 24)).unwrap();
+        terminal.draw(|f| draw(f, &app)).unwrap();
+        let rows = render(&app, 60, 24);
+        assert!(contains(&rows, "出力先 monsters.jsonaaa"), "{rows:#?}");
+        assert!(contains(&rows, "a>│"), "{rows:#?}");
+        // 幅 60 ではモーダルは左端から。枠 1 桁 + 「出力先」の項目名 8 桁 + 空白 2 桁
+        let pos = terminal.get_cursor_position().unwrap();
+        assert_eq!(pos.x, 11, "{rows:#?}");
+        assert!(rows[pos.y as usize].contains("出力先monsters.json"), "{rows:#?}");
     }
 
     #[test]
@@ -508,6 +536,47 @@ mod tests {
         terminal.backend_mut().assert_cursor_position((8, 1));
         let rows = render(&app, 80, 24);
         assert!(contains(&rows, "Ctrl-u:クリア"));
+        assert!(contains(&rows, "←→:カーソル"));
+    }
+
+    #[test]
+    fn test_render_search_cursor_in_middle_and_long_query() {
+        use crate::tui::action::Action;
+        use crate::tui::update::update;
+        let mut app = sample_app();
+        update(&mut app, Action::FocusSearch);
+        for c in "テスト".chars() {
+            update(&mut app, Action::InsertChar(c));
+        }
+        update(&mut app, Action::CursorLeft);
+        let mut terminal = Terminal::new(TestBackend::new(80, 24)).unwrap();
+        terminal.draw(|f| draw(f, &app)).unwrap();
+        // 「検索> 」(6 桁) + 「テス」(4 桁)。カーソルは「ト」の上
+        terminal.backend_mut().assert_cursor_position((10, 1));
+
+        // 枠より長い入力: 末尾を見せ、先頭を `<` で省く
+        update(&mut app, Action::CursorEnd);
+        for _ in 0..60 {
+            update(&mut app, Action::InsertChar('a'));
+        }
+        update(&mut app, Action::InsertChar('Z'));
+        let mut terminal = Terminal::new(TestBackend::new(40, 24)).unwrap();
+        terminal.draw(|f| draw(f, &app)).unwrap();
+        let rows = render(&app, 40, 24);
+        assert!(rows[1].starts_with("検索><aaa"), "{rows:#?}");
+        assert!(rows[1].ends_with("aZ"), "{rows:#?}");
+        let pos = terminal.get_cursor_position().unwrap();
+        assert_eq!(pos.y, 1);
+        assert!(pos.x <= 39, "{pos:?}");
+
+        // 先頭へ戻ると先頭を見せ、末尾を `>` で省く
+        update(&mut app, Action::CursorHome);
+        let mut terminal = Terminal::new(TestBackend::new(40, 24)).unwrap();
+        terminal.draw(|f| draw(f, &app)).unwrap();
+        let rows = render(&app, 40, 24);
+        assert!(rows[1].starts_with("検索>テストaaa"), "{rows:#?}");
+        assert!(rows[1].ends_with("a>"), "{rows:#?}");
+        terminal.backend_mut().assert_cursor_position((6, 1));
     }
 
     #[test]

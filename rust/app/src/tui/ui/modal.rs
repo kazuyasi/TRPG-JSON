@@ -11,7 +11,7 @@ use ratatui::widgets::{Block, Borders, Clear, Paragraph, Wrap};
 
 use super::super::app::{ExportChoice, ExportForm, Modal, ModalKind};
 use super::super::help::SECTIONS;
-use super::{heading, wrapped_height};
+use super::{heading, input_spans, wrapped_height};
 
 /// モーダルを描画する
 pub fn draw(frame: &mut Frame, area: Rect, modal: &Modal) {
@@ -101,7 +101,7 @@ pub fn export_lines(form: &ExportForm) -> Vec<Line<'static>> {
             Span::raw(format!("ヒット中のモンスター {} 件（結果リストの並び順）", form.count)),
         ]),
         Line::from(formats),
-        Line::from(vec![label(form.format.input_label()), Span::raw(form.input().to_string())]),
+        Line::from(vec![label(form.format.input_label()), Span::raw(form.input().as_str().to_string())]),
         Line::from(""),
         Line::from(Span::styled(notes[0], dim)),
         Line::from(Span::styled(notes[1], dim)),
@@ -111,7 +111,7 @@ pub fn export_lines(form: &ExportForm) -> Vec<Line<'static>> {
 /// `export_lines` のうち出力先の行（カーソルを置く）
 const EXPORT_PATH_ROW: u16 = 2;
 
-/// エクスポートモーダル: 本文領域の中央に小さく出し、出力先の末尾にカーソルを置く
+/// エクスポートモーダル: 本文領域の中央に小さく出し、入力欄のカーソル位置に端末カーソルを置く
 fn draw_export(frame: &mut Frame, area: Rect, form: &ExportForm) {
     let lines = export_lines(form);
     let width = area.width.min(72);
@@ -130,38 +130,23 @@ fn draw_export(frame: &mut Frame, area: Rect, form: &ExportForm) {
         .title_bottom(Line::from(" Enter:出力  Esc:キャンセル ").right_aligned());
     let inner = block.inner(rect);
 
+    // 入力欄は折り返さず、カーソルが見える位置まで横にずらす（省いた側は `<` / `>`）
     let mut lines = lines;
-    // 出力先が長いときは折り返さず、末尾（入力位置）が見えるよう先頭を `<` で省く
-    let path_row = EXPORT_PATH_ROW as usize;
-    let avail = (inner.width as usize).saturating_sub(1);
-    if lines[path_row].width() > avail {
-        let label = lines[path_row].spans[0].clone();
-        let room = avail.saturating_sub(label.width() + 1);
-        lines[path_row] = Line::from(vec![label, Span::styled("<", Style::default().fg(Color::DarkGray)), Span::raw(tail_fitting(form.input(), room))]);
-    }
-    let cursor_x = lines[path_row].width() as u16;
+    let row = EXPORT_PATH_ROW as usize;
+    let label = lines[row].spans[0].clone();
+    let label_width = label.width() as u16;
+    let room = inner.width.saturating_sub(label_width) as usize;
+    let (input, cursor_col) = input_spans(form.input(), room, Style::default());
+    let mut spans = vec![label];
+    spans.extend(input);
+    lines[row] = Line::from(spans);
 
     frame.render_widget(Clear, rect);
     frame.render_widget(Paragraph::new(lines).block(block), rect);
     if inner.height > EXPORT_PATH_ROW {
-        let x = inner.x + cursor_x.min(inner.width.saturating_sub(1));
-        frame.set_cursor_position(Position::new(x, inner.y + EXPORT_PATH_ROW));
+        let x = (label_width + cursor_col).min(inner.width.saturating_sub(1));
+        frame.set_cursor_position(Position::new(inner.x + x, inner.y + EXPORT_PATH_ROW));
     }
-}
-
-/// 表示幅が `width` 以下に収まる `s` の末尾部分
-fn tail_fitting(s: &str, width: usize) -> String {
-    let mut used = 0;
-    let mut start = s.len();
-    for (i, c) in s.char_indices().rev() {
-        let w = Line::from(c.to_string()).width();
-        if used + w > width {
-            break;
-        }
-        used += w;
-        start = i;
-    }
-    s[start..].to_string()
 }
 
 /// 本文領域の中央に置く。狭い端末では本文領域いっぱいに広げる
