@@ -7,6 +7,7 @@ use trpg_json_core::{Monster, Spell};
 use super::action::Action;
 use super::app::{App, ExportForm, Focus, Modal, ModalKind, StatusMessage, Tab};
 use super::effect::Effect;
+use super::input::LineInput;
 use crate::commands::monster::ccfolia_json;
 
 /// Action を App に適用する
@@ -37,18 +38,16 @@ pub fn update(app: &mut App, action: Action) -> Option<Effect> {
         Action::FocusDetail => app.focus = Focus::Detail,
         Action::FocusNext => app.focus = app.focus.next(),
         Action::FocusPrev => app.focus = app.focus.prev(),
-        Action::InsertChar(c) => {
-            app.view_mut().query.push(c);
-            app.refresh_hits();
-        }
-        Action::DeleteChar => {
-            if app.view_mut().query.pop().is_some() {
-                app.refresh_hits();
-            }
-        }
-        Action::ClearQuery => {
-            if !app.view().query.is_empty() {
-                app.view_mut().query.clear();
+        Action::InsertChar(_)
+        | Action::DeleteChar
+        | Action::DeleteCharForward
+        | Action::ClearQuery
+        | Action::CursorLeft
+        | Action::CursorRight
+        | Action::CursorHome
+        | Action::CursorEnd => {
+            // 入力が変わったときだけ検索し直す
+            if edit_line_input(&mut app.view_mut().query, action) {
                 app.refresh_hits();
             }
         }
@@ -168,11 +167,16 @@ fn update_export_form(app: &mut App, action: Action) -> Option<Effect> {
         return None;
     };
     match action {
-        Action::InsertChar(c) => form.input_mut().push(c),
-        Action::DeleteChar => {
-            form.input_mut().pop();
+        Action::InsertChar(_)
+        | Action::DeleteChar
+        | Action::DeleteCharForward
+        | Action::ClearQuery
+        | Action::CursorLeft
+        | Action::CursorRight
+        | Action::CursorHome
+        | Action::CursorEnd => {
+            edit_line_input(form.input_mut(), action);
         }
-        Action::ClearQuery => form.input_mut().clear(),
         Action::CycleExportFormat => form.cycle_format(),
         Action::SubmitExport => return submit_export(app),
         Action::CloseModal => app.modal = None,
@@ -180,6 +184,36 @@ fn update_export_form(app: &mut App, action: Action) -> Option<Effect> {
         _ => {}
     }
     None
+}
+
+/// 1行入力への編集・カーソル移動の操作を適用する。入力文字列が変わったら `true`
+fn edit_line_input(input: &mut LineInput, action: Action) -> bool {
+    match action {
+        Action::InsertChar(c) => {
+            input.insert(c);
+            true
+        }
+        Action::DeleteChar => input.backspace(),
+        Action::DeleteCharForward => input.delete(),
+        Action::ClearQuery => input.clear(),
+        Action::CursorLeft => {
+            input.move_left();
+            false
+        }
+        Action::CursorRight => {
+            input.move_right();
+            false
+        }
+        Action::CursorHome => {
+            input.move_home();
+            false
+        }
+        Action::CursorEnd => {
+            input.move_end();
+            false
+        }
+        _ => false,
+    }
 }
 
 /// 入力内容を確定してモーダルを閉じ、ヒット中のモンスター（結果リストの並び順）の書き出しを要求する
@@ -200,7 +234,7 @@ fn submit_export(app: &mut App) -> Option<Effect> {
     }
 
     let mut remembered = form.clone();
-    *remembered.input_mut() = output.clone();
+    *remembered.input_mut() = LineInput::new(output.clone());
     app.last_export = Some(remembered);
     let monsters = app.monster_view.hits.iter().map(|&i| app.monsters[i].clone()).collect();
     app.modal = None;
@@ -747,7 +781,7 @@ mod tests {
         assert_eq!(spell_names(&app), vec!["テスト不完全"]);
 
         // スペルタブではモンスターのキーは使えない（直前の結果のまま）
-        app.spell_view.query.push_str(" cat:蛮族");
+        app.spell_view.query = format!("{} cat:蛮族", app.spell_view.query.as_str()).into();
         app.refresh_spell_hits();
         assert!(app.spell_view.query_error.as_deref().unwrap().starts_with("cat: は使えません"));
         assert_eq!(spell_names(&app), vec!["テスト不完全"]);
@@ -1140,6 +1174,68 @@ mod tests {
     }
 
     #[test]
+    fn test_search_edit_at_cursor_refreshes_hits() {
+        let mut app = sample_app();
+        update(&mut app, Action::FocusSearch);
+        type_str(&mut app, "テスト戦士");
+        assert!(names(&app).is_empty());
+        // カーソル移動だけでは結果は変わらない
+        update(&mut app, Action::CursorLeft);
+        update(&mut app, Action::CursorLeft);
+        assert_eq!(app.monster_view.query.cursor(), 3);
+        // 途中に挿入（「テスト」と「戦士」の間に「の」）
+        update(&mut app, Action::InsertChar('の'));
+        assert_eq!(app.monster_view.query, "テストの戦士");
+        assert_eq!(names(&app), vec!["テストの戦士"]);
+        // 先頭で Delete、末尾で Backspace
+        update(&mut app, Action::CursorHome);
+        update(&mut app, Action::DeleteCharForward);
+        assert_eq!(app.monster_view.query, "ストの戦士");
+        update(&mut app, Action::CursorEnd);
+        update(&mut app, Action::DeleteChar);
+        assert_eq!(app.monster_view.query, "ストの戦");
+        assert_eq!(names(&app), vec!["テストの戦士"]);
+        // 先頭での Backspace・末尾での Delete は何もしない
+        update(&mut app, Action::DeleteCharForward);
+        update(&mut app, Action::CursorHome);
+        update(&mut app, Action::DeleteChar);
+        assert_eq!(app.monster_view.query, "ストの戦");
+        assert_eq!(app.monster_view.query.cursor(), 0);
+    }
+
+    #[test]
+    fn test_export_form_edit_at_cursor() {
+        let mut app = sample_app();
+        update(&mut app, Action::OpenExport);
+        // 「monsters.json」の拡張子の前に「_2」を入れる
+        for _ in 0..".json".len() {
+            update(&mut app, Action::CursorLeft);
+        }
+        type_str(&mut app, "_2");
+        assert_eq!(export_form(&app).path, "monsters_2.json");
+        // 先頭にディレクトリを足し、Delete で1文字消す
+        update(&mut app, Action::CursorHome);
+        type_str(&mut app, "out/");
+        update(&mut app, Action::DeleteCharForward);
+        assert_eq!(export_form(&app).path, "out/onsters_2.json");
+        // 形式を切り替えると拡張子が付け替わり、カーソルは末尾
+        update(&mut app, Action::CycleExportFormat);
+        let form = export_form(&app);
+        assert_eq!(form.path, "out/onsters_2.zip");
+        assert_eq!(form.path.cursor(), "out/onsters_2.zip".len());
+        // Sheets の ID 欄は別に持つ
+        update(&mut app, Action::CycleExportFormat);
+        type_str(&mut app, "ab");
+        update(&mut app, Action::CursorLeft);
+        type_str(&mut app, "X");
+        assert_eq!(export_form(&app).sheet_id, "aXb");
+        match update(&mut app, Action::SubmitExport) {
+            Some(Effect::Export { output, .. }) => assert_eq!(output, "aXb"),
+            other => panic!("{other:?}"),
+        }
+    }
+
+    #[test]
     fn test_export_form_quit_and_ignored_actions() {
         let mut app = sample_app();
         update(&mut app, Action::OpenExport);
@@ -1225,7 +1321,7 @@ mod tests {
     fn test_stats_with_invalid_query_omits_query_text() {
         let mut app = sample_app();
         type_str(&mut app, "モンスター");
-        app.monster_view.query.push_str(" lv:");
+        app.monster_view.query = format!("{} lv:", app.monster_view.query.as_str()).into();
         app.refresh_monster_hits();
         update(&mut app, Action::OpenStats);
         let (_, text) = stats_text(&app);

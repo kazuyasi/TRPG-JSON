@@ -21,12 +21,22 @@ pub enum Action {
     FocusNext,
     /// 前のペインへ
     FocusPrev,
-    /// 検索バーへ1文字入力
+    /// 入力欄（検索バー・エクスポートの入力欄）のカーソル位置へ1文字入力
     InsertChar(char),
-    /// 検索バーの末尾1文字を削除
+    /// 入力欄のカーソルの前の1文字を削除（`Backspace`）
     DeleteChar,
-    /// 検索バーの入力をクリア
+    /// 入力欄のカーソル位置の1文字を削除（`Delete`）
+    DeleteCharForward,
+    /// 入力欄の入力をクリア
     ClearQuery,
+    /// 入力欄のカーソルを1文字左へ
+    CursorLeft,
+    /// 入力欄のカーソルを1文字右へ
+    CursorRight,
+    /// 入力欄のカーソルを先頭へ
+    CursorHome,
+    /// 入力欄のカーソルを末尾へ
+    CursorEnd,
     /// 上へ1行
     Up,
     /// 下へ1行
@@ -92,12 +102,8 @@ pub fn from_key(key: KeyEvent, focus: Focus, modal_open: bool) -> Option<Action>
 
     if focus == Focus::Search {
         return match key.code {
-            KeyCode::Char('u') if ctrl => Some(Action::ClearQuery),
-            KeyCode::Char(_) if ctrl => None,
-            KeyCode::Char(c) => Some(Action::InsertChar(c)),
-            KeyCode::Backspace => Some(Action::DeleteChar),
             KeyCode::Enter | KeyCode::Esc => Some(Action::FocusList),
-            _ => None,
+            _ => from_line_input_key(key.code, ctrl),
         };
     }
 
@@ -148,27 +154,45 @@ fn from_modal_key(code: KeyCode, ctrl: bool) -> Option<Action> {
     }
 }
 
+/// 1行入力（検索バー・エクスポートの入力欄）で共通のキー: 文字入力・削除・カーソル移動
+///
+/// `Ctrl-c`（終了）は呼び出し側で先に処理する。
+fn from_line_input_key(code: KeyCode, ctrl: bool) -> Option<Action> {
+    if ctrl {
+        return match code {
+            KeyCode::Char('u') => Some(Action::ClearQuery),
+            KeyCode::Char('a') => Some(Action::CursorHome),
+            KeyCode::Char('e') => Some(Action::CursorEnd),
+            _ => None,
+        };
+    }
+    match code {
+        KeyCode::Char(c) => Some(Action::InsertChar(c)),
+        KeyCode::Backspace => Some(Action::DeleteChar),
+        KeyCode::Delete => Some(Action::DeleteCharForward),
+        KeyCode::Left => Some(Action::CursorLeft),
+        KeyCode::Right => Some(Action::CursorRight),
+        KeyCode::Home => Some(Action::CursorHome),
+        KeyCode::End => Some(Action::CursorEnd),
+        _ => None,
+    }
+}
+
 /// 入力フォームのモーダル（エクスポート）表示中のキー
 ///
 /// 英字・数字はすべて出力先への文字入力として扱う（`q` などで閉じない）。
+/// `←→` は入力欄のカーソル移動、形式の切り替えは `Tab` / `Shift-Tab` / `↑↓`。
 pub fn from_form_key(key: KeyEvent) -> Option<Action> {
     if key.kind != KeyEventKind::Press {
         return None;
     }
-    if key.modifiers.contains(KeyModifiers::CONTROL) {
-        return match key.code {
-            KeyCode::Char('c') => Some(Action::Quit),
-            KeyCode::Char('u') => Some(Action::ClearQuery),
-            _ => None,
-        };
-    }
+    let ctrl = key.modifiers.contains(KeyModifiers::CONTROL);
     match key.code {
+        KeyCode::Char('c') if ctrl => Some(Action::Quit),
         KeyCode::Esc => Some(Action::CloseModal),
         KeyCode::Enter => Some(Action::SubmitExport),
         KeyCode::Tab | KeyCode::BackTab | KeyCode::Up | KeyCode::Down => Some(Action::CycleExportFormat),
-        KeyCode::Backspace => Some(Action::DeleteChar),
-        KeyCode::Char(c) => Some(Action::InsertChar(c)),
-        _ => None,
+        code => from_line_input_key(code, ctrl),
     }
 }
 
@@ -209,7 +233,31 @@ mod tests {
         for code in [KeyCode::Tab, KeyCode::BackTab, KeyCode::Up, KeyCode::Down] {
             assert_eq!(from_form_key(press(code)), Some(Action::CycleExportFormat), "{code:?}");
         }
-        assert_eq!(from_form_key(press(KeyCode::Left)), None);
+        assert_eq!(from_form_key(press(KeyCode::Left)), Some(Action::CursorLeft));
+        assert_eq!(from_form_key(press(KeyCode::Right)), Some(Action::CursorRight));
+        assert_eq!(from_form_key(press(KeyCode::Home)), Some(Action::CursorHome));
+        assert_eq!(from_form_key(press(KeyCode::End)), Some(Action::CursorEnd));
+        assert_eq!(from_form_key(ctrl('a')), Some(Action::CursorHome));
+        assert_eq!(from_form_key(ctrl('e')), Some(Action::CursorEnd));
+        assert_eq!(from_form_key(press(KeyCode::Delete)), Some(Action::DeleteCharForward));
+    }
+
+    #[test]
+    fn test_search_focus_cursor_keys() {
+        let s = |key| from_key(key, Focus::Search, false);
+        assert_eq!(s(press(KeyCode::Left)), Some(Action::CursorLeft));
+        assert_eq!(s(press(KeyCode::Right)), Some(Action::CursorRight));
+        assert_eq!(s(press(KeyCode::Home)), Some(Action::CursorHome));
+        assert_eq!(s(press(KeyCode::End)), Some(Action::CursorEnd));
+        assert_eq!(s(ctrl('a')), Some(Action::CursorHome));
+        assert_eq!(s(ctrl('e')), Some(Action::CursorEnd));
+        assert_eq!(s(press(KeyCode::Delete)), Some(Action::DeleteCharForward));
+        assert_eq!(s(ctrl('x')), None);
+        // 検索バー以外では従来どおり（←→ はタブ切り替え、Home/End は先頭・末尾の項目）
+        assert_eq!(from_key(press(KeyCode::Home), Focus::List, false), Some(Action::Top));
+        assert_eq!(from_key(press(KeyCode::End), Focus::Detail, false), Some(Action::Bottom));
+        assert_eq!(from_key(ctrl('a'), Focus::List, false), None);
+        assert_eq!(from_key(press(KeyCode::Delete), Focus::List, false), None);
     }
 
     fn press(code: KeyCode) -> KeyEvent {
@@ -264,8 +312,8 @@ mod tests {
         );
         assert_eq!(from_key(press(KeyCode::Left), Focus::Detail, false), Some(Action::SwitchTab(Tab::Monster)));
         assert_eq!(from_key(press(KeyCode::Right), Focus::List, false), Some(Action::SwitchTab(Tab::Spell)));
-        // 検索中とモーダル表示中は切り替えない
-        assert_eq!(from_key(press(KeyCode::Right), Focus::Search, false), None);
+        // 検索中（カーソル移動になる）とモーダル表示中は切り替えない
+        assert_eq!(from_key(press(KeyCode::Right), Focus::Search, false), Some(Action::CursorRight));
         assert_eq!(from_key(press(KeyCode::Left), Focus::List, true), None);
     }
 

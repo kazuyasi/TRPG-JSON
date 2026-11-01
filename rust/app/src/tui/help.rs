@@ -13,7 +13,7 @@ pub const SECTIONS: &[HelpSection] = &[
     HelpSection {
         title: "全体",
         entries: &[
-            ("1 / 2 / ← →", "モンスター / スペルのタブへ切り替え"),
+            ("1 / 2 / ← →", "モンスター / スペルのタブへ切り替え（検索バーでは ← → はカーソル移動）"),
             ("Tab / Shift-Tab", "ペイン移動（検索 → 結果 → 詳細）"),
             ("/", "検索バーへ"),
             ("?", "このヘルプ"),
@@ -25,8 +25,10 @@ pub const SECTIONS: &[HelpSection] = &[
     HelpSection {
         title: "検索バー",
         entries: &[
-            ("文字入力", "即時に絞り込み（構文は「検索構文」の節）"),
-            ("Backspace", "1文字削除"),
+            ("文字入力", "カーソル位置に入力し、即時に絞り込み（構文は「検索構文」の節）"),
+            ("← →", "カーソルを1文字移動"),
+            ("Home / End", "カーソルを先頭 / 末尾へ（Ctrl-a / Ctrl-e も可）"),
+            ("Backspace / Delete", "カーソルの前 / カーソル位置の1文字を削除"),
             ("Ctrl-u", "入力をクリア"),
             ("Enter / Esc", "結果リストへ（入力は保持）"),
             ("↑↓", "結果リストの選択を移動"),
@@ -64,6 +66,8 @@ pub const SECTIONS: &[HelpSection] = &[
             ("e", "モンスター: ヒット中の全件を出力"),
             ("Tab / ↑↓", "形式を切り替え（JSON / Udonarium ZIP / Google Sheets）"),
             ("文字入力", "出力先のパス（~/ はホーム）。Sheets はスプレッドシート ID"),
+            ("← → / Home / End", "入力欄のカーソル移動（Ctrl-a / Ctrl-e も可）"),
+            ("Backspace / Delete", "カーソルの前 / カーソル位置の1文字を削除"),
             ("Ctrl-u", "入力欄をクリア"),
             ("Enter / Esc", "出力する / キャンセル"),
         ],
