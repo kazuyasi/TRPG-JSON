@@ -336,6 +336,51 @@ mod tests {
     }
 
     #[test]
+    fn test_search_by_level_and_category() {
+        let mut app = sample_app();
+        update(&mut app, Action::FocusSearch);
+        type_str(&mut app, "lv:6");
+        assert_eq!(names(&app), vec!["テストモンスター", "テストモンスターB"]);
+        assert_eq!(app.monster_filter.level, Some(6));
+
+        update(&mut app, Action::ClearQuery);
+        type_str(&mut app, "c:蛮族 戦士");
+        assert_eq!(names(&app), vec!["テストの戦士"]);
+
+        update(&mut app, Action::ClearQuery);
+        type_str(&mut app, "テスト B");
+        assert_eq!(names(&app), vec!["テストモンスターB"]);
+    }
+
+    #[test]
+    fn test_invalid_query_keeps_previous_hits() {
+        let mut app = sample_app();
+        update(&mut app, Action::FocusSearch);
+        type_str(&mut app, "モンスター ");
+        assert_eq!(app.monster_view.hits.len(), 2);
+
+        // `lv:` まで入力した時点では解釈できないので、直前の結果を残して警告する
+        app.monster_view.query = "テスト lv:".into();
+        app.refresh_monster_hits();
+        assert_eq!(app.monster_view.hits.len(), 2);
+        assert_eq!(app.monster_view.query_error.as_deref(), Some("lv: に値がありません"));
+
+        // 直せば警告が消えて再検索される
+        type_str(&mut app, "3");
+        assert!(app.monster_view.query_error.is_none());
+        assert_eq!(names(&app), vec!["テストの戦士"]);
+
+        type_str(&mut app, "x");
+        assert_eq!(names(&app), vec!["テストの戦士"]);
+        assert!(app.monster_view.query_error.is_some());
+
+        // クリアでも警告は消える
+        update(&mut app, Action::ClearQuery);
+        assert!(app.monster_view.query_error.is_none());
+        assert_eq!(app.monster_view.hits.len(), 4);
+    }
+
+    #[test]
     fn test_search_keeps_selection_when_still_hit() {
         let mut app = sample_app();
         update(&mut app, Action::Bottom);
@@ -563,6 +608,25 @@ mod tests {
 
         update(&mut app, Action::ClearQuery);
         assert_eq!(app.spell_view.hits.len(), 5);
+    }
+
+    #[test]
+    fn test_spell_search_by_level_and_school() {
+        let mut app = spell_app();
+        update(&mut app, Action::FocusSearch);
+        type_str(&mut app, "lv:3");
+        assert_eq!(spell_names(&app), vec!["テストスペル", "テストスペルB"]);
+
+        update(&mut app, Action::ClearQuery);
+        type_str(&mut app, "s:MagicCat_1 lv:5");
+        assert_eq!(spell_names(&app), vec!["テスト不完全"]);
+
+        // スペルタブではモンスターのキーは使えない（直前の結果のまま）
+        app.spell_view.query.push_str(" cat:蛮族");
+        app.refresh_spell_hits();
+        assert!(app.spell_view.query_error.as_deref().unwrap().starts_with("cat: は使えません"));
+        assert_eq!(spell_names(&app), vec!["テスト不完全"]);
+        assert!(app.monster_view.query_error.is_none());
     }
 
     #[test]

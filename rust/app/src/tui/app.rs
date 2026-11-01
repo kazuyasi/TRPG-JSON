@@ -2,9 +2,10 @@
 
 use std::cell::Cell;
 
-use trpg_json_core::{Monster, Spell, query};
+use trpg_json_core::{Monster, Spell};
 
 use super::format;
+use super::query::{MonsterQuery, SpellQuery, parse_monster_query, parse_spell_query};
 
 /// 表示中のタブ
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -145,6 +146,8 @@ pub struct ListView {
     pub page_size: Cell<usize>,
     /// 詳細ペイン下部（特殊能力・効果など）のスクロール量
     pub detail_scroll: u16,
+    /// 検索構文を解釈できなかったときの理由（検索バーを警告色にし、直前の結果を残す）
+    pub query_error: Option<String>,
 }
 
 impl ListView {
@@ -169,12 +172,6 @@ impl ListView {
             0 => 10,
             n => n,
         }
-    }
-
-    /// 検索語（前後の空白を除く。空なら `None` = 全件）
-    pub fn name_query(&self) -> Option<&str> {
-        let q = self.query.trim();
-        (!q.is_empty()).then_some(q)
     }
 
     /// ヒット結果を差し替える。直前に選んでいた項目がまだヒットしていれば選択を保つ
@@ -202,6 +199,10 @@ pub struct App {
     pub spells: Vec<Spell>,
     pub monster_view: ListView,
     pub spell_view: ListView,
+    /// 直近に解釈できたモンスターの検索条件（ヒット 0 件の条件一覧に使う）
+    pub monster_filter: MonsterQuery,
+    /// 直近に解釈できたスペルの検索条件（ヒット 0 件の条件一覧に使う）
+    pub spell_filter: SpellQuery,
     /// モンスター詳細の部位表で選択中の部位（`part[]` の 0 始まり index）
     pub selected_part: usize,
     /// 直近の描画でのスクロール量の上限（描画時に書き戻す）
@@ -266,17 +267,7 @@ impl App {
         self.spell_view.selected_index().and_then(|i| self.spells.get(i))
     }
 
-    /// モンスターの検索語（空なら `None` = 全件）
-    pub fn monster_name_query(&self) -> Option<&str> {
-        self.monster_view.name_query()
-    }
-
-    /// スペルの検索語（空なら `None` = 全件）
-    pub fn spell_name_query(&self) -> Option<&str> {
-        self.spell_view.name_query()
-    }
-
-    /// 現在のタブのヒット結果を検索語で作り直す
+    /// 現在のタブのヒット結果を検索バーの条件で作り直す
     pub fn refresh_hits(&mut self) {
         match self.tab {
             Tab::Monster => self.refresh_monster_hits(),
@@ -285,14 +276,20 @@ impl App {
     }
 
     /// モンスターのヒット結果を作り直す（Lv 昇順 → 名前順）
+    ///
+    /// 検索構文を解釈できなければ `query_error` を設定し、直前の結果をそのまま残す。
     pub fn refresh_monster_hits(&mut self) {
-        let name = self.monster_name_query();
+        let filter = match parse_monster_query(&self.monster_view.query) {
+            Ok(q) => q,
+            Err(e) => {
+                self.monster_view.query_error = Some(e.to_string());
+                return;
+            }
+        };
+        self.monster_view.query_error = None;
 
-        // CLI と同じ判定にするため core の find_multi を1件ずつ適用し、index で保持する
         let monsters = &self.monsters;
-        let mut hits: Vec<usize> = (0..monsters.len())
-            .filter(|&i| !query::find_multi(std::slice::from_ref(&monsters[i]), name, None, None).is_empty())
-            .collect();
+        let mut hits: Vec<usize> = (0..monsters.len()).filter(|&i| filter.matches(&monsters[i])).collect();
         hits.sort_by(|&a, &b| {
             monsters[a]
                 .level
@@ -300,23 +297,27 @@ impl App {
                 .then_with(|| monsters[a].name.cmp(&monsters[b].name))
         });
 
+        self.monster_filter = filter;
         if self.monster_view.replace_hits(hits) {
             self.reset_monster_detail();
         }
     }
 
     /// スペルのヒット結果を作り直す（Lv 昇順 → ランク昇順 → 名前順）
+    ///
+    /// 検索構文を解釈できなければ `query_error` を設定し、直前の結果をそのまま残す。
     pub fn refresh_spell_hits(&mut self) {
-        let name = self.spell_name_query();
+        let filter = match parse_spell_query(&self.spell_view.query) {
+            Ok(q) => q,
+            Err(e) => {
+                self.spell_view.query_error = Some(e.to_string());
+                return;
+            }
+        };
+        self.spell_view.query_error = None;
 
-        // CLI と同じ判定にするため core の spell_find_multi を1件ずつ適用し、index で保持する
         let spells = &self.spells;
-        let mut hits: Vec<usize> = (0..spells.len())
-            .filter(|&i| {
-                !query::spell_find_multi(std::slice::from_ref(&spells[i]), name, None, None, None, None, None)
-                    .is_empty()
-            })
-            .collect();
+        let mut hits: Vec<usize> = (0..spells.len()).filter(|&i| filter.matches(&spells[i])).collect();
         hits.sort_by(|&a, &b| {
             format::spell_level(&spells[a])
                 .sort_key()
@@ -324,6 +325,7 @@ impl App {
                 .then_with(|| spells[a].name.cmp(&spells[b].name))
         });
 
+        self.spell_filter = filter;
         if self.spell_view.replace_hits(hits) {
             self.spell_view.detail_scroll = 0;
         }

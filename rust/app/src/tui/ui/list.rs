@@ -82,16 +82,26 @@ pub fn draw(frame: &mut Frame, area: Rect, app: &App) {
 fn draw_empty(frame: &mut Frame, area: Rect, app: &App, block: Block) {
     let text = match app.tab {
         Tab::Monster if app.monsters.is_empty() => Text::from("モンスターデータがありません"),
-        Tab::Monster => Text::from(format_monster_filter_conditions(app.monster_name_query(), None, None)),
+        Tab::Monster => {
+            let q = &app.monster_filter;
+            Text::from(format_monster_filter_conditions(
+                q.name_label().as_deref(),
+                q.level,
+                q.category.as_deref(),
+            ))
+        }
         Tab::Spell if app.spells.is_empty() => Text::from("スペルデータがありません"),
-        Tab::Spell => Text::from(format_spell_filter_conditions(
-            app.spell_name_query(),
-            None,
-            None,
-            None,
-            None,
-            None,
-        )),
+        Tab::Spell => {
+            let q = &app.spell_filter;
+            Text::from(format_spell_filter_conditions(
+                q.name_label().as_deref(),
+                q.school.as_deref(),
+                q.level,
+                None,
+                None,
+                None,
+            ))
+        }
     };
     let para = Paragraph::new(text)
         .style(Style::default().fg(Color::Yellow))

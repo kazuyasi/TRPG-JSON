@@ -432,8 +432,8 @@
       6. ✅ Format verified against official spec: https://docs.ccfolia.com/developer-api/clipboard-api (beta v1.19.0)
       7. ✅ 6 unit tests added; all 260 tests passing (258 core + 2 app)
       8. ✅ Release build successful; manually verified paste into a CCFolia room
-- [ ] T049 Phase 4: TUI mode (`gm tui`) — design drafted 2026-10-31
-      - Status: ✅ DESIGN COMPLETE (all open questions decided; ready for T049a)
+- [x] T049 Phase 4: TUI mode (`gm tui`) — design drafted 2026-10-31、完了 2026-11-01
+      - Status: ✅ 完了（T049a〜T049g すべて実装済み。後続は T050 / T051）
       - Owner: Claude
       - Design doc: TUI_DESIGN.md
       - Goal: search → inspect → copy/export with keyboard only (ratatui + crossterm)
@@ -489,6 +489,15 @@
         7. ✅ README に「TUI モード（`gm tui`）」の節を追加（日本語）。TUI_DESIGN.md §4.3 / §4.6 / §6 / §7.1 を更新
         8. ✅ 単体テスト 15 件追加（Action 変換・update のモーダル開閉/スクロール/コピー/操作の遮断・描画 60/80/99/100/120 桁）。全 344 件通過（core 258 + app 86）
         9. ✅ 疑似端末（サンプル設定、120×30 と 80×24）で `?` → `G` → `q` → `J` → `y` → `Esc` → `Enter` → `2` → `J` → `q` → `q` を確認（ステータス行の成功表示とクリップボードの JSON を確認）
+      - [x] T049g 検索構文 段階2・`←→` タブ切替（0.14.0）— 2026-11-01
+        1. ✅ 新規 `tui/query.rs`: `parse_monster_query` / `parse_spell_query`（純粋関数）と `MonsterQuery` / `SpellQuery`。モンスターは `lv:` `cat:`/`c:`、スペルは `lv:` `school:`/`s:`。判定は core の `find_multi` / `spell_find_multi`（CLI と同じ）
+        2. ✅ フリーワードは名前の部分一致（複数は AND）。キーは英字のみ・大文字小文字無視・全角 `：` も可。英字以外の接頭辞（`テスト:改` など）はフリーワード
+        3. ✅ 解釈できない条件（空の値・整数でない `lv:`・重複・タブで使えないキー）は検索バーを黄色にして `[理由]` を表示し、直前の結果を残す（`ListView.query_error`）
+        4. ✅ ヒット 0 件の条件一覧に level / category / school を表示。未入力時の案内をタブ別の入力例に変更
+        5. ✅ 設計書 §6 のうち未実装だった `←`/`→` のタブ切り替えを追加（結果リスト・詳細ペイン。検索バー・モーダルでは無効）
+        6. ✅ ヘルプモーダルの「検索構文」節を段階2の内容に更新。README に「検索構文」の節を追加。TUI_DESIGN.md §4.3 / §5 / §6 を更新
+        7. ✅ 単体テスト 15 件追加（パーサ 9・update 3・描画 3。Action 変換のテストに `←→` を追記）。全 359 件通過（core 258 + app 101）
+        8. ✅ 疑似端末（サンプル設定、100×24）で `lv:abc` の警告 → `c:アンデッド` → `テ lv:6`（0 件の条件一覧）→ `→` でスペルタブ → `s:x` → `?` を確認
 - [ ] T051 Phase 4: TUI selection list pane (multi-select → bulk copy/export) — future, after T050 (see TUI_DESIGN.md §4.5)
 - [ ] T044 Phase 4: Multi-system support (extend beyond SW2.5)
 - [ ] T045 Phase 4: Skill/Fairy magic CLI commands (gm skill find/list/palette)

@@ -100,6 +100,9 @@ pub fn from_key(key: KeyEvent, focus: Focus, modal_open: bool) -> Option<Action>
         KeyCode::Char('q') => Some(Action::Quit),
         KeyCode::Char('1') => Some(Action::SwitchTab(Tab::Monster)),
         KeyCode::Char('2') => Some(Action::SwitchTab(Tab::Spell)),
+        // タブは2つなので ← が左（モンスター）、→ が右（スペル）
+        KeyCode::Left => Some(Action::SwitchTab(Tab::Monster)),
+        KeyCode::Right => Some(Action::SwitchTab(Tab::Spell)),
         KeyCode::Char('/') => Some(Action::FocusSearch),
         KeyCode::Char('c') => Some(Action::CopyCcfolia),
         KeyCode::Char('y') => Some(Action::CopyPalette),
@@ -190,6 +193,11 @@ mod tests {
             from_key(press(KeyCode::Char('2')), Focus::Detail, false),
             Some(Action::SwitchTab(Tab::Spell))
         );
+        assert_eq!(from_key(press(KeyCode::Left), Focus::Detail, false), Some(Action::SwitchTab(Tab::Monster)));
+        assert_eq!(from_key(press(KeyCode::Right), Focus::List, false), Some(Action::SwitchTab(Tab::Spell)));
+        // 検索中とモーダル表示中は切り替えない
+        assert_eq!(from_key(press(KeyCode::Right), Focus::Search, false), None);
+        assert_eq!(from_key(press(KeyCode::Left), Focus::List, true), None);
     }
 
     #[test]
