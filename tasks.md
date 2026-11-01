@@ -2,7 +2,7 @@
 
 ## 🧭 Meta
 - Project: TRPG-JSON
-- Last Updated: 2026-11-01 JST (T050 TUI エクスポート・統計モーダル完了; v0.17.0。後続タスク T052〜T054 を登録)
+- Last Updated: 2026-11-01 JST (T052 CLI add/delete の保存先修正; v0.17.1)
 - Responsibilities: kazuyasi (specification/approval/git operations) / Claude (proposal/implementation/testing)
 - Status: Phase 2.5 COMPLETE (T013-T027). Phase 3 COMPLETE (T028-T037). Phase 3.5 COMPLETE (T038-1/2/final). Phase 3.6 COMPLETE (T038.6, T040, T040.5). Phase 3.7 COMPLETE (T046, T047). UX improvements complete with enhanced error messages and statistics commands. Workspace version inheritance configured. Test suite: 291 total tests (251 core + 40 app). Ready for commit.
 
@@ -16,8 +16,8 @@
    - Status: All Phase 3.7 tasks complete and ready for commit
 
 ## 🚧 In Progress
-- 実装中のタスクはなし（T050 は 2026-11-01 にマージ済み）
-- 次の候補（Phase 4 内、優先度順）: T052 CLI add/delete の保存先修正 → T053 TUI 1行入力のカーソル移動 → T054 データ再読み込みキー（要検討）→ T051 選択リストペイン
+- 実装中のタスクはなし（T052 は 2026-11-01 に `claude/T052` で完了、マージ待ち）
+- 次の候補（Phase 4 内、優先度順）: T053 TUI 1行入力のカーソル移動 → T054 データ再読み込みキー（要検討）→ T051 選択リストペイン
 
 ---
 
@@ -528,15 +528,18 @@
         6. ✅ 単体テスト 3 件追加（update 1・Effect 2）、既存テスト 2 件を Sheets 込みに更新。全 385 件通過（core 258 + app 127）
         7. ✅ 疑似端末（サンプル設定、100×24）で `e` → `Tab` `Tab` → 短い ID → `Enter` → 一時停止画面にエラーと案内 → `Enter` で TUI に戻りステータス行にエラーを確認
         8. ⚠️ 実際の OAuth 認証・Sheets API への書き込みは未確認（認証情報とスプレッドシートが必要。Operator による手動確認を推奨）
-- [ ] T052 CLI `monster add` / `delete` の保存先修正（fix）— 2026-11-01 登録
-      - Status: 未着手（優先度: 高。データファイルを複数使う構成でデータが重複するため）
+- [x] T052 CLI `monster add` / `delete` の保存先修正（fix, 0.17.1）— 2026-11-01 登録、完了 2026-11-01
+      - Status: ✅ 完了（Known Issues の該当項目を解消）
       - 背景: Known Issues「`gm monster add` / `delete` が全ファイルの内容を最初のファイルへ保存する」
-      - 方針案:
-        1. 削除: 対象のモンスターを含むファイルを特定し、そのファイルだけを読み直して書き戻す。複数ファイルに同名がある場合は一覧を出して中止するか、すべてから削除するかを決める（要確認）
-        2. 追加: 新規は最初のファイルへ（現行仕様どおり）。同名の上書きは、既存のモンスターがあるファイルを書き換える
-        3. 書き込み前に読み直すため、`load_multiple_json_arrays` の結果は保存に使わない
-        4. 2ファイル構成の単体テストを追加（add 新規・add 上書き・delete。他のファイルが変わらないこと）
-      - 未決事項: 複数ファイルに同名があるときの扱い、`add` の保存先を選ぶオプション（`--file` など）を足すか
+      - 実装:
+        1. ✅ データファイルを1つずつ `io::load_json_array` で読み込み、対象のモンスターを含むファイルだけを書き戻す。`load_multiple_json_arrays` の結果は保存に使わない
+        2. ✅ 削除: 同名が複数ファイルにあるときは、確認メッセージにファイルを列挙し、承認されたらすべてから削除（従来の「その名前をすべて消す」挙動を維持）
+        3. ✅ 追加: 新規は最初のファイルの末尾へ（従来どおり）。同名の上書きは、該当ファイルそれぞれで同じ位置に置き換える（同じファイル内の重複は1件にまとめる）
+        4. ✅ 処理本体を `add_monster_to_files` / `delete_monster_from_files`（確認はクロージャで受け取る）と `MonsterFileError` に分離し、CLI ハンドラは表示と終了だけを行う。読み込みエラーにはファイルのパスを含める。データファイル未設定でも panic しない
+        5. ✅ 成功メッセージに書き換えたファイルを表示。README に保存先の説明、TUI_DESIGN.md §Q7 の既知の注意を更新
+        6. ✅ 単体テスト 11 件追加（2ファイル構成: add 新規・add 上書き・add キャンセル・複数ファイルの上書き・delete 2 件・複数ファイルの削除・未発見とキャンセル・データファイルなし・置き換え関数）。全 395 件通過（core 258 + app 137）
+        7. ✅ 実機（サンプルデータを 3 件ずつ 2 ファイルに分けた設定）で delete（2つ目のファイル）・add 上書き（2つ目）・add 新規（1つ目）・delete キャンセル・未発見を確認。他のファイルは変化なし
+      - 見送り: `add` の保存先を選ぶオプション（`--file` など）は今回は追加しない（必要になったら別タスク）
 - [ ] T053 TUI 1行入力のカーソル移動（検索バー・エクスポートの入力欄）— 2026-11-01 登録
       - Status: 未着手（範囲は Operator と相談して決める）
       - 背景: 今の入力欄は末尾への追加・削除しかできず、長いパスや検索語の途中を直せない。エクスポートモーダルの形式切り替えは `↑↓` / `Tab` のままにし、`←→` はカーソル移動に使う（2026-11-01 合意）
@@ -562,9 +565,9 @@
 
 ## ⚠️ Known Issues & Tech Debt
 
-### ⚠️ OPEN: `gm monster add` / `delete` が全ファイルの内容を最初のファイルへ保存する
+### ✅ RESOLVED: `gm monster add` / `delete` が全ファイルの内容を最初のファイルへ保存する
 - **Location**: `rust/app/src/commands/monster.rs` - `handle_add` / `handle_delete`
-- **Status**: 未対応（2026-11-01 に T050 の検討中に発見・再現確認）
+- **Status**: ✅ 解消（2026-11-01、T052 / 0.17.1。対象のモンスターを含むファイルだけを読み書きする）。2026-11-01 に T050 の検討中に発見・再現確認
 - **内容**: 設定の全モンスターファイルを `load_multiple_json_arrays` でまとめて読み込み、その配列を `data_paths[0]` に保存している。モンスターのデータファイルを複数設定していると、2つ目以降の内容が1つ目のファイルにも書き込まれ重複する（2ファイル構成で `delete` を実行し、2つ目の内容が1つ目へ複製されることを確認）
 - **影響**: データファイルを1つだけ使っている場合は問題なし
 - **対応案**: 対象のモンスターを含むファイルだけを読み書きする（追加は最初のファイル、または指定したファイルへ）
