@@ -87,6 +87,8 @@ pub enum Focus {
     List,
     /// 詳細ペイン（部位表の選択・本文スクロール）
     Detail,
+    /// 選択リストのペイン（リストが空のときはフォーカスしない）
+    Picks,
 }
 
 impl Focus {
@@ -95,14 +97,14 @@ impl Focus {
         match self {
             Focus::Search => Focus::List,
             Focus::List => Focus::Detail,
-            Focus::Detail => Focus::Search,
+            Focus::Detail | Focus::Picks => Focus::Search,
         }
     }
 
     /// Shift-Tab キーでの前のフォーカス
     pub fn prev(self) -> Self {
         match self {
-            Focus::Search => Focus::Detail,
+            Focus::Search | Focus::Picks => Focus::Detail,
             Focus::List => Focus::Search,
             Focus::Detail => Focus::List,
         }
@@ -287,6 +289,10 @@ pub struct ListView {
     pub query_error: Option<String>,
     /// 選択リストの項目の元データ index（追加順）。検索条件を変えても保持する
     pub picks: Vec<usize>,
+    /// `picks` 内でのカーソル位置（選択リストのペイン）
+    pub pick_cursor: usize,
+    /// 選択リストの先頭に表示している行（描画時に書き戻す）
+    pub pick_offset: Cell<usize>,
 }
 
 impl ListView {
