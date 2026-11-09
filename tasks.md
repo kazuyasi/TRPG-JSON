@@ -1,22 +1,18 @@
-# Task Board
+# タスクボード
 
-## 🧭 Meta
-- Project: TRPG-JSON
-- Last Updated: 2026-11-09 JST (T051 TUI 選択リストペイン; v0.20.0)
-- Responsibilities: kazuyasi (specification/approval/git operations) / Claude (proposal/implementation/testing)
-- Status: Phase 2.5 COMPLETE (T013-T027). Phase 3 COMPLETE (T028-T037). Phase 3.5 COMPLETE (T038-1/2/final). Phase 3.6 COMPLETE (T038.6, T040, T040.5). Phase 3.7 COMPLETE (T046, T047). UX improvements complete with enhanced error messages and statistics commands. Workspace version inheritance configured. Test suite: 291 total tests (251 core + 40 app). Ready for commit.
+## 🧭 メタ情報
+- プロジェクト: TRPG-JSON
+- 最終更新: 2026-11-09 JST（T055 ドキュメントの日本語化を完了、v0.20.0）
+- 担当: kazuyasi（仕様・承認・git 操作）/ Claude（提案・実装・テスト）
+- 状況: Phase 2.5 完了（T013-T027）。Phase 3 完了（T028-T037）。Phase 3.5 完了（T038-1/2/final）。Phase 3.6 完了（T038.6、T040、T040.5）。Phase 3.7 完了（T046、T047）。エラーメッセージの改善と統計コマンドにより UX の改善が完了。Phase 4 は進行中（T043、T048〜T054 は完了。T041、T042、T044、T045 は未完了）。ワークスペースのバージョン継承を設定済み。テストスイート: 全 432 件（core 258 + app 174）。
 
 ---
 
-## 🔥 Priority Now
-- **Phase 3.7: UX Improvements** ✅ COMPLETE
-   - Completed: T046 - Error message improvements with filter conditions display (2025-12-28)
-   - Completed: T047 - Statistics command for dataset overview and distribution analysis (2025-12-28)
-   - Bonus: Workspace version inheritance configured for easier maintenance
-   - Status: All Phase 3.7 tasks complete and ready for commit
+## 🔥 最優先
+- 現在の最優先タスクはなし。次の候補は「進行中」の節を参照
 
-## 🚧 In Progress
-- 実装中のタスクはなし（T051 は 2026-11-09 に `claude/T051` で完了、マージ待ち）
+## 🚧 進行中
+- 実装中のタスクはなし（T055 は 2026-11-09 に `claude/T055` で完了、マージ待ち）
 - 次の候補（Phase 4 内）: 未定。T042 は範囲の確認、T041 / T045 はデータ形式の決定が先
 
 ---
@@ -404,9 +400,9 @@
       - ✅ Useful for balancing data across levels/categories
       - ✅ Helps plan future data addition work
 
-### Phase 4: Advanced Features
-- [ ] T041 Phase 4: Skill system implementation (流派特技)
-- [ ] T042 Phase 4: Rank-based magic system implementation (ランク制魔法)
+### Phase 4: 高度な機能
+- [ ] T041 Phase 4: スキルシステムの実装（流派特技）
+- [ ] T042 Phase 4: ランク制の魔法システムの実装（ランク制魔法）
 - [x] T043 Phase 4: Chat palette export to clipboard — 2026-10-31
       - Status: COMPLETE ✅ (covered by T048: CCFolia export copies the chat palette to the clipboard via `commands`; spell palette clipboard copy already available via `gm spell palette --copy`)
 - [x] T048 Phase 4: CCFolia (ココフォリア) clipboard export for monsters — 2026-10-31
@@ -595,55 +591,74 @@
         2. ✅ 幅 120 桁以上の3ペインが読め、空に戻すと2ペイン。長い名前もペインからはみ出さない
         3. ✅ `v` / `Esc` の移動、幅 120 / 100 桁未満の表示、`x`、空のときの案内、ペイン内のスクロール
         4. ✅ `C` の順序、`E` の JSON / Udonarium / Sheets 出力、`E` のあとの `e` がヒット全件に戻ること、空のときの案内
-- [ ] T044 Phase 4: Multi-system support (extend beyond SW2.5)
-- [ ] T045 Phase 4: Skill/Rank-based magic CLI commands (gm skill find/list/palette)
+- [ ] T044 Phase 4: 複数システムへの対応（SW2.5 以外への拡張）
+- [ ] T045 Phase 4: スキル / ランク制魔法の CLI コマンド（gm skill find/list/palette）
+- [x] T055 ドキュメントの日本語化 — 2026-11-09
+   - 背景: Operator が日本語の方が読みやすいため、英語が残る文書を日本語化する。CLI ヘルプと `TUI_DESIGN.md` はすでに日本語なので対象外
+   - 方針（2026-11-09 確定）: 現役の文書を優先する。`DESIGN_GUIDE.md` は忠実な翻訳のみとし、古い記述の整理は別タスクにする。見出しも日本語にする（固有名詞は原文のまま）
+   - 翻訳の共通ルール
+      - コード識別子、JSON キー、コマンド、ファイルパスは原文のまま。コードブロックは説明コメントだけ翻訳する
+      - 用語は `README.md` の TUI の節と `TUI_DESIGN.md` に合わせる（スペル、部位、エクスポート）。`Phase N` はタスク名として原文のまま
+      - 翻訳コミットでは内容を変えない。古い記述や、汎用名に置き換えるべき固有名（例: `DESIGN_GUIDE.md:1013` の見出し）に気づいたら T055e の一覧に回す
+      - 過去のタスク記録にある行番号参照は履歴なので直さない
+   - コミット: 差分は追加と削除の合計で200行以内（原文で約100行ずつ、節の切れ目で分ける）。1コミットごとに Operator が確認する。`文書` 型なのでバージョンは上げない
+   - [x] T055a `README.md`（2コミット）— 2026-11-09
+   - [x] T055b `AGENTS.md`（AI Behavior and Ethics Policy の節を除く、1コミット）— 2026-11-09
+   - [x] T055c `DESIGN_GUIDE.md`（8コミット）— 2026-11-09
+      - Udonarium の節を訳すコミットで、`rust/core/src/export/udonarium/data_transformer.rs:131` のコメントの見出し名も更新する
+   - [x] T055d `tasks.md` の未完了の節と決定事項（Meta、Priority Now、In Progress、未完了タスク、Canceled、Known Issues、Decisions & Links）— 2026-11-09
+   - [x] T055e 翻訳中に見つけた古い記述の整理 — 2026-11-09
+      - 文書の例: トレントなどの数値と部位構成の例を架空のデータに置き換えた（2026-11-09）。ゴブリン、ファイア・ボール、上級剣術は一般的な語なので残す（Operator 判断）
+      - `data/sample/monsters_sample.json`、`TUI_DESIGN.md:201`、テストのトレントなどはそのまま残す（Operator 判断）
+      - 「エンティティ」は「項目」などに置き換えた
+   - T055f `tasks.md` の完了済み履歴の翻訳: 見送り（2026-11-09 Operator 判断。完了済みの履歴は英語のまま残す）
 
-## 🚮 Canceled / Superseded
-- [ ] T007 Data analysis feature implementation (deemed unnecessary) — 2025-09-14
-- [ ] T035.5 Spell select command (superseded by T038) — Consolidated into palette command with multi-filter output
+## 🚮 中止・置き換え
+- [ ] T007 データ分析機能の実装（不要と判断）— 2025-09-14
+- [ ] T035.5 スペルの select コマンド（T038 に置き換え）— 複数のフィルタで出力する palette コマンドに統合
 
 ---
 
-## ⚠️ Known Issues & Tech Debt
+## ⚠️ 既知の問題と技術的負債
 
-### ✅ RESOLVED: `gm monster add` / `delete` が全ファイルの内容を最初のファイルへ保存する
-- **Location**: `rust/app/src/commands/monster.rs` - `handle_add` / `handle_delete`
-- **Status**: ✅ 解消（2026-11-01、T052 / 0.17.1。対象のモンスターを含むファイルだけを読み書きする）。2026-11-01 に T050 の検討中に発見・再現確認
+### ✅ 解決済み: `gm monster add` / `delete` が全ファイルの内容を最初のファイルへ保存する
+- **場所**: `rust/app/src/commands/monster.rs` - `handle_add` / `handle_delete`
+- **状況**: ✅ 解消（2026-11-01、T052 / 0.17.1。対象のモンスターを含むファイルだけを読み書きする）。2026-11-01 に T050 の検討中に発見・再現確認
 - **内容**: 設定の全モンスターファイルを `load_multiple_json_arrays` でまとめて読み込み、その配列を `data_paths[0]` に保存している。モンスターのデータファイルを複数設定していると、2つ目以降の内容が1つ目のファイルにも書き込まれ重複する（2ファイル構成で `delete` を実行し、2つ目の内容が1つ目へ複製されることを確認）
 - **影響**: データファイルを1つだけ使っている場合は問題なし
 - **対応案**: 対象のモンスターを含むファイルだけを読み書きする（追加は最初のファイル、または指定したファイルへ）
 
-### ✅ RESOLVED: I/O Tests - Spell Multiple File Loading (T036.5)
-- **Location**: `rust/core/src/io.rs` - `test_load_multiple_spells_json_arrays*` (2 tests)
-- **Status**: ✅ FIXED (2025-12-19)
-- **Resolution Details**: 
-  - Root cause: Test JSON used outdated field names (School, flat Lv/MP, Target)
-  - Fix: Updated test data to match actual Spell struct schema with proper nesting
-  - Test results: Both tests now PASS ✅
-  - Impact: All 49 I/O tests passing, 212/212 core tests passing
-- **Notes**: Schema compliance now verified. Spell I/O operations fully tested and working.
+### ✅ 解決済み: I/O テスト - スペルの複数ファイル読み込み（T036.5）
+- **場所**: `rust/core/src/io.rs` - `test_load_multiple_spells_json_arrays*`（2件のテスト）
+- **状況**: ✅ 修正済み（2025-12-19）
+- **解決の詳細**:
+  - 原因: テストの JSON が古いフィールド名（School、フラットな Lv/MP、Target）を使っていた
+  - 修正: 実際の Spell 構造体のスキーマに合わせ、テストデータを正しいネストに更新
+  - テスト結果: 両方のテストが通るようになった ✅
+  - 影響: I/O テスト 49 件すべて通過、core のテスト 212/212 件通過
+- **備考**: スキーマへの準拠を確認済み。スペルの入出力はテストで完全に確認され、動作している。
 
 ---
 
-## 🧪 Decisions & Links
-- CLI command name: `gm`
-- I/O policy: **stdout as default**, errors to stderr
-- Security: Decrypt during development, enforce encryption for sensitive data
-- Data target: JSON-based entity files, **future expansion under consideration**
-- Phase 2.5 Export Targets: JSON (file-based) + Google Sheets (cloud-based with OAuth 2.0)
-- No CSV export (JSON is preferred for data interchange)
-- Export is user-triggered (manual), no automation needed
-- OAuth 2.0: One-time setup for Google Sheets, credentials stored locally
+## 🧪 決定事項とリンク
+- CLI のコマンド名: `gm`
+- 入出力の方針: **標準出力が既定**、エラーは stderr
+- セキュリティ: 開発中は復号し、機密データには暗号化を必須にする
+- データの対象: JSON ベースのデータファイル。**将来の拡張を検討中**
+- Phase 2.5 のエクスポート先: JSON（ファイルベース）+ Google Sheets（OAuth 2.0 によるクラウドベース）
+- CSV へのエクスポートはしない（データの受け渡しには JSON が適している）
+- エクスポートはユーザーが手動で実行し、自動化は不要
+- OAuth 2.0: Google Sheets の設定は初回のみで、認証情報はローカルに保存する
 
-### Spell Palette Range Field Specification
-- **Issue**: Palette output includes "射程" field but implementation assumes exact field match
-- **Clarification**: Either "射程" or "射程(m)" is acceptable - no exact field name requirement
-- **Impact**: Sample data validation and palette generation should accept either format
-- **Status**: ✅ DESIGN_GUIDE.md updated (line 774); T038 will implement flexible range field detection
-- **Implementation**: format_range() helper to check both "射程" and "射程(m)" field names
+### スペルのパレットの射程フィールドの仕様
+- **問題**: パレットの出力には "射程" フィールドが含まれるが、実装はフィールド名の完全一致を前提にしている
+- **明確化**: "射程" と "射程(m)" のどちらでもよく、フィールド名の完全一致は求めない
+- **影響**: サンプルデータの検証とパレットの生成は、どちらの形式も受け付ける必要がある
+- **状況**: ✅ DESIGN_GUIDE.md を更新済み（774行目）。T038 で柔軟な射程フィールドの検出を実装済み
+- **実装**: "射程" と "射程(m)" の両方のフィールド名を確認する format_range() ヘルパー
 
-### Spell Palette Search Behavior
-- **Current**: `gm spell palette <name>` requires exact spell name match
-- **Requested**: Change to partial/fuzzy name matching (like `gm spell find`)
-- **Impact**: Better user experience, consistent with find/list command behavior
-- **Status**: ⏳ Planned for T038 implementation (combined with range field enhancement)
+### スペルのパレットの検索の動作
+- **変更前**: `gm spell palette <name>` はスペル名の完全一致が必要だった
+- **要望**: 部分一致 / あいまい一致に変更する（`gm spell find` と同様）
+- **影響**: ユーザー体験が向上し、find/list コマンドの動作とそろう
+- **状況**: ✅ T038 で実装済み（`gm spell palette -n` の部分一致）

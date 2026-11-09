@@ -1,50 +1,50 @@
-# TRPG-JSON Repository
+# TRPG-JSON レポジトリ
 
-A JSON-based data management system for TRPG (Tabletop Role-Playing Game) game systems.
+TRPG（テーブルトーク・ロールプレイングゲーム）のゲームシステム向けの、JSON ベースのデータ管理システムです。
 
-## Overview
+## 概要
 
-This repository provides tools for managing and querying TRPG game data (such as monsters, characters, and items) in JSON format. It includes a command-line interface for searching and filtering game data.
+このレポジトリは、TRPG のゲームデータ（モンスター、キャラクター、アイテムなど）を JSON 形式で管理・検索するためのツールを提供します。ゲームデータを検索・絞り込みするコマンドラインインターフェースを含みます。
 
-## Installation
+## インストール
 
-### Prerequisites
+### 前提条件
 
-- [Rust](https://www.rust-lang.org/tools/install) 1.70 or later
+- [Rust](https://www.rust-lang.org/tools/install) 1.85 以降
 
-### Install Steps
+### インストール手順
 
 ```bash
-# Option 1: From repository root
+# 方法1: レポジトリのルートから
 cargo install --path rust/app
 
-# Option 2: From rust/app directory
+# 方法2: rust/app ディレクトリから
 cd rust/app
 cargo install --path .
 ```
 
-The `gm` command will be installed to your Cargo bin directory (typically `~/.cargo/bin`). Make sure this directory is in your `PATH`.
+`gm` コマンドは Cargo の bin ディレクトリ（通常は `~/.cargo/bin`）にインストールされます。このディレクトリが `PATH` に含まれていることを確認してください。
 
-## Usage
+## 使い方
 
-This is a command-line tool for managing TRPG game data in JSON format.
+JSON 形式の TRPG ゲームデータを管理するコマンドラインツールです。
 
-### Basic Monster Commands
+### モンスターの基本コマンド
 
 ```bash
-# Search for a monster by name
+# 名前でモンスターを検索
 gm monster find "monster name"
 
-# List monsters matching a pattern
+# パターンに一致するモンスターを一覧表示
 gm monster list "pattern"
 
-# Query with filters
+# フィルタを指定して検索
 gm monster select -l 6 -c "Category"
 
-# Add a new monster
+# モンスターを追加
 gm monster add monster.json
 
-# Delete a monster
+# モンスターを削除
 gm monster delete "monster name"
 ```
 
@@ -53,99 +53,99 @@ gm monster delete "monster name"
 - `add`（同名あり）: 確認のうえ、そのモンスターを含むファイルだけを書き換えます（位置はそのまま）
 - `delete`: 確認のうえ、そのモンスターを含むファイルだけを書き換えます。同名が複数のファイルにあるときは、確認メッセージにファイルを列挙し、すべてから削除します
 
-### Spell Management
+### スペルの管理
 
-The tool includes comprehensive spell management capabilities for querying and manipulating spell data.
+スペルデータを検索・操作するためのスペル管理機能を備えています。
 
-#### Spell Search Commands
+#### スペルの検索コマンド
 
 ```bash
-# Search for a spell by name
+# 名前でスペルを検索
 gm spell find "spell name"
 
-# Search by level
+# レベルで検索
 gm spell find "spell name" -l 5
 
-# Search by rank (for rank-based magic systems)
+# ランクで検索（ランク制の魔法システム向け）
 gm spell find "spell name" -r 3
 
-# Search by school
+# 系統で検索
 gm spell find "spell name" -s "甲系"
 
-# Search by schoolVariant
+# schoolVariant で検索
 gm spell find "spell name" -v "特殊"
 
-# Search by god (for divine magic)
+# 神で検索（神聖魔法向け）
 gm spell find "spell name" -g "神名"
 
-# Combine multiple filters
+# 複数のフィルタを組み合わせる
 gm spell find "magic" -l 3 -s "甲系"
 gm spell find "甲系" -v "特殊" -g "神名"
 
-# List spells matching a pattern
+# パターンに一致するスペルを一覧表示
 gm spell list "pattern"
 
-# Generate chat palette for spells (supports multiple filters)
+# スペルのチャットパレットを生成（複数のフィルタに対応）
 gm spell palette -n "spell name"
-gm spell palette -l 5              # All level 5 spells
-gm spell palette -r 3              # All rank 3 spells
-gm spell palette -s "甲系"         # All spells of a school
-gm spell palette -v "特殊"         # All special variant spells
-gm spell palette -g "神名"         # All spells of a deity
+gm spell palette -l 5              # レベル5のスペルすべて
+gm spell palette -r 3              # ランク3のスペルすべて
+gm spell palette -s "甲系"         # 指定した系統のスペルすべて
+gm spell palette -v "特殊"         # 特殊バリアントのスペルすべて
+gm spell palette -g "神名"         # 指定した神のスペルすべて
 
-# Combine filters for precise palette generation
+# フィルタを組み合わせて対象を絞ってパレットを生成
 gm spell palette -n "magic" -s "甲系" -l 5
 gm spell palette -v "特殊" -g "神名"
 
-# Copy spell palette to clipboard (macOS/Linux/Windows)
+# スペルのパレットをクリップボードへコピー（macOS/Linux/Windows）
 gm spell palette -n "spell name" -y
-# or
+# または
 gm spell palette -n "spell name" --copy
 ```
 
-**Filter Options:**
-- `-n`: Spell name (partial match)
-- `-l`: Level (exact match, for `Lv.kind: "value"` or `"value+"`)
-- `-r`: Rank (exact match, for `Lv.kind: "rank"`)
-- `-s`: School/Category (exact match)
-- `-v` / `--school-variant`: School variant (exact match)
-- `-g` / `--god`: God/Deity name (exact match)
-- `-y` / `--copy`: Copy first result to clipboard
+**フィルタのオプション:**
+- `-n`: スペル名（部分一致）
+- `-l`: レベル（完全一致。`Lv.kind: "value"` または `"value+"` が対象）
+- `-r`: ランク（完全一致。`Lv.kind: "rank"` が対象）
+- `-s`: 系統 / カテゴリ（完全一致）
+- `-v` / `--school-variant`: 系統のバリアント（完全一致）
+- `-g` / `--god`: 神の名前（完全一致）
+- `-y` / `--copy`: 最初の結果をクリップボードへコピー
 
-**Note:** Level (`-l`) and rank (`-r`) filters are mutually exclusive. If both are specified, level takes priority.
+**注意:** レベル（`-l`）とランク（`-r`）のフィルタは同時に使えません。両方を指定した場合はレベルが優先されます。
 
-#### Spell Palette Output Format
+#### スペルのパレットの出力形式
 
-The `gm spell palette` command generates formatted spell data for use in TRPG chat systems:
+`gm spell palette` コマンドは、TRPG のチャットシステムで使える形式のスペルデータを生成します。
 
-**Support Spells** (`補助=true`):
+**補助スペル**（`補助=true`）:
 ```
 spell name / MP:cost / 対象:target / 射程:range / 時間:duration / effect description
 ```
 
-**Regular Spells** (`補助=false`):
+**通常のスペル**（`補助=false`）:
 ```
 2d+{magic_category}+{行使修正}  spell name / MP:cost / 対象:target / 射程:range / 時間:duration / effect description
 ```
 
-**Examples:**
+**例:**
 
 ```bash
-# Generate palette for support spell
-gm spell palette "ライト"
-# Output: ライト / MP:3 / 対象:任意の地点 / 射程:10m(起点指定) / 時間:一瞬 / 光源を生成する。
+# 補助スペルのパレットを生成
+gm spell palette -n "補助呪文名"
+# 出力: 補助呪文名 / MP:2 / 対象:1体 / 射程:術者 / 時間:10秒 / 効果の説明。
 
-# Generate palette for regular spell (with copy to clipboard)
-gm spell palette "呪文名" -y
-# Output: 2d+{甲系魔法}+{行使修正}  呪文名 / MP:15 / 対象:1エリア(半径4m) / 射程:術者 / 時間:一瞬 / ...
+# 通常のスペルのパレットを生成（クリップボードへコピー）
+gm spell palette -n "呪文名" -y
+# 出力: 2d+{甲系魔法}+{行使修正}  呪文名 / MP:15 / 対象:1エリア(半径4m) / 射程:術者 / 時間:一瞬 / ...
 ```
 
-#### Magic Category Formatting
+#### 魔法カテゴリの整形
 
-Magic categories are automatically formatted:
-- 2-character categories (e.g., "甲系", "丙系") become "甲系魔法", "丙系魔法"
-- Longer categories (e.g., "ハイテクノロジー") remain unchanged
-- The `{行使修正}` placeholder is preserved for dicebot substitution
+魔法カテゴリは自動的に整形されます。
+- 2文字のカテゴリ（例: "甲系"、"丙系"）は "甲系魔法"、"丙系魔法" になります
+- それより長いカテゴリ（例: "ハイテクノロジー"）は変更されません
+- `{行使修正}` のプレースホルダは、ダイスボットでの置換のためにそのまま残ります
 
 ## TUI モード（`gm tui`）
 
@@ -207,7 +207,7 @@ gm tui --config path.toml    # 設定ファイルを指定（データパスは 
 - 出力先: そのまま文字入力（編集のキーは上の「入力欄の編集」と同じ。`←` `→` はカーソル移動で、形式の切り替えには使いません）。相対パスは `gm` を起動したディレクトリが基準、先頭の `~/` はホームディレクトリ
 - `Enter` で出力、`Esc` でキャンセル。結果はステータス行に表示。同じ名前のファイルは上書きされます（CLI と同じ）
 - 次に開いたときは前回の形式と出力先（スプレッドシート ID）が入っています
-- Google Sheets: 出力先の代わりにスプレッドシート ID を入力します。`Enter` で TUI を一時停止して通常の画面で実行し（認証が必要ならブラウザが開きます）、結果を表示したあと `Enter` で TUI に戻ります。認証の設定は CLI の `--export sheets` と同じです（下の「Google Sheets Setup」を参照）
+- Google Sheets: 出力先の代わりにスプレッドシート ID を入力します。`Enter` で TUI を一時停止して通常の画面で実行し（認証が必要ならブラウザが開きます）、結果を表示したあと `Enter` で TUI に戻ります。認証の設定は CLI の `--export sheets` と同じです（下の「Google Sheets の設定」を参照）
 - スペルのエクスポートは未対応です
 - モンスターの追加・削除は TUI では行いません。CLI の `gm monster add` / `gm monster delete` を使ってください
 
@@ -242,88 +242,88 @@ lv:3 s:MagicCat_1         # 系統 MagicCat_1 の Lv3 のスペル
 - キーの大文字小文字は区別せず、区切りは全角 `：` も使えます
 - 解釈できない条件（`lv:abc`、値の無い `lv:`、タブで使えないキー、同じキーの重複）は検索バーを黄色にして理由を表示し、直前の結果を残します
 
-## Export Features
+## エクスポート機能
 
-This tool supports exporting TRPG data to multiple formats for collaboration and data sharing.
+共同作業やデータの共有のために、TRPG のデータを複数の形式へエクスポートできます。
 
-### Supported Export Formats
+### 対応するエクスポート形式
 
-- **JSON**: Native JSON format for data interchange and integration with other tools
-- **Google Sheets**: Direct export to Google Sheets for collaborative editing and sharing
-- **Udonarium**: Export to Udonarium character format (ZIP file with XML) for use in the Udonarium TRPG tool
-- **CCFolia (ココフォリア)**: Copy a monster to the clipboard as a CCFolia character piece; paste it into a CCFolia room to add it
+- **JSON**: データの受け渡しや他ツールとの連携に使える JSON 形式
+- **Google Sheets**: 共同編集や共有のために Google Sheets へ直接エクスポート
+- **Udonarium**: TRPG ツールの Udonarium で使えるキャラクター形式（XML を含む ZIP ファイル）へエクスポート
+- **CCFolia（ココフォリア）**: モンスターを CCFolia のキャラクターコマとしてクリップボードへコピー。CCFolia のルームに貼り付けると追加できます
 
-### Monster Export Commands
+### モンスターのエクスポートコマンド
 
-Export monster data using the `monster select` command with the `--export` and `--output` flags:
+`monster select` コマンドに `--export` と `--output` のフラグを付けて、モンスターのデータをエクスポートします。
 
 ```bash
-# Export query results to JSON file
+# 検索結果を JSON ファイルへエクスポート
 gm monster select -l 6 --export json --output results.json
 
-# Export query results to Google Sheets
+# 検索結果を Google Sheets へエクスポート
 gm monster select -l 6 -c "Category" --export sheets --output <spreadsheet-id>
 
-# Export to Udonarium format (ZIP file with XML)
+# Udonarium 形式（XML を含む ZIP ファイル）へエクスポート
 gm monster select -l 6 --export udonarium --output monsters.zip
 
-# Export single monster to JSON
+# モンスター1体を JSON へエクスポート
 gm monster select -n "monster name" --export json --output monster.json
 
-# Export single monster to Udonarium format
+# モンスター1体を Udonarium 形式へエクスポート
 gm monster select -n "monster name" --export udonarium --output monster.zip
 
-# Copy single monster to clipboard in CCFolia format
+# モンスター1体を CCFolia 形式でクリップボードへコピー
 gm monster select -n "monster name" --export ccfolia
 ```
 
-### CCFolia (ココフォリア) Export
+### CCFolia（ココフォリア）へのエクスポート
 
-`--export ccfolia` converts one monster into CCFolia's clipboard character format
-(`{"kind":"character","data":{...}}`) and copies it to the clipboard
-(macOS: `pbcopy`, Linux: `xclip`, Windows: `clip`). Open a CCFolia room and paste (Ctrl+V / Cmd+V) to create the piece.
+`--export ccfolia` は、モンスター1体を CCFolia のクリップボード用キャラクター形式
+（`{"kind":"character","data":{...}}`）に変換して、クリップボードへコピーします
+（macOS: `pbcopy`、Linux: `xclip`、Windows: `clip`）。CCFolia のルームを開いて貼り付ける（Ctrl+V / Cmd+V）とコマが作られます。
 
-- **One character per paste**: the query must match exactly one monster (an exact name match is preferred)
-- **Multi-part monsters**: the first core part is copied by default; use `--part <n>` (1-based) to pick another part. The list of parts is printed to stderr
-- **status**: HP / MP / 防護点 (MP `-1` becomes `0`)
-- **params**: 命中力 / 回避力 / 生命抵抗力 / 精神抵抗力 (each `-7`, same as Udonarium), 打撃点, ダメージ軽減 (`0`)
-- **memo**: category and level, 知名度/弱点値, 先制値, 弱点, movement, special abilities (knowledge info on core parts only)
-- **commands**: the same chat palette as the Udonarium export
-- `--output <file>` writes the JSON to a file instead of the clipboard
+- **貼り付け1回につき1キャラクター**: 検索結果がちょうど1体になる必要があります（名前の完全一致を優先します）
+- **複数部位のモンスター**: 既定では最初のコア部位をコピーします。別の部位を選ぶには `--part <n>`（1 始まり）を使います。部位の一覧は stderr に出力されます
+- **status**: HP / MP / 防護点（MP の `-1` は `0` になります）
+- **params**: 命中力 / 回避力 / 生命抵抗力 / 精神抵抗力（いずれも `-7`、Udonarium と同じ）、打撃点、ダメージ軽減（`0`）
+- **memo**: カテゴリとレベル、知名度/弱点値、先制値、弱点、移動、特殊能力（知識の情報はコア部位のみ）
+- **commands**: Udonarium へのエクスポートと同じチャットパレット
+- `--output <file>` を付けると、クリップボードの代わりにファイルへ JSON を書き出します
 
 ```bash
-gm monster select -n "モンスター名" --export ccfolia            # copy the core part
-gm monster select -n "モンスター名" --export ccfolia --part 2   # copy the 2nd part
+gm monster select -n "モンスター名" --export ccfolia            # コア部位をコピー
+gm monster select -n "モンスター名" --export ccfolia --part 2   # 2番目の部位をコピー
 gm monster select -n "モンスター名" --export ccfolia --output piece.json
 ```
 
-### Google Sheets Setup
+### Google Sheets の設定
 
-To use the Google Sheets export feature, you need to set up Google OAuth 2.0 authentication:
+Google Sheets へのエクスポートを使うには、Google OAuth 2.0 の認証を設定する必要があります。
 
-#### 1. Set up Google Cloud Project
+#### 1. Google Cloud プロジェクトの準備
 
-1. Go to [Google Cloud Console](https://console.cloud.google.com/)
-2. Create a new project or select an existing one
-3. Enable the **Google Sheets API**
-4. Create OAuth 2.0 credentials (Desktop application)
-5. Download the credentials JSON file
+1. [Google Cloud Console](https://console.cloud.google.com/) を開きます
+2. 新しいプロジェクトを作成するか、既存のプロジェクトを選択します
+3. **Google Sheets API** を有効にします
+4. OAuth 2.0 の認証情報（デスクトップアプリケーション）を作成します
+5. 認証情報の JSON ファイルをダウンロードします
 
-#### 2. Configure Authentication
+#### 2. 認証の設定
 
-The tool supports two methods for OAuth configuration:
+OAuth の設定方法は2つあります。
 
-**Option A: Environment Variables (Recommended)**
+**方法 A: 環境変数（推奨）**
 
 ```bash
 export GOOGLE_CLIENT_ID="your-client-id.apps.googleusercontent.com"
 export GOOGLE_CLIENT_SECRET="your-client-secret"
-export GOOGLE_REDIRECT_URI="http://localhost:8080/callback"  # Optional, defaults to this value
+export GOOGLE_REDIRECT_URI="http://localhost:8080/callback"  # 省略可。省略時はこの値
 ```
 
-**Option B: Configuration File**
+**方法 B: 設定ファイル**
 
-Create `~/.config/trpg-json/oauth_config.json`:
+`~/.config/trpg-json/oauth_config.json` を作成します。
 
 ```json
 {
@@ -334,67 +334,67 @@ Create `~/.config/trpg-json/oauth_config.json`:
 }
 ```
 
-#### 3. Authentication Flow
+#### 3. 認証の流れ
 
-On first export to Google Sheets:
+Google Sheets へ初めてエクスポートするときの流れです。
 
-1. The tool will open your browser to Google's OAuth consent screen
-2. Grant permission for the application to access your Google Sheets
-3. You'll be redirected to `http://localhost:8080/callback`
-4. The tool automatically receives the authorization code and saves credentials
-5. Your data is exported to the specified spreadsheet
+1. ブラウザで Google の OAuth 同意画面が開きます
+2. アプリケーションが Google Sheets にアクセスすることを許可します
+3. `http://localhost:8080/callback` へリダイレクトされます
+4. ツールが認可コードを自動で受け取り、認証情報を保存します
+5. 指定したスプレッドシートへデータがエクスポートされます
 
-The credentials are automatically saved and reused for future exports. They are stored securely in `~/.config/trpg-json/credentials.json`.
+認証情報は自動で保存され、次回以降のエクスポートで再利用されます。保存先は `~/.config/trpg-json/credentials.json` で、安全に保管されます。
 
-### Udonarium Export
+### Udonarium へのエクスポート
 
-The Udonarium export feature converts TRPG-JSON monster data to Udonarium character XML format, packaged in a ZIP file for easy import.
+TRPG-JSON のモンスターデータを Udonarium のキャラクター XML 形式に変換し、インポートしやすいよう ZIP ファイルにまとめます。
 
-#### How It Works
+#### 仕組み
 
-1. **Single-part monsters**: Creates a ZIP file containing one XML file
-   - Example: `gm select -n "ゴブリン" --export udonarium --output ゴブリン.zip`
-   - Creates: `ゴブリン.zip` containing `ゴブリン.xml`
+1. **部位が1つのモンスター**: XML ファイルを1つ含む ZIP ファイルを作成します
+   - 例: `gm monster select -n "ゴブリン" --export udonarium --output ゴブリン.zip`
+   - 作成されるもの: `ゴブリン.xml` を含む `ゴブリン.zip`
 
-2. **Multi-part monsters**: Creates a ZIP file containing multiple XML files (one per part)
-   - Example: `gm select -n "トレント" --export udonarium --output トレント.zip`
-   - Creates: `トレント.zip` containing:
-     - `トレント_幹.xml` (core part with full stats)
-     - `トレント_根0.xml` (non-core part)
-     - `トレント_根1.xml` (non-core part)
+2. **複数部位のモンスター**: 部位ごとの XML ファイルを含む ZIP ファイルを作成します
+   - 例: `gm monster select -n "モンスターA" --export udonarium --output モンスターA.zip`
+   - 作成されるもの: 次のファイルを含む `モンスターA.zip`
+     - `モンスターA_部位A.xml`（全ステータスを持つコア部位）
+     - `モンスターA_部位B0.xml`（コア以外の部位）
+     - `モンスターA_部位B1.xml`（コア以外の部位）
 
-#### Features
+#### 機能
 
-- **Automatic XML generation**: Converts monster stats to Udonarium XML format
-- **Chat palette**: Auto-generates dice roll commands for combat checks
-- **Part handling**: Correctly handles core and non-core monster parts
-- **File organization**: Multiple parts automatically organized in ZIP archive
+- **XML の自動生成**: モンスターのステータスを Udonarium の XML 形式に変換します
+- **チャットパレット**: 戦闘の判定に使うダイスロールのコマンドを自動生成します
+- **部位の処理**: コア部位とコア以外の部位を正しく扱います
+- **ファイルの整理**: 複数の部位を自動で ZIP アーカイブにまとめます
 
-#### Usage Examples
+#### 使用例
 
 ```bash
-# Export a single monster to Udonarium format
+# モンスター1体を Udonarium 形式へエクスポート
 gm monster select -n "ゴブリン" --export udonarium --output ゴブリン.zip
 
-# Export all level 6 monsters
+# レベル6のモンスターをすべてエクスポート
 gm monster select -l 6 --export udonarium --output level6_monsters.zip
 
-# Export monsters by category
+# カテゴリを指定してモンスターをエクスポート
 gm monster select -c "蛮族" --export udonarium --output barbarians.zip
 ```
 
-### Complete Export Examples
+### エクスポートの例のまとめ
 
 ```bash
-# JSON Export Examples
+# JSON へのエクスポート
 gm monster select -l 6 --export json --output level6_monsters.json
 gm monster select -c "蛮族" --export json --output barbarians.json
 
-# Google Sheets Export Examples
+# Google Sheets へのエクスポート
 gm monster select -l 2 -c "動物" --export sheets --output <spreadsheet-id>
 gm monster select -l 6 -c "蛮族" --export sheets --output <spreadsheet-id>
 
-# Udonarium Export Examples
+# Udonarium へのエクスポート
 gm monster select -l 6 --export udonarium --output level6_monsters.zip
 gm monster select -c "蛮族" --export udonarium --output barbarians.zip
 gm monster select -n "ゴブリン" --export udonarium --output ゴブリン.zip
