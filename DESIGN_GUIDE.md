@@ -966,7 +966,7 @@ Spell Name / MP:X / 対象:Y / 射程:Z / 時間:T / Effect Description
 ### セル結合の構造
 
 **縦と横の両方向に結合されたセル（行と列をまたぐ）:**
-- 複数の小さなグリッドセルが、行をまたいで縦に、列をまたいで横に結合されている（3〜4行目の例: A3:G4, H3:I4, J3:K4, N3:O4, P3:Q4, R3:S4, T3:U4, V3:W4, X3:Y4, Z3:AA4, AB3:AC4, AD3:AE4, AF3:AG4, AH3:AI4, AJ3:AL4)
+- 複数の小さなグリッドセルが、行をまたいで縦に、列をまたいで横に結合されている（3〜4行目の例: A3:G4, H3:I4, J3:K4, N3:O4, P3:Q4, R3:S4, T3:U4, V3:W4, X3:Y4, Z3:AA4, AB3:AC4, AD3:AE4, AF3:AG4, AH3:AI4, AJ3:AL4）
    - **データの配置**: 奇数行（各部位の1行目）のセルだけに書き込む
    - **偶数行**: 完全に空のままにする。セルの結合により、上の奇数行から自動的に広がる
    - Google Sheets API へ出力するとき、これらの列の偶数行のセルには何も書き込まない
@@ -984,35 +984,35 @@ Google Sheets API でデータを挿入するとき:
 2. 横方向にだけ結合されたセル（AM-AW+1）: 指定の奇数行と偶数行にそれぞれ別のデータを出力する。指定外の部分には書き込まない
 3. 既存のセル結合の書式を保持する。API の呼び出しは結合の構造を維持しなければならない
 
-### Field Transformation Rules
+### フィールドの変換規則
 
-1. **`part.name` concatenation**:
-   - If `part.name` is empty → output only `name`
-   - If `part.name` has value → output `name\n(part.name)`
-   - Add "★" prefix if `コア == true`
+1. **`part.name` の連結**:
+   - `part.name` が空 → `name` だけを出力する
+   - `part.name` に値がある → `name\n(part.name)` を出力する
+   - `コア == true` なら先頭に "★" を付ける
 
-2. **Movement fields** (`moveon`, `movein`):
-   - If value is -1 → output "-"
-   - Otherwise → output as `value\n(description)`
-   - If description is empty → omit `\n()` wrapper
+2. **移動のフィールド**（`moveon`、`movein`）:
+   - 値が -1 → "-" を出力する
+   - それ以外 → `value\n(description)` の形で出力する
+   - description が空 → `\n()` の部分を省く
 
-3. **Weakness field**:
-   - Apply text replacements: "エネルギー" → "E", "ダメージ" → "ダメ"
-   - Delete text: "属性"
-   - Example: "炎属性ダメージ+2" → "炎ダメ+2"
+3. **弱点のフィールド**:
+   - 文字列を置換する: "エネルギー" → "E"、"ダメージ" → "ダメ"
+   - 文字列を削除する: "属性"
+   - 例: "炎属性ダメージ+2" → "炎ダメ+2"
 
-4. **Common data across rows**:
-   - `name`, `共通特殊能力` columns repeat in all rows of same monster
-   - Example: For Trent (2 parts, 6 rows), columns AM, AM+1, AW, AW+1 appear in rows 3, 4, 5, 6, 7, 8
+4. **行をまたぐ共通のデータ**:
+   - `name`、`共通特殊能力` の列は、同じモンスターのすべての行で繰り返す
+   - 例: トレント（2部位、6行）では、AM、AM+1、AW、AW+1 の列が 3, 4, 5, 6, 7, 8 行目に現れる
 
-5. **Part-specific data**:
-   - `part.HP`, `part.MP`, `part.防護点`, etc. → only change when moving to different part
-   - Non-first parts: Replace single-part common fields with "-"
-   - Exception: `name` and `共通特殊能力` always output actual values (not "-")
+5. **部位ごとのデータ**:
+   - `part.HP`、`part.MP`、`part.防護点` など → 別の部位に移るときだけ変わる
+   - 最初の部位以外: 単一部位用の共通フィールドを "-" に置き換える
+   - 例外: `name` と `共通特殊能力` は常に実際の値を出力する（"-" にしない）
 
-### Example: Trent (Multiple Parts)
+### 例: トレント（複数部位）
 
-**JSON Data:**
+**JSON データ:**
 ```json
 {
   "name": "トレント",
@@ -1053,9 +1053,9 @@ Google Sheets API でデータを挿入するとき:
 }
 ```
 
-**Expected Output (rows 3-8):**
+**期待される出力（3〜8行目）:**
 
-| Row | A | L | P | R | T | V | X | Z | AB | AD | AF | AH | AJ | AM | AW |
+| 行 | A | L | P | R | T | V | X | Z | AB | AD | AF | AH | AJ | AM | AW |
 |-----|---|---|---|---|---|---|---|---|----|----|----|----|----|----|------|
 | 3 | ★トレント\n(幹) | 105 | 45 | 9 | 13 | 21 | 19 | 3 | - | - | 21 | 18 | SAMPLE | 特殊系統魔法8Lv／11、魔法の才能 | 16/21 |
 | 4 |||||||||||||| 能力F＝5 | 炎ダメ+3 |
@@ -1064,6 +1064,6 @@ Google Sheets API でデータを挿入するとき:
 | 7 | トレント\n(根) | 75 | 20 | 7 | - | - | - | 3 | - | - | 19 | 15 | SAMPLE | 特殊系統魔法8Lv／11、魔法の才能 | - |
 | 8 |||||||||||||| 能力AC | - |
 
-**Notes:**
-- Rows 3-4: First part (幹, コア=true) → "★" prefix, common values output, all fields populated
-- Rows 5-8: Second part (根, コア=false) → no "★" prefix, `先制値`/`生命抵抗力`/`精神抵抗力`/`知名度`/`弱点値`/`弱点` → "-"
+**注意点:**
+- 3〜4行目: 1つ目の部位（幹、コア=true）→ 先頭に "★" を付け、共通の値を出力し、すべてのフィールドを埋める
+- 5〜8行目: 2つ目の部位（根、コア=false）→ "★" は付けず、`先制値`/`生命抵抗力`/`精神抵抗力`/`知名度`/`弱点値`/`弱点` は "-"
