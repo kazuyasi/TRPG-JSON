@@ -200,13 +200,13 @@ fn help_text(app: &App) -> &'static str {
         (Tab::Monster, Focus::Picks) => "↑↓/jk:移動  x:外す  E:出力  v/Esc:結果リストへ  ?:ヘルプ  q:終了",
         (Tab::Spell, Focus::Picks) => "↑↓/jk:移動  x:外す  C:パレット  v/Esc:結果リストへ  ?:ヘルプ  q:終了",
         (Tab::Monster, Focus::List) => {
-            "↑↓/jk:選択  Enter:詳細  c:ココフォリア  e:出力  J:JSON  /:検索  ?:ヘルプ  q:終了"
+            "Space:選択  Enter:詳細  c:ココフォリア  e:出力  J:JSON  /:検索  ?:ヘルプ  q:終了"
         }
         (Tab::Monster, Focus::Detail) => {
             "↑↓/jk:部位  c:ココフォリア  e:出力  J:JSON  Esc:リスト  ?:ヘルプ  q:終了"
         }
         (Tab::Spell, Focus::List) => {
-            "↑↓/jk:選択  Enter:詳細  y:パレット  Y:全件  J:JSON  /:検索  ?:ヘルプ  q:終了"
+            "Space:選択  Enter:詳細  y:パレット  Y:全件  J:JSON  /:検索  ?:ヘルプ  q:終了"
         }
         (Tab::Spell, Focus::Detail) => {
             "↑↓/jk/PgUp/Dn:本文  y:パレット  Y:全件  J:JSON  Esc:リスト  ?:ヘルプ  q:終了"
