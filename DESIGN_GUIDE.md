@@ -815,87 +815,87 @@ gm export --export udonarium --output /path/to/monsters.zip
 
 **注意**: `schoolVariant` が "特殊" でない、または `school` が "甲系" でない場合、`god` フィールドは適用されず、データに存在すべきではない。
 
-## Spell Chat Palette Format
+## スペルのチャットパレット形式
 
-### Design Principles
-- **Output format**: Text-based chat palette (one command per line)
-- **Support spell flag**: `補助 == true` or `補助 == false` determines output content
-- **Dice rolls**: Not required for support spells; required for regular spells
-- **Field mapping**: TRPG-JSON Spell → Chat palette text format
+### 設計の原則
+- **出力形式**: テキストのチャットパレット（1行に1コマンド）
+- **補助スペルのフラグ**: `補助 == true` か `補助 == false` かで出力内容が決まる
+- **ダイスロール**: 補助スペルには不要、通常のスペルには必要
+- **フィールドの対応**: TRPG-JSON の Spell → チャットパレットのテキスト形式
 
-### Support Spells (`補助 == true`)
-**Output format:**
+### 補助スペル（`補助 == true`）
+**出力形式:**
 ```
 Spell Name / MP:X / 対象:Y / 射程:Z / 時間:T / Effect Description
 ```
 
-**Examples:**
+**例:**
 ```
 ライト / MP:3 / 対象:任意の地点 / 射程:10m(起点指定) / 光源を生成する。
 魔法解除 / MP:8 / 対象:魔法1つ / 射程:接触 / 魔法を打ち消す。
 ```
 
-**Characteristics:**
-- No dice rolls
-- Spell information confirmation format
-- Target and effect are primary information
+**特徴:**
+- ダイスロールなし
+- スペルの情報を確認するための形式
+- 対象と効果が主な情報
 
-### Regular Spells (`補助 == false`)
-**Output format:**
+### 通常のスペル（`補助 == false`）
+**出力形式:**
 ```
 2d+{Magic Category}+{行使修正}  Spell Name / MP:X / 対象:Y / 射程:Z / 時間:T / 効果
 ```
 
-**Examples:**
+**例:**
 ```
 2d+{甲系魔法}+{行使判定} 呪文名 / MP:15 / 対象:1エリア(半径4mすべて) / 射程:術者 / 時間:一瞬 / 対象に効果を与える。
 ```
 
-**Characteristics:**
-- Dice rolls required (category serves as the judgment check name)
-- `{行使修正}` is literal output (replaced by dicebot system at runtime)
+**特徴:**
+- ダイスロールが必要（カテゴリが判定の名前になる）
+- `{行使修正}` は文字どおりに出力する（実行時にダイスボットのシステムが置換する）
 
-### Schema Field References
-- `name`: Spell name
-- `MP.value` OR `MP.value+` OR `MP.special`: MP consumption (exactly one exists)
-  - `value`: Fixed MP cost
-  - `value+`: Minimum MP cost (output as "3～" etc.)
-  - `special`: Special consumption (output string as-is)
-- `射程` OR `射程(m)`: Range information (either field name is acceptable)
-  - Flexible field naming to accommodate different data sources
-  - Output value as-is regardless of field name used
-  - Example: `射程` value "10m(起点指定)" or `射程(m)` value "10"
-- `対象` fields: Target information (see separate section)
-- `category`: Magic category name derivation (see separate section)
-- `効果`: Effect description, output as-is
-- `時間` fields: Duration information (see separate section)
+### スキーマのフィールドの参照
+- `name`: スペル名
+- `MP.value` または `MP.value+` または `MP.special`: 消費 MP（ちょうど1つが存在する）
+  - `value`: 固定の消費 MP
+  - `value+`: 最低の消費 MP（"3～" などと出力）
+  - `special`: 特殊な消費（文字列をそのまま出力）
+- `射程` または `射程(m)`: 射程の情報（どちらのフィールド名でもよい）
+  - 異なるデータソースに対応するための柔軟なフィールド名
+  - 使われているフィールド名によらず、値をそのまま出力する
+  - 例: `射程` の値が "10m(起点指定)"、または `射程(m)` の値が "10"
+- `対象` のフィールド: 対象の情報（別の項を参照）
+- `category`: 魔法カテゴリ名の導出（別の項を参照）
+- `効果`: 効果の説明。そのまま出力する
+- `時間` のフィールド: 持続時間の情報（別の項を参照）
 
-#### Magic Category Name
-**When `category` is NOT exactly 2 full-width characters:**
-- Magic category → `category` as-is
-- Example: If `category` is "ハイテクノロジー", magic category is "ハイテクノロジー"
+#### 魔法カテゴリ名
+**`category` が全角2文字ちょうどではないとき:**
+- 魔法カテゴリ → `category` をそのまま使う
+- 例: `category` が "ハイテクノロジー" なら、魔法カテゴリは "ハイテクノロジー"
 
-**When `category` IS exactly 2 full-width characters:**
-- Magic category → `category` + "魔法"
-- Example: If `category` is "丙系", magic category is "丙系魔法"
+**`category` が全角2文字ちょうどのとき:**
+- 魔法カテゴリ → `category` + "魔法"
+- 例: `category` が "丙系" なら、魔法カテゴリは "丙系魔法"
 
-#### 対象 (Target)
-**When `対象.kind == "個別"`:**
-- Output: `対象.個別` as-is
-- Example: If `対象.個別` is "1体全", output "1体全"
+#### 対象
+**`対象.kind == "個別"` のとき:**
+- 出力: `対象.個別` をそのまま
+- 例: `対象.個別` が "1体全" なら "1体全" と出力
 
-**When `対象.kind == "エリア"`:**
-- Output format: `対象.value`(半径`対象.半径(m)`m`対象.末尾`)
-- Example: If `対象.value` is "2エリア", `対象.半径(m)` is "10", `対象.末尾` is "空間", output "2エリア(半径10m空間)"
+**`対象.kind == "エリア"` のとき:**
+- 出力形式: `対象.value`(半径`対象.半径(m)`m`対象.末尾`)
+- 例: `対象.value` が "2エリア"、`対象.半径(m)` が "10"、`対象.末尾` が "空間" なら "2エリア(半径10m空間)" と出力
 
-#### 時間 (Duration)
-**When `時間.value` is a string:**
-- Output: `時間.value` as-is
-- Example: If `時間.value` is "一瞬", output "一瞬"
+#### 時間
+**`時間.value` が文字列のとき:**
+- 出力: `時間.value` をそのまま
+- 例: `時間.value` が "一瞬" なら "一瞬" と出力
 
-**When `時間.value` is an integer:**
-- Output: `時間.value` + `時間.unit`
-- Example: If `時間.value` is "3" and `時間.unit` is "年", output "3年"
+**`時間.value` が整数のとき:**
+- 出力: `時間.value` + `時間.unit`
+- 例: `時間.value` が "3"、`時間.unit` が "年" なら "3年" と出力
 
 ---
 
