@@ -4,13 +4,13 @@ TRPG（テーブルトーク・ロールプレイングゲーム）のゲーム�
 
 ## 概要
 
-このレポジトリは、TRPG のゲームデータ（モンスター、キャラクター、アイテムなど）を JSON 形式で管理・検索するためのツールを提供します。ゲームデータを検索・絞り込みするコマンドラインインターフェースを含みます。
+このレポジトリは、TRPG のゲームデータ（モンスター、スペルなど）を JSON 形式で管理・検索するためのツールを提供します。ゲームデータを検索・絞り込みするコマンドラインインターフェースを含みます。
 
 ## インストール
 
 ### 前提条件
 
-- [Rust](https://www.rust-lang.org/tools/install) 1.85 以降
+- [Rust](https://www.rust-lang.org/tools/install) 1.88 以降
 
 ### インストール手順
 
@@ -25,6 +25,31 @@ cargo install --path .
 
 `gm` コマンドは Cargo の bin ディレクトリ（通常は `~/.cargo/bin`）にインストールされます。このディレクトリが `PATH` に含まれていることを確認してください。
 
+## 設定ファイル
+
+読み込むデータファイルは、TOML 形式の設定ファイルで指定します。使う設定ファイルは次の順で決まります。
+
+1. `--config <path>` で指定したファイル
+2. OS の設定ディレクトリの `trpg-json/default.toml`
+   - macOS: `~/Library/Application Support/trpg-json/default.toml`
+   - Linux: `~/.config/trpg-json/default.toml`
+   - Windows: `C:\Users\username\AppData\Roaming\trpg-json\default.toml`
+3. `gm` を実行したディレクトリの `config/default.toml`
+
+```toml
+[data]
+monsters = "path/to/monsters.json"
+# 複数のファイルも指定できます
+# monsters = ["path/to/part1.json", "path/to/part2.json"]
+
+# スペルのデータファイル（省略可。monsters と同じく複数指定できます）
+spells = "path/to/spells.json"
+```
+
+- 相対パスはホームディレクトリが基準です。絶対パスはそのまま使います
+- 設定ファイルを読み込めないときは、警告を出して組み込みの既定値で続行します
+- モンスターのデータファイルが見つからないときはエラーで終了します。スペルのデータファイルが見つからないときは警告を出します
+
 ## 使い方
 
 JSON 形式の TRPG ゲームデータを管理するコマンドラインツールです。
@@ -34,6 +59,9 @@ JSON 形式の TRPG ゲームデータを管理するコマンドラインツー
 ```bash
 # 名前でモンスターを検索
 gm monster find "monster name"
+
+# 名前に加えてレベルやカテゴリで絞り込む
+gm monster find "monster name" -l 6 -c "Category"
 
 # パターンに一致するモンスターを一覧表示
 gm monster list "pattern"
@@ -46,6 +74,9 @@ gm monster add monster.json
 
 # モンスターを削除
 gm monster delete "monster name"
+
+# モンスターデータの統計を表示
+gm monster stats
 ```
 
 データファイルを複数設定している場合の保存先:
@@ -101,6 +132,9 @@ gm spell palette -v "特殊" -g "神名"
 gm spell palette -n "spell name" -y
 # または
 gm spell palette -n "spell name" --copy
+
+# スペルデータの統計を表示
+gm spell stats
 ```
 
 **フィルタのオプション:**
@@ -112,7 +146,7 @@ gm spell palette -n "spell name" --copy
 - `-g` / `--god`: 神の名前（完全一致）
 - `-y` / `--copy`: 最初の結果をクリップボードへコピー
 
-**注意:** レベル（`-l`）とランク（`-r`）のフィルタは同時に使えません。両方を指定した場合はレベルが優先されます。
+**注意:** レベル（`-l`）とランク（`-r`）のフィルタは同時に使えません。両方を指定するとエラーになります。
 
 #### スペルのパレットの出力形式
 
@@ -171,8 +205,8 @@ gm tui --config path.toml    # 設定ファイルを指定（データパスは 
 | `1` / `2` / `←` `→` | モンスター / スペルのタブへ切り替え |
 | `/` | 検索バーへ（入力中は英字も文字として入力。`Enter`/`Esc` でリストへ、`Ctrl-u` でクリア。入力の編集は下記） |
 | `↑↓` / `j` `k` | 選択の移動（モンスター詳細では部位の選択、スペル詳細では本文のスクロール） |
-| `PgUp` `PgDn` / `g` `G` | ページ移動 / 先頭・末尾へ |
-| `Tab` / `Shift-Tab` | ペイン移動（検索 → 結果 → 詳細） |
+| `PgUp` `PgDn` / `g` `G`（`Home` `End` も可） | ページ移動 / 先頭・末尾へ |
+| `Tab` / `Shift-Tab` | ペイン移動（検索 → 結果 → 詳細。選択リストに項目があれば詳細の次に選択リスト） |
 | `Enter` / `Esc` | 結果リスト → 詳細へ / 詳細 → 結果リストへ |
 | `c` | モンスター: 選択中の部位をココフォリア形式でクリップボードへコピー |
 | `y` / `Y` | スペル: 選択中 / ヒット全件のチャットパレットをコピー |
@@ -185,7 +219,7 @@ gm tui --config path.toml    # 設定ファイルを指定（データパスは 
 | `S` | 統計（CLI の `stats` と同じ集計）。検索で絞り込み中はヒット中の統計を先に、続けて全件の統計を表示 |
 | `R` | 設定のデータファイルを読み直す（CLI の `add` / `delete` やエディタでの変更を反映）。検索語・タブ・選択中の項目は保つ。読み込みに失敗したら今のデータのままにして、ステータス行にエラーを表示 |
 | `?` | ヘルプ（全キーバインドと検索構文） |
-| `q` / `Ctrl-c` | 終了（ヘルプ・JSON・統計の表示中の `q` / `Esc` は閉じるだけ） |
+| `q` / `Ctrl-c` | 終了（ヘルプ・JSON・統計の表示中は、`q` / `Esc` / `Enter` と開いたキーの再押下で閉じるだけ） |
 
 ### 入力欄の編集（検索バー・エクスポートの出力先）
 
@@ -286,7 +320,7 @@ gm monster select -n "monster name" --export ccfolia
 - **貼り付け1回につき1キャラクター**: 検索結果がちょうど1体になる必要があります（名前の完全一致を優先します）
 - **複数部位のモンスター**: 既定では最初のコア部位をコピーします。別の部位を選ぶには `--part <n>`（1 始まり）を使います。部位の一覧は stderr に出力されます
 - **status**: HP / MP / 防護点（MP の `-1` は `0` になります）
-- **params**: 命中力 / 回避力 / 生命抵抗力 / 精神抵抗力（いずれも `-7`、Udonarium と同じ）、打撃点、ダメージ軽減（`0`）
+- **params**: 命中力 / 回避力 / 生命抵抗力 / 精神抵抗力（いずれも `-7` し下限は `0`、Udonarium と同じ）、打撃点、ダメージ軽減（`0`）
 - **memo**: カテゴリとレベル、知名度/弱点値、先制値、弱点、移動、特殊能力（知識の情報はコア部位のみ）
 - **commands**: Udonarium へのエクスポートと同じチャットパレット
 - `--output <file>` を付けると、クリップボードの代わりにファイルへ JSON を書き出します
@@ -321,9 +355,15 @@ export GOOGLE_CLIENT_SECRET="your-client-secret"
 export GOOGLE_REDIRECT_URI="http://localhost:8080/callback"  # 省略可。省略時はこの値
 ```
 
+認可コードを受け取るサーバーはポート 8080 で固定のため、リダイレクト URI のポートは 8080 以外に変更できません（方法 B の `redirect_uri` も同じです）。
+
 **方法 B: 設定ファイル**
 
-`~/.config/trpg-json/oauth_config.json` を作成します。
+OS の設定ディレクトリの下に `trpg-json/oauth_config.json` を作成します（環境変数 `XDG_CONFIG_HOME` を設定している場合は、どの OS でもそのディレクトリの下です）。
+
+- macOS: `~/Library/Application Support/trpg-json/oauth_config.json`
+- Linux: `~/.config/trpg-json/oauth_config.json`
+- Windows: `C:\Users\username\AppData\Roaming\trpg-json\oauth_config.json`
 
 ```json
 {
@@ -344,7 +384,9 @@ Google Sheets へ初めてエクスポートするときの流れです。
 4. ツールが認可コードを自動で受け取り、認証情報を保存します
 5. 指定したスプレッドシートへデータがエクスポートされます
 
-認証情報は自動で保存され、次回以降のエクスポートで再利用されます。保存先は `~/.config/trpg-json/credentials.json` で、安全に保管されます。
+認証情報は自動で保存され、次回以降のエクスポートで再利用されます。保存先は `oauth_config.json` と同じディレクトリの `credentials.json` です。平文の JSON で保存し、暗号化やファイル権限の制限はしません。
+
+有効期限が切れると、エクスポートは1回失敗して保存済みの認証情報を削除します。もう一度実行すると、認証からやり直します。
 
 ### Udonarium へのエクスポート
 
@@ -355,13 +397,15 @@ TRPG-JSON のモンスターデータを Udonarium のキャラクター XML 形
 1. **部位が1つのモンスター**: XML ファイルを1つ含む ZIP ファイルを作成します
    - 例: `gm monster select -n "ゴブリン" --export udonarium --output ゴブリン.zip`
    - 作成されるもの: `ゴブリン.xml` を含む `ゴブリン.zip`
+   - その部位に部位名があるときのファイル名は `ゴブリン_部位名.xml` になります
 
 2. **複数部位のモンスター**: 部位ごとの XML ファイルを含む ZIP ファイルを作成します
    - 例: `gm monster select -n "モンスターA" --export udonarium --output モンスターA.zip`
    - 作成されるもの: 次のファイルを含む `モンスターA.zip`
      - `モンスターA_部位A.xml`（全ステータスを持つコア部位）
-     - `モンスターA_部位B0.xml`（コア以外の部位）
-     - `モンスターA_部位B1.xml`（コア以外の部位）
+     - `モンスターA_部位B_0.xml`（コア以外の部位）
+     - `モンスターA_部位B_1.xml`（コア以外の部位）
+   - 同じ名前の部位が複数あるときは、部位名のあとに `_0`、`_1` と番号が付きます
 
 #### 機能
 
