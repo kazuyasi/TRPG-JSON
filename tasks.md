@@ -121,7 +121,7 @@
          - Description: Implemented schoolVariant and god filtering for spell queries with 16 new tests (12 unit + 4 integration). Added spell_find_by_school_variant() and spell_find_by_god() functions in query.rs. Extended spell_find_multi() from 5 to 7 parameters (added schoolVariant, god). Added -v/--school-variant and -g/--god CLI flags to spell find/palette commands. Updated README.md with comprehensive filter examples and options table. All 275 tests passing (243 core + 32 app). Release build successful. Completes DESIGN_GUIDE.md specification implementation.
 
 - [x] T040 Spell level/rank query support: Implement rank-based filtering — 2025-12-27
-         - Description: Implemented rank-based filtering for spell queries with 11 new unit tests. Added spell_find_by_rank(), extract_spell_rank(), has_rank_field() functions in query.rs. Extended spell_find_multi() to 5 parameters (added rank). Added -r (rank) CLI flag to spell find/palette commands with mutual exclusivity handling (level takes priority). Level filter (-l) searches Lv.kind: "value"/"value+" only. Rank filter (-r) searches Lv.kind: "rank" only. Added sample rank-based spells (FairyMagic_Rank2, FairyMagic_Rank3). All 231 tests passing (50 query + 28 app). Release build successful.
+         - Description: Implemented rank-based filtering for spell queries with 11 new unit tests. Added spell_find_by_rank(), extract_spell_rank(), has_rank_field() functions in query.rs. Extended spell_find_multi() to 5 parameters (added rank). Added -r (rank) CLI flag to spell find/palette commands with mutual exclusivity handling (level takes priority). Level filter (-l) searches Lv.kind: "value"/"value+" only. Rank filter (-r) searches Lv.kind: "rank" only. Added sample rank-based spells (RankMagic_Rank2, RankMagic_Rank3). All 231 tests passing (50 query + 28 app). Release build successful.
 
 
 - [x] T038.6 Level/Rank/God field specification documentation — 2025-12-27
@@ -376,9 +376,9 @@
       #     Lv 11-15: 51 (22.6%)
       #     Lv 16+:    0 (0.0%)
       #   系統分布 (Top 5):
-      #     森羅:  60 (26.5%)
-      #     真語:  54 (23.9%)
-      #     召異:  46 (20.4%)
+      #     戊系:  60 (26.5%)
+      #     丁系:  54 (23.9%)
+      #     己系:  46 (20.4%)
       #   種別:
       #     レベル型: 216 (95.6%)
       #     ランク型:  10 (4.4%)
@@ -406,7 +406,7 @@
 
 ### Phase 4: Advanced Features
 - [ ] T041 Phase 4: Skill system implementation (流派特技)
-- [ ] T042 Phase 4: Fairy magic system implementation (妖精魔法)
+- [ ] T042 Phase 4: Rank-based magic system implementation (ランク制魔法)
 - [x] T043 Phase 4: Chat palette export to clipboard — 2026-10-31
       - Status: COMPLETE ✅ (covered by T048: CCFolia export copies the chat palette to the clipboard via `commands`; spell palette clipboard copy already available via `gm spell palette --copy`)
 - [x] T048 Phase 4: CCFolia (ココフォリア) clipboard export for monsters — 2026-10-31
@@ -596,7 +596,7 @@
         3. ✅ `v` / `Esc` の移動、幅 120 / 100 桁未満の表示、`x`、空のときの案内、ペイン内のスクロール
         4. ✅ `C` の順序、`E` の JSON / Udonarium / Sheets 出力、`E` のあとの `e` がヒット全件に戻ること、空のときの案内
 - [ ] T044 Phase 4: Multi-system support (extend beyond SW2.5)
-- [ ] T045 Phase 4: Skill/Fairy magic CLI commands (gm skill find/list/palette)
+- [ ] T045 Phase 4: Skill/Rank-based magic CLI commands (gm skill find/list/palette)
 
 ## 🚮 Canceled / Superseded
 - [ ] T007 Data analysis feature implementation (deemed unnecessary) — 2025-09-14
