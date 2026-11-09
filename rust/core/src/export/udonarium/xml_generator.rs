@@ -486,7 +486,7 @@ mod tests {
     fn test_chat_palette_does_not_include_special_abilities() {
         let mut monster = create_test_monster();
         monster.common_abilities = "飛行,遠隔".to_string();
-        monster.part[0].special_abilities = "再生＝5,拘束攻撃".to_string();
+        monster.part[0].special_abilities = "能力F＝5,能力AC".to_string();
         
         let display_names = vec!["テストモンスター".to_string()];
         let transformed =
@@ -502,7 +502,7 @@ mod tests {
         // Special abilities should NOT appear in chat palette
         assert!(!palette.contains("飛行"), "Chat palette should not contain common abilities");
         assert!(!palette.contains("再生"), "Chat palette should not contain special abilities");
-        assert!(!palette.contains("拘束攻撃"), "Chat palette should not contain part abilities");
+        assert!(!palette.contains("能力AC"), "Chat palette should not contain part abilities");
     }
 
     #[test]

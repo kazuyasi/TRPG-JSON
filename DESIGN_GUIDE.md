@@ -770,11 +770,11 @@ This section defines data structures and query behavior specific to Spells and S
 **3. `Lv.kind: "rank"` (Rank-based)**
 - **CLI flag**: `-r <rank>`
 - **Query behavior**: Returns records where `Lv.rank` exactly matches the specified rank
-- **Use case**: Rank-based progression systems (e.g., "Rank 2 fairy magic")
+- **Use case**: Rank-based progression systems (e.g., "Rank 2 magic")
 - **Value range**: Variable; depends on `schoolVariant` and system implementation
 - **Example**:
   ```json
-  { "name": "妖精魔法ランク2", "Lv": { "kind": "rank", "rank": 2 } }
+  { "name": "丙系魔法ランク2", "Lv": { "kind": "rank", "rank": 2 } }
   ```
   Query: `gm spell find -r 2` → matches this record
 
@@ -788,13 +788,13 @@ This section defines data structures and query behavior specific to Spells and S
 
 **Example**:
 ```json
-{ "name": "特殊神聖魔法", "school": "神聖", "schoolVariant": "特殊" }
+{ "name": "特殊甲系魔法", "school": "甲系", "schoolVariant": "特殊" }
 ```
 Query: `gm spell find -sv 特殊` → matches this record
 
 ### God Field (`god`)
 
-**Applicability**: Only applicable when `schoolVariant == "特殊"` AND `school == "神聖"`
+**Applicability**: Only applicable when `schoolVariant == "特殊"` AND `school == "甲系"`
 
 **CLI flag**: `-g <god_name>`
 
@@ -805,15 +805,15 @@ Query: `gm spell find -sv 特殊` → matches this record
 **Example**:
 ```json
 { 
-  "name": "特殊神聖魔法の例", 
-  "school": "神聖", 
+  "name": "特殊甲系魔法の例", 
+  "school": "甲系", 
   "schoolVariant": "特殊",
   "god": "神名" 
 }
 ```
 Query: `gm spell find -sv 特殊 -g 神名` → matches this record
 
-**Note**: If `schoolVariant` is not "特殊" or `school` is not "神聖", the `god` field is not applicable and should not exist in the data.
+**Note**: If `schoolVariant` is not "特殊" or `school` is not "甲系", the `god` field is not applicable and should not exist in the data.
 
 ## Spell Chat Palette Format
 
@@ -848,7 +848,7 @@ Spell Name / MP:X / 対象:Y / 射程:Z / 時間:T / Effect Description
 
 **Examples:**
 ```
-2d+{神聖魔法}+{行使判定} ゴッド・ジャッジメント / MP:15 / 対象:1エリア(半径4mすべて) / 射程:術者 / 時間:一瞬 / 物理的に神の捌きを下す。
+2d+{甲系魔法}+{行使判定} 呪文名 / MP:15 / 対象:1エリア(半径4mすべて) / 射程:術者 / 時間:一瞬 / 対象に効果を与える。
 ```
 
 **Characteristics:**
@@ -877,7 +877,7 @@ Spell Name / MP:X / 対象:Y / 射程:Z / 時間:T / Effect Description
 
 **When `category` IS exactly 2 full-width characters:**
 - Magic category → `category` + "魔法"
-- Example: If `category` is "妖精", magic category is "妖精魔法"
+- Example: If `category` is "丙系", magic category is "丙系魔法"
 
 #### 対象 (Target)
 **When `対象.kind == "個別"`:**
@@ -1034,7 +1034,7 @@ When using Google Sheets API to insert data:
       "MP": 45,
       "命中力": 21,
       "回避力": 18,
-      "部位特殊能力": "再生＝5",
+      "部位特殊能力": "能力F＝5",
       "防護点": 9,
       "部位数": 1
     },
@@ -1045,7 +1045,7 @@ When using Google Sheets API to insert data:
       "MP": 20,
       "命中力": 19,
       "回避力": 15,
-      "部位特殊能力": "拘束攻撃",
+      "部位特殊能力": "能力AC",
       "防護点": 7,
       "部位数": 2
     }
@@ -1058,11 +1058,11 @@ When using Google Sheets API to insert data:
 | Row | A | L | P | R | T | V | X | Z | AB | AD | AF | AH | AJ | AM | AW |
 |-----|---|---|---|---|---|---|---|---|----|----|----|----|----|----|------|
 | 3 | ★トレント\n(幹) | 105 | 45 | 9 | 13 | 21 | 19 | 3 | - | - | 21 | 18 | SAMPLE | 特殊系統魔法8Lv／11、魔法の才能 | 16/21 |
-| 4 |||||||||||||| 再生＝5 | 炎ダメ+3 |
+| 4 |||||||||||||| 能力F＝5 | 炎ダメ+3 |
 | 5 | トレント\n(根) | 75 | 20 | 7 | - | - | - | 3 | - | - | 19 | 15 | SAMPLE | 特殊系統魔法8Lv／11、魔法の才能 | - |
-| 6 |||||||||||||| 拘束攻撃 | - |
+| 6 |||||||||||||| 能力AC | - |
 | 7 | トレント\n(根) | 75 | 20 | 7 | - | - | - | 3 | - | - | 19 | 15 | SAMPLE | 特殊系統魔法8Lv／11、魔法の才能 | - |
-| 8 |||||||||||||| 拘束攻撃 | - |
+| 8 |||||||||||||| 能力AC | - |
 
 **Notes:**
 - Rows 3-4: First part (幹, コア=true) → "★" prefix, common values output, all fields populated

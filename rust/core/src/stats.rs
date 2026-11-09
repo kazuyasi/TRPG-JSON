@@ -458,8 +458,8 @@ mod tests {
     #[test]
     fn test_spell_stats_total_count() {
         let spells = vec![
-            create_test_spell(3, "神聖魔法", "value"),
-            create_test_spell(7, "操霊魔法", "value"),
+            create_test_spell(3, "甲系魔法", "value"),
+            create_test_spell(7, "乙系魔法", "value"),
         ];
         
         let stats = SpellStats::calculate(&spells);
@@ -469,10 +469,10 @@ mod tests {
     #[test]
     fn test_spell_level_distribution() {
         let spells = vec![
-            create_test_spell(2, "神聖魔法", "value"),  // 1-5
-            create_test_spell(5, "神聖魔法", "value"),  // 1-5
-            create_test_spell(8, "操霊魔法", "value"),  // 6-10
-            create_test_spell(12, "妖精魔法", "value"), // 11-15
+            create_test_spell(2, "甲系魔法", "value"),  // 1-5
+            create_test_spell(5, "甲系魔法", "value"),  // 1-5
+            create_test_spell(8, "乙系魔法", "value"),  // 6-10
+            create_test_spell(12, "丙系魔法", "value"), // 11-15
             create_test_spell(18, "古代語魔法", "value"), // 16+
         ];
         
@@ -491,10 +491,10 @@ mod tests {
     #[test]
     fn test_spell_type_counts() {
         let spells = vec![
-            create_test_spell(3, "神聖魔法", "value"),
-            create_test_spell(5, "操霊魔法", "value+"),
-            create_test_spell(2, "妖精魔法", "rank"),
-            create_test_spell(3, "妖精魔法", "rank"),
+            create_test_spell(3, "甲系魔法", "value"),
+            create_test_spell(5, "乙系魔法", "value+"),
+            create_test_spell(2, "丙系魔法", "rank"),
+            create_test_spell(3, "丙系魔法", "rank"),
         ];
         
         let stats = SpellStats::calculate(&spells);
@@ -506,22 +506,22 @@ mod tests {
     #[test]
     fn test_spell_school_top5() {
         let spells = vec![
-            create_test_spell(3, "神聖魔法", "value"),
-            create_test_spell(3, "神聖魔法", "value"),
-            create_test_spell(3, "神聖魔法", "value"),
-            create_test_spell(5, "操霊魔法", "value"),
-            create_test_spell(5, "操霊魔法", "value"),
-            create_test_spell(7, "妖精魔法", "value"),
+            create_test_spell(3, "甲系魔法", "value"),
+            create_test_spell(3, "甲系魔法", "value"),
+            create_test_spell(3, "甲系魔法", "value"),
+            create_test_spell(5, "乙系魔法", "value"),
+            create_test_spell(5, "乙系魔法", "value"),
+            create_test_spell(7, "丙系魔法", "value"),
         ];
         
         let stats = SpellStats::calculate(&spells);
         
-        // Top 1: 神聖魔法 3件
-        assert_eq!(stats.school_distribution[0].0, "神聖魔法");
+        // Top 1: 甲系魔法 3件
+        assert_eq!(stats.school_distribution[0].0, "甲系魔法");
         assert_eq!(stats.school_distribution[0].1, 3);
         
-        // Top 2: 操霊魔法 2件
-        assert_eq!(stats.school_distribution[1].0, "操霊魔法");
+        // Top 2: 乙系魔法 2件
+        assert_eq!(stats.school_distribution[1].0, "乙系魔法");
         assert_eq!(stats.school_distribution[1].1, 2);
     }
 }

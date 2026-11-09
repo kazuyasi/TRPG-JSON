@@ -164,9 +164,9 @@ enum SpellCommands {
     ///   gm spell find ファイア           # 名前に「ファイア」を含むスペルを検索
     ///   gm spell find ファイア -l 2      # 名前に「ファイア」を含み、レベル2のスペルを検索
     ///   gm spell find ファイア -s 火系  # 名前に「ファイア」を含み、系統「火系」のスペルを検索
-    ///   gm spell find 妖精 -r 3          # 名前に「妖精」を含み、ランク3のスペルを検索
-    ///   gm spell find 神聖 -v 特殊       # 名前に「神聖」を含み、schoolVariant「特殊」のスペルを検索
-    ///   gm spell find 神聖 -v 特殊 -g 神名  # schoolVariant「特殊」かつgod「神名」のスペルを検索
+    ///   gm spell find 丙系 -r 3          # 名前に「丙系」を含み、ランク3のスペルを検索
+    ///   gm spell find 甲系 -v 特殊       # 名前に「甲系」を含み、schoolVariant「特殊」のスペルを検索
+    ///   gm spell find 甲系 -v 特殊 -g 神名  # schoolVariant「特殊」かつgod「神名」のスペルを検索
     Find {
         /// 検索する名前（部分マッチ）
         name: String,

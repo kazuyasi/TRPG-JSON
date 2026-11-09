@@ -476,18 +476,18 @@ mod tests {
     // Magic Category Format Tests (4) - 3個は kazuyasi が実装予定
     // ========================================================================
 
-    /// 魔法系統フォーマット: 2文字（神聖）
+    /// 魔法系統フォーマット: 2文字（甲系）
     #[test]
     fn test_magic_category_2char() {
-        let school = "神聖";
-        assert_eq!(format_magic_category(school), "神聖魔法");
+        let school = "甲系";
+        assert_eq!(format_magic_category(school), "甲系魔法");
     }
 
-    /// 魔法系統フォーマット: 2文字（妖精）
+    /// 魔法系統フォーマット: 2文字（丙系）
     #[test]
-    fn test_magic_category_2char_fairy() {
-        let school = "妖精";
-        assert_eq!(format_magic_category(school), "妖精魔法");
+    fn test_magic_category_2char_alt() {
+        let school = "丙系";
+        assert_eq!(format_magic_category(school), "丙系魔法");
     }
 
     /// 魔法系統フォーマット: 長い名前
@@ -695,16 +695,16 @@ mod tests {
         }));
         extra.insert("射程".to_string(), serde_json::json!("術者"));
         extra.insert("時間".to_string(), serde_json::json!({"value": "一瞬"}));
-        extra.insert("効果".to_string(), serde_json::json!("物理的に神の捌きを下す。"));
+        extra.insert("効果".to_string(), serde_json::json!("対象に効果を与える。"));
 
         let spell = Spell {
-            name: "ゴッド・ジャッジメント".to_string(),
-            school: "神聖".to_string(),
+            name: "呪文名".to_string(),
+            school: "甲系".to_string(),
             extra,
         };
         let result = generate_spell_palette(&spell).unwrap();
         assert!(result.starts_with("2d+"));
-        assert!(result.contains("神聖魔法"));
+        assert!(result.contains("甲系魔法"));
         assert!(result.contains("{行使修正}"));
         assert!(result.contains("MP:15"));
     }
@@ -797,7 +797,7 @@ mod tests {
 
         let spell = Spell {
             name: "テスト".to_string(),
-            school: "神聖".to_string(),
+            school: "甲系".to_string(),
             extra,
         };
         let result = generate_spell_palette(&spell).unwrap();
@@ -830,7 +830,7 @@ mod tests {
     // Integration Tests (3)
     // ========================================================================
 
-    /// 統合テスト: サンプル呪文1（妖精魔法）
+    /// 統合テスト: サンプル呪文1（丙系魔法）
     #[test]
     fn test_palette_with_real_sample_spell_1() {
         let mut extra = std::collections::HashMap::new();
@@ -846,20 +846,20 @@ mod tests {
         }));
         extra.insert("射程".to_string(), serde_json::json!("術者"));
         extra.insert("時間".to_string(), serde_json::json!({"value": "一瞬"}));
-        extra.insert("効果".to_string(), serde_json::json!("妖精の祝福を与える。"));
+        extra.insert("効果".to_string(), serde_json::json!("対象に効果を与える。"));
 
         let spell = Spell {
             name: "フェアリーズブレッシング".to_string(),
-            school: "妖精".to_string(),
+            school: "丙系".to_string(),
             extra,
         };
         let result = generate_spell_palette(&spell).unwrap();
-        assert!(result.contains("妖精魔法"));
+        assert!(result.contains("丙系魔法"));
         assert!(result.contains("フェアリーズブレッシング"));
         assert!(result.contains("3エリア(半径6m空間)"));
     }
 
-    /// 統合テスト: サンプル呪文2（神聖魔法）
+    /// 統合テスト: サンプル呪文2（甲系魔法）
     #[test]
     fn test_palette_with_real_sample_spell_2() {
         let mut extra = std::collections::HashMap::new();
@@ -871,15 +871,15 @@ mod tests {
         }));
         extra.insert("射程".to_string(), serde_json::json!("術者"));
         extra.insert("時間".to_string(), serde_json::json!({"value": 5, "unit": "ラウンド"}));
-        extra.insert("効果".to_string(), serde_json::json!("神聖な力で対象を強化する。"));
+        extra.insert("効果".to_string(), serde_json::json!("対象を強化する。"));
 
         let spell = Spell {
             name: "ホーリーシールド".to_string(),
-            school: "神聖".to_string(),
+            school: "甲系".to_string(),
             extra,
         };
         let result = generate_spell_palette(&spell).unwrap();
-        assert!(result.contains("神聖魔法"));
+        assert!(result.contains("甲系魔法"));
         assert!(result.contains("ホーリーシールド"));
         assert!(result.contains("5ラウンド"));
     }
@@ -949,11 +949,11 @@ mod tests {
 
         let spell = Spell {
             name: "テスト".to_string(),
-            school: "神聖".to_string(),
+            school: "甲系".to_string(),
             extra,
         };
         let result = generate_spell_palette(&spell).unwrap();
         assert!(result.contains("射程:50"));  // 「射程(m)」の値が使われること
-        assert!(result.contains("神聖魔法"));
+        assert!(result.contains("甲系魔法"));
     }
 }

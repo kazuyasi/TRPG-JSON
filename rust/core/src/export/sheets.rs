@@ -311,7 +311,7 @@ mod tests {
                     "回避力": 15,
                     "打撃点": 6,
                     "部位数": 1,
-                    "部位特殊能力": "魔法適性",
+                    "部位特殊能力": "能力A",
                     "防護点": 5
                 },
                 {
@@ -352,7 +352,7 @@ mod tests {
         // 最初のパート（偶数行）
         let part1_even = &rows[1];
         assert_eq!(part1_even.row_number, 4);
-        assert_eq!(part1_even.values[38], Some("魔法適性".to_string()));
+        assert_eq!(part1_even.values[38], Some("能力A".to_string()));
         assert_eq!(part1_even.values[48], Some("ダメ+2".to_string())); // 弱点は最初のパートのみ
 
         // 次のパート（奇数行）

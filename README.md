@@ -70,7 +70,7 @@ gm spell find "spell name" -l 5
 gm spell find "spell name" -r 3
 
 # Search by school
-gm spell find "spell name" -s "神聖"
+gm spell find "spell name" -s "甲系"
 
 # Search by schoolVariant
 gm spell find "spell name" -v "特殊"
@@ -79,8 +79,8 @@ gm spell find "spell name" -v "特殊"
 gm spell find "spell name" -g "神名"
 
 # Combine multiple filters
-gm spell find "magic" -l 3 -s "神聖"
-gm spell find "神聖" -v "特殊" -g "神名"
+gm spell find "magic" -l 3 -s "甲系"
+gm spell find "甲系" -v "特殊" -g "神名"
 
 # List spells matching a pattern
 gm spell list "pattern"
@@ -89,12 +89,12 @@ gm spell list "pattern"
 gm spell palette -n "spell name"
 gm spell palette -l 5              # All level 5 spells
 gm spell palette -r 3              # All rank 3 spells
-gm spell palette -s "神聖"         # All spells of a school
+gm spell palette -s "甲系"         # All spells of a school
 gm spell palette -v "特殊"         # All special variant spells
 gm spell palette -g "神名"         # All spells of a deity
 
 # Combine filters for precise palette generation
-gm spell palette -n "magic" -s "神聖" -l 5
+gm spell palette -n "magic" -s "甲系" -l 5
 gm spell palette -v "特殊" -g "神名"
 
 # Copy spell palette to clipboard (macOS/Linux/Windows)
@@ -136,14 +136,14 @@ gm spell palette "ライト"
 # Output: ライト / MP:3 / 対象:任意の地点 / 射程:10m(起点指定) / 時間:一瞬 / 光源を生成する。
 
 # Generate palette for regular spell (with copy to clipboard)
-gm spell palette "ゴッド・ジャッジメント" -y
-# Output: 2d+{神聖魔法}+{行使修正}  ゴッド・ジャッジメント / MP:15 / 対象:1エリア(半径4m) / 射程:術者 / 時間:一瞬 / ...
+gm spell palette "呪文名" -y
+# Output: 2d+{甲系魔法}+{行使修正}  呪文名 / MP:15 / 対象:1エリア(半径4m) / 射程:術者 / 時間:一瞬 / ...
 ```
 
 #### Magic Category Formatting
 
 Magic categories are automatically formatted:
-- 2-character categories (e.g., "神聖", "妖精") become "神聖魔法", "妖精魔法"
+- 2-character categories (e.g., "甲系", "丙系") become "甲系魔法", "丙系魔法"
 - Longer categories (e.g., "ハイテクノロジー") remain unchanged
 - The `{行使修正}` placeholder is preserved for dicebot substitution
 
