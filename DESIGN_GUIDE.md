@@ -219,14 +219,14 @@ gm select -c "Category" --export sheets --output "Spreadsheet ID"
 - 既存のコマンド構造との統合
 - 認証と API の失敗に対するエラー処理
 
-### Phase 3: System Abstraction
-- Trait-based system separation
-- Support for multiple game systems
-- Reusable query/io modules
-- **Effort**: Medium (5-7 days)
-- **Benefits**: Extensibility for future systems
+### Phase 3: システムの抽象化
+- トレイトによるシステムの分離
+- 複数のゲームシステムへの対応
+- 再利用できる query / io モジュール
+- **工数**: 中（5〜7日）
+- **効果**: 将来のシステムへの拡張性
 
-**Implementation Details:**
+**実装の詳細:**
 ```rust
 // core/src/systems/common.rs
 pub trait GameEntity: Serialize + Deserialize + Clone {
@@ -235,112 +235,112 @@ pub trait GameEntity: Serialize + Deserialize + Clone {
     fn get_category(&self) -> &str;
 }
 
-// Implement for each system
+// システムごとに実装
 impl GameEntity for Monster { ... }  // SW2.5
 impl GameEntity for DndCharacter { ... }  // D&D
 ```
 
-**Steps:**
-1. Create `core/src/systems/` module structure
-2. Define `GameEntity` trait with system-agnostic methods
-3. Implement trait for existing `Monster` struct
-4. Create new system modules (dnd, pathfinder, etc.)
-5. Generalize query functions to work with trait objects
-6. Add system selection to CLI via `--system` flag
+**手順:**
+1. `core/src/systems/` のモジュール構成を作成
+2. システムに依存しないメソッドを持つ `GameEntity` トレイトを定義
+3. 既存の `Monster` 構造体にトレイトを実装
+4. 新しいシステムのモジュール（dnd、pathfinder など）を作成
+5. トレイトオブジェクトで動くよう検索関数を汎用化
+6. `--system` フラグで CLI からシステムを選べるようにする
 
-## Future Considerations
+## 今後の検討事項
 
-### SQLite Local Backend (Optional)
-For larger datasets or advanced querying:
-- Local SQLite database instead of JSON files
-- Indexed search for >10k entities
-- Complex query support (joins, aggregations)
-- **Note**: Consider if repository becomes public with sample data
+### SQLite のローカルバックエンド（任意）
+より大きなデータセットや高度な検索のために:
+- JSON ファイルの代わりにローカルの SQLite データベースを使う
+- 1万件を超えるエンティティのインデックス検索
+- 複雑な検索への対応（結合、集計）
+- **注意**: レポジトリをサンプルデータ付きで公開する場合に検討する
 
-### Data Format Flexibility
-Current implementation uses JSON. Other formats could be evaluated:
-- YAML: More readable for TRPG data structures
-- TOML: Already used for configuration
-- **Deferred**: Revisit after Phase 3 system abstraction
+### データ形式の柔軟性
+現在の実装は JSON を使っています。他の形式も検討できます。
+- YAML: TRPG のデータ構造をより読みやすく書ける
+- TOML: すでに設定に使っている
+- **保留**: Phase 3 のシステム抽象化の後で再検討する
 
-### Open Source & Data Privacy
-- **Code**: Can be licensed as open source (Apache 2.0, MIT, etc.)
-- **Data**: Book-derived data requires copyright management
-- **Solution**: Separate sample data from production data
-- **Status**: Hold until sample data available
+### オープンソースとデータのプライバシー
+- **コード**: オープンソースのライセンス（Apache 2.0、MIT など）にできる
+- **データ**: 書籍に由来するデータは著作権の管理が必要
+- **解決策**: サンプルデータと本番データを分ける
+- **状況**: サンプルデータが用意できるまで保留
 
-## Immediate Next Steps (If Needed)
+## 当面の次の手順（必要な場合）
 
-1. **Add Configuration File Support**:
-   - Create `config/default.toml`
-   - Use `config` crate or `toml` crate
-   - Allow path override via CLI flag: `gm --config config/custom.toml find "name"`
+1. **設定ファイルへの対応を追加**:
+   - `config/default.toml` を作成する
+   - `config` クレートか `toml` クレートを使う
+   - CLI のフラグでパスを上書きできるようにする: `gm --config config/custom.toml find "name"`
 
-2. **Parameterize Data Path**:
-   - Change hardcoded path to function parameter
-   - Pass from `main()` through handler functions
-   - Load from config file instead
+2. **データパスをパラメータにする**:
+   - ハードコードされたパスを関数の引数に変える
+   - `main()` からハンドラ関数へ渡す
+   - 代わりに設定ファイルから読み込む
 
-3. **Add Unit Tests** for new scenarios:
-   - Multiple file loading
-   - Configuration parsing
-   - Error handling for missing files
+3. 新しいシナリオの**単体テストを追加**:
+   - 複数ファイルの読み込み
+   - 設定の解析
+   - ファイルが無い場合のエラー処理
 
-## Code Organization Best Practices
+## コード構成のベストプラクティス
 
 ```
 trpg-json/
 ├── core/
 │   ├── src/
 │   │   ├── lib.rs
-│   │   ├── models.rs          # Monster, Part, etc.
-│   │   ├── query.rs           # Search functions
-│   │   ├── io.rs              # File I/O
+│   │   ├── models.rs          # Monster、Part など
+│   │   ├── query.rs           # 検索の関数
+│   │   ├── io.rs              # ファイルの入出力
 │   │   ├── systems/
 │   │   │   ├── mod.rs
-│   │   │   ├── system_a.rs    # System A specific
-│   │   │   ├── common.rs      # Shared traits
-│   │   └── config.rs          # Configuration loading
+│   │   │   ├── system_a.rs    # システム A 固有
+│   │   │   ├── common.rs      # 共通のトレイト
+│   │   └── config.rs          # 設定の読み込み
 │   └── Cargo.toml
 ├── app/
 │   ├── src/
-│   │   ├── main.rs            # Entry point & routing
+│   │   ├── main.rs            # エントリポイントとルーティング
 │   │   ├── commands/
 │   │   │   ├── mod.rs
-│   │   │   ├── monster.rs     # Monster command handlers
-│   │   │   └── spell.rs       # Spell command handlers
-│   │   └── utils.rs           # Shared I/O & UI utilities
+│   │   │   ├── monster.rs     # モンスターのコマンドのハンドラ
+│   │   │   └── spell.rs       # スペルのコマンドのハンドラ
+│   │   └── utils.rs           # 共通の入出力と UI のユーティリティ
 │   └── Cargo.toml
 ├── config/
-│   └── default.toml           # Default configuration
+│   └── default.toml           # 既定の設定
 ├── data/
 │   ├── systems/
-│   │   ├── monsters.json      # Encrypted
-│   │   └── items.json         # Future
-│   └── samples/               # Sample data
+│   │   ├── monsters.json      # 暗号化済み
+│   │   └── items.json         # 将来
+│   └── samples/               # サンプルデータ
 └── README.md
 ```
 
-## Security Considerations
+## セキュリティの考慮事項
 
-### Encrypted Data
-- All production data files must remain under `git-crypt` encryption
-- Development environment: decrypt only when needed
-- CI/CD: Use encrypted credentials or offline processing
+### 暗号化されたデータ
+- 本番のデータファイルはすべて `git-crypt` で暗号化したままにする
+- 開発環境: 必要なときだけ復号する
+- CI/CD: 暗号化した認証情報を使うか、オフラインで処理する
 
-### Configuration Files
-- Keep `.gitignore` entry for local config overrides
-- Example: `config/local.toml` (not committed)
-- Production config committed with encryption
+### 設定ファイル
+- ローカルの設定の上書き用に `.gitignore` の記載を維持する
+- 例: `config/local.toml`（コミットしない）
+- 本番の設定は暗号化してコミットする
 
-### Multi-System Support
-- Separate data directories per system
-- Each system can have independent encryption policy
-- Validate system compatibility before loading
+### 複数システムへの対応
+- システムごとにデータディレクトリを分ける
+- システムごとに独立した暗号化の方針を持てる
+- 読み込む前にシステムの互換性を検証する
 
-## Testing Strategy
+## テスト戦略
 
-### Unit Tests
+### 単体テスト
 ```rust
 #[cfg(test)]
 mod tests {
@@ -355,10 +355,10 @@ mod tests {
 }
 ```
 
-### Integration Tests
-- Test loading from different data sources
-- Test error handling (missing files, invalid format)
-- Test mixed system scenarios
+### 統合テスト
+- 異なるデータソースからの読み込みをテストする
+- エラー処理（ファイルが無い、形式が不正）をテストする
+- システムが混在するシナリオをテストする
 
 ## Migration Guide: Single File → Multiple Files
 
