@@ -899,90 +899,90 @@ Spell Name / MP:X / 対象:Y / 射程:Z / 時間:T / Effect Description
 
 ---
 
-## Google Sheets Export Format
+## Google Sheets エクスポート形式
 
-### Design Principles
-- **Text only**: No formatting, cell formulas, or styling
-- **Cell merging**: Preserve existing cell merges; cells have mixed merging patterns (some vertical, some horizontal)
-- **Line breaks**: Represented as `\n` in specification; actual cell content uses real line breaks
-- **Language**: All output field names in Japanese
-- **Row structure**: 2 rows per part (part A line + part B line)
-- **Multiple parts**: Output n parts × 2 rows each
-  - Example: Trent with 3 parts (幹, 根, 根) → 2 rows + 2 rows + 2 rows = 6 rows total
-  - Example: Single-part monster → 2 rows total
-- **Missing part data**: Fill with "-" except for `name` and `共通特殊能力` columns
-- **Empty/negative values**: Convert to "-"
-- **Output target**: "search" sheet only
-- **Insertion point**: Scan from row 3, find first empty cell in odd rows (row 3, 5, 7, 9...) of column A; insert there
-- **Error handling**: If no empty row found, display error and cancel export
-- **Weakness field transformation**: In `弱点` column, replace "エネルギー" with "E" and "ダメージ" with "ダメ"; remove "属性"
-- **`\n()` handling**: If content inside `\n()` is empty, omit the entire `\n()` wrapper
+### 設計の原則
+- **テキストのみ**: 書式、セルの数式、スタイルは使わない
+- **セルの結合**: 既存のセルの結合を保持する。結合のパターンは混在している（縦方向のものも横方向のものもある）
+- **改行**: 仕様では `\n` で表すが、実際のセルの内容では本物の改行を使う
+- **言語**: 出力するフィールド名はすべて日本語
+- **行の構成**: 部位ごとに2行（部位の A 行 + 部位の B 行）
+- **複数部位**: n 部位 × 各2行を出力する
+  - 例: 部位が3つ（幹, 根, 根）のトレント → 2行 + 2行 + 2行 = 合計6行
+  - 例: 部位が1つのモンスター → 合計2行
+- **部位のデータが無い場合**: `name` と `共通特殊能力` の列以外は "-" で埋める
+- **空または負の値**: "-" に変換する
+- **出力先**: "search" シートのみ
+- **挿入位置**: 3行目から走査し、A 列の奇数行（3, 5, 7, 9...行目）で最初の空セルを見つけて、そこに挿入する
+- **エラー処理**: 空の行が見つからなければ、エラーを表示してエクスポートを中止する
+- **弱点フィールドの変換**: `弱点` の列で "エネルギー" を "E"、"ダメージ" を "ダメ" に置き換え、"属性" を削除する
+- **`\n()` の扱い**: `\n()` の中身が空なら、`\n()` 全体を省く
 
-### Row Output Structure
-**For each part in the monster's `part` array:**
+### 行の出力構造
+**モンスターの `part` 配列の各部位について:**
 
-1. **First line (odd-numbered row in output)**:
-   - Columns with single-part data: Output the value
-   - Common data (`name`, `共通特殊能力`, etc.): Output the value
-   - Example: Row 3 for first part
+1. **1行目（出力の奇数行）**:
+   - 部位ごとのデータの列: 値を出力する
+   - 共通のデータ（`name`、`共通特殊能力` など）: 値を出力する
+   - 例: 最初の部位なら3行目
 
-2. **Second line (even-numbered row in output)**:
-   - Output Part-specific special abilities(`部位特殊能力`)
-   - Output Weakness debuff with field transformations(`弱点`)
-   - Output Only two above values
-   - Example: Row 4 for first part
+2. **2行目（出力の偶数行）**:
+   - 部位ごとの特殊能力（`部位特殊能力`）を出力する
+   - フィールド変換を適用した弱点のデバフ（`弱点`）を出力する
+   - 上の2つの値だけを出力する
+   - 例: 最初の部位なら4行目
 
-**For Trent example (2 parts: 幹 + 根(x2)):**
-- Row 3: First part (幹) data + common data
-- Row 4: First part (幹) Part-specific special abilities + Weakness
-- Row 5: Second part (根) data + common data
-- Row 6: Second part (根) Part-specific special abilities + Weakness
-- Row 7: Second part (根) data + common data
-- Row 8: Second part (根) Part-specific special abilities + Weakness
-- Common data fields repeat in all rows (3, 4, 5, 6, 7, 8)
+**トレントの例（2部位: 幹 + 根(x2)）:**
+- 3行目: 1つ目の部位（幹）のデータ + 共通のデータ
+- 4行目: 1つ目の部位（幹）の部位ごとの特殊能力 + 弱点
+- 5行目: 2つ目の部位（根）のデータ + 共通のデータ
+- 6行目: 2つ目の部位（根）の部位ごとの特殊能力 + 弱点
+- 7行目: 2つ目の部位（根）のデータ + 共通のデータ
+- 8行目: 2つ目の部位（根）の部位ごとの特殊能力 + 弱点
+- 共通のデータのフィールドはすべての行（3, 4, 5, 6, 7, 8）で繰り返す
 
-### Column Mapping
+### 列の対応
 
-| Cell | Output Data | Notes |
+| セル | 出力するデータ | 備考 |
 |------|------------|-------|
-| A | `name` with `part.name` | Format: `name` if `part.name` is empty; `name\n(part.name)` if present. Prefix "★" if `コア==true` |
-| L | `part.HP` | Part hit points |
-| P | `part.MP` | Part magic points; "-" if negative or -1 |
-| R | `part.防護点` | Part defense rating |
-| T | `先制値` | Initiative; "-" for non-first parts |
-| V | `生命抵抗力` | Life resistance; "-" for non-first parts |
-| X | `精神抵抗力` | Spirit resistance; "-" for non-first parts |
-| Z | "3" | Fixed constant value (rule constraint) |
-| AB | `moveon\n(moveon_des)` | Ground movement speed and description; "-" if `moveon==-1` |
-| AD | `movein\n(movein_des)` | Aerial movement speed and description; "-" if `movein==-1` |
-| AF | `part.命中力` | Part accuracy |
-| AH | `part.回避力` | Part evasion |
-| AJ | `data` | Rulebook reference page |
-| AM（odd row） | `共通特殊能力` | Common special abilities (repeats for all rows of same monster) |
-| AM+1(even row) | `part.部位特殊能力` | Part-specific special abilities |
-| AW(odd row) | `知名度 / 弱点値` | Knowledge rating / weakness value; "-" for non-first parts |
-| AW+1(even row) | `弱点` (transformed) | Weakness debuff with field transformations; "-" for non-first parts |
+| A | `name` と `part.name` | 形式: `part.name` が空なら `name`、あれば `name\n(part.name)`。`コア==true` なら先頭に "★" を付ける |
+| L | `part.HP` | 部位の HP |
+| P | `part.MP` | 部位の MP。負の値または -1 なら "-" |
+| R | `part.防護点` | 部位の防護点 |
+| T | `先制値` | 先制値。最初の部位以外は "-" |
+| V | `生命抵抗力` | 生命抵抗力。最初の部位以外は "-" |
+| X | `精神抵抗力` | 精神抵抗力。最初の部位以外は "-" |
+| Z | "3" | 固定の定数（ルール上の制約） |
+| AB | `moveon\n(moveon_des)` | 地上の移動速度と説明。`moveon==-1` なら "-" |
+| AD | `movein\n(movein_des)` | 空中の移動速度と説明。`movein==-1` なら "-" |
+| AF | `part.命中力` | 部位の命中力 |
+| AH | `part.回避力` | 部位の回避力 |
+| AJ | `data` | ルールブックの参照ページ |
+| AM（奇数行） | `共通特殊能力` | 共通特殊能力（同じモンスターのすべての行で繰り返す） |
+| AM+1（偶数行） | `part.部位特殊能力` | 部位ごとの特殊能力 |
+| AW（奇数行） | `知名度 / 弱点値` | 知名度 / 弱点値。最初の部位以外は "-" |
+| AW+1（偶数行） | `弱点`（変換後） | フィールド変換を適用した弱点のデバフ。最初の部位以外は "-" |
 
-### Cell Merge Structure
+### セル結合の構造
 
-**Cells merged both vertically and horizontally (across rows and columns):**
-- Multiple small grid cells are merged both vertically across rows and horizontally across columns (Example for rows 3-4: A3:G4, H3:I4, J3:K4, N3:O4, P3:Q4, R3:S4, T3:U4, V3:W4, X3:Y4, Z3:AA4, AB3:AC4, AD3:AE4, AF3:AG4, AH3:AI4, AJ3:AL4)
-   - **Data placement**: Only fill cells in odd-numbered rows (first line of each part)
-   - **Even rows**: Leave completely empty; the cell merge automatically spans from the odd row above
-   - When outputting to Google Sheets API, do not write any data to even-row cells in these columns
+**縦と横の両方向に結合されたセル（行と列をまたぐ）:**
+- 複数の小さなグリッドセルが、行をまたいで縦に、列をまたいで横に結合されている（3〜4行目の例: A3:G4, H3:I4, J3:K4, N3:O4, P3:Q4, R3:S4, T3:U4, V3:W4, X3:Y4, Z3:AA4, AB3:AC4, AD3:AE4, AF3:AG4, AH3:AI4, AJ3:AL4)
+   - **データの配置**: 奇数行（各部位の1行目）のセルだけに書き込む
+   - **偶数行**: 完全に空のままにする。セルの結合により、上の奇数行から自動的に広がる
+   - Google Sheets API へ出力するとき、これらの列の偶数行のセルには何も書き込まない
 
-**Cells merged only horizontally (across columns only):**
-- Merging pattern is as shown in parentheses (Example for rows 3-4: AM3:AV3, AM4:AV4, AW3:AX3, AW4:AX4)
-   - Column AM (`共通特殊能力`): Write to target odd rows only (if multiple parts, copy the same value to all rows)
-   - Column AM+1 (`part.部位特殊能力`): Write to target even rows only (if multiple parts, copy the same value to all rows, but values differ per part)
-   - Column AW (`知名度 / 弱点値`): Write only for the first part in the target rows (to odd rows); fill other odd rows with "-/-"
-   - Column AW+1 (`弱点`): Write only for the first part in the target rows (to even rows); fill other even rows with "-"
+**横方向にだけ結合されたセル（列のみをまたぐ）:**
+- 結合のパターンは括弧内のとおり（3〜4行目の例: AM3:AV3, AM4:AV4, AW3:AX3, AW4:AX4）
+   - AM 列（`共通特殊能力`）: 対象の奇数行だけに書き込む（複数部位なら、すべての行に同じ値をコピーする）
+   - AM+1 列（`part.部位特殊能力`）: 対象の偶数行だけに書き込む（複数部位なら、すべての行に同じ値をコピーするが、値は部位ごとに異なる）
+   - AW 列（`知名度 / 弱点値`）: 対象の行のうち最初の部位についてだけ（奇数行へ）書き込む。他の奇数行は "-/-" で埋める
+   - AW+1 列（`弱点`）: 対象の行のうち最初の部位についてだけ（偶数行へ）書き込む。他の偶数行は "-" で埋める
 
-**Implementation Note:**
-When using Google Sheets API to insert data:
-1. Cells merged both vertically and horizontally (A-AJ): Write data only to specified odd rows; do not write to even rows or unspecified odd rows
-2. Cells merged only horizontally (AM-AW+1): Output different data to specified odd and even rows respectively; do not write to unspecified sections
-3. Preserve existing cell merge formatting; API call must maintain merge structure
+**実装上の注意:**
+Google Sheets API でデータを挿入するとき:
+1. 縦と横の両方向に結合されたセル（A-AJ）: 指定の奇数行だけにデータを書き込む。偶数行や指定外の奇数行には書き込まない
+2. 横方向にだけ結合されたセル（AM-AW+1）: 指定の奇数行と偶数行にそれぞれ別のデータを出力する。指定外の部分には書き込まない
+3. 既存のセル結合の書式を保持する。API の呼び出しは結合の構造を維持しなければならない
 
 ### Field Transformation Rules
 
