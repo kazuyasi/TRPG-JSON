@@ -675,134 +675,134 @@ gm find "Monster Name" -l 3                 # System A のモンスターを検�
 - 部位ごとの HP、MP、armor、hit_rate-7、dodge-7、life_resistance-7、mental_resistance-7 を出力する
 - 抵抗値を含める（抵抗判定のロールのため）
 
-### File Output Strategy
+### ファイル出力の方針
 
-**CLI Usage:**
+**CLI の使い方:**
 ```bash
 gm export --export udonarium --output <zip_file_path>
-# Example:
+# 例:
 gm export --export udonarium --output ゴブリン.zip
 gm export --export udonarium --output /path/to/monsters.zip
 ```
 
-**Single-part monsters:**
-- Output format: ZIP file containing single XML file
-- File naming inside ZIP: `(monster_name).xml`
-- Example: `--output ゴブリン.zip` creates a ZIP file containing `ゴブリン.xml`
+**部位が1つのモンスター:**
+- 出力形式: XML ファイルを1つ含む ZIP ファイル
+- ZIP の中のファイル名: `(monster_name).xml`
+- 例: `--output ゴブリン.zip` で `ゴブリン.xml` を含む ZIP ファイルを作成する
 
-**Multi-part monsters (including multiple core parts):**
-- Output format: ZIP file containing multiple XML files
-- File naming convention inside ZIP: `(monster_name)_(part_name)(no).xml`
-- Example: `--output トレント.zip` creates a ZIP file containing:
+**複数部位のモンスター（コア部位が複数あるものを含む）:**
+- 出力形式: 複数の XML ファイルを含む ZIP ファイル
+- ZIP の中のファイル名の規則: `(monster_name)_(part_name)(no).xml`
+- 例: `--output トレント.zip` で次のファイルを含む ZIP ファイルを作成する
   ```
-  トレント_幹.xml (core part - includes 戦闘準備 情報 魔物知識)
-  トレント_根0.xml (non-core part)
-  トレント_根1.xml (non-core part)
+  トレント_幹.xml (コア部位 - 戦闘準備 情報 魔物知識 を含む)
+  トレント_根0.xml (コア以外の部位)
+  トレント_根1.xml (コア以外の部位)
   ```
-- Example with multiple core parts: `--output アンシェント・ドラゴン.zip` creates:
+- コア部位が複数ある例: `--output アンシェント・ドラゴン.zip` で次のファイルを作成する
   ```
-  アンシェント・ドラゴン_頭0.xml (core part - includes 戦闘準備 情報 魔物知識)
-  アンシェント・ドラゴン_頭1.xml (core part - includes 戦闘準備 情報 魔物知識)
-  アンシェント・ドラゴン_防護膜.xml (non-core part)
+  アンシェント・ドラゴン_頭0.xml (コア部位 - 戦闘準備 情報 魔物知識 を含む)
+  アンシェント・ドラゴン_頭1.xml (コア部位 - 戦闘準備 情報 魔物知識 を含む)
+  アンシェント・ドラゴン_防護膜.xml (コア以外の部位)
   ```
 
-### Part Naming Algorithm
+### 部位の命名アルゴリズム
 
-1. If `part.name` is empty, use "core" for コア=true, use sequential number for others
-2. If `part.name` is provided, use that name
-3. For duplicate names (e.g., multiple "根" parts), append sequential number (0, 1, 2...)
+1. `part.name` が空なら、コア=true には "core" を使い、それ以外には連番を使う
+2. `part.name` があれば、その名前を使う
+3. 名前が重複する場合（例: "根" の部位が複数ある）は、連番（0, 1, 2...）を付ける
 
-**Examples:**
-- Part with `name=""` and `コア=true` → `monster.xml`
-- Part with `name=""` and `コア=false` (first) → `monster_0.xml`
-- Part with `name="幹"` and `コア=true` → `monster_幹.xml`
-- Parts with `name="根"` → `monster_根0.xml`, `monster_根1.xml`
+**例:**
+- `name=""` で `コア=true` の部位 → `monster.xml`
+- `name=""` で `コア=false` の部位（最初のもの）→ `monster_0.xml`
+- `name="幹"` で `コア=true` の部位 → `monster_幹.xml`
+- `name="根"` の部位 → `monster_根0.xml`、`monster_根1.xml`
 
-### Implementation Notes
+### 実装上の注意
 
-- Location attributes (location.x, location.y) set to "0" by default
-- All other character attributes (posZ, rotate, roll) set to "0"
-- Dicebot set to "SwordWorld2.5"
-- numberResource elements use `currentValue` attribute for convenience
-- Data transformation handles empty/null values as "-" where appropriate
+- 位置の属性（location.x、location.y）は既定で "0" にする
+- その他のキャラクター属性（posZ、rotate、roll）は "0" にする
+- ダイスボットは "SwordWorld2.5" にする
+- numberResource 要素では、利便性のために `currentValue` 属性を使う
+- データの変換では、必要に応じて空や null の値を "-" として扱う
 
-## Spell and Skill Data Structure Specification
+## スペルとスキルのデータ構造の仕様
 
-This section defines data structures and query behavior specific to Spells and Skills.
+この節では、スペルとスキルに固有のデータ構造と検索の動作を定義します。
 
-### Level Field (`Lv` struct)
+### レベルのフィールド（`Lv` 構造体）
 
-**Scope**: Applies to Spells and Skills only (Monsters use a simple `level: i32` field instead of the `Lv` struct)
+**適用範囲**: スペルとスキルのみ（モンスターは `Lv` 構造体ではなく単純な `level: i32` フィールドを使う）
 
-**Mutual Exclusivity**: The `Lv.kind` field must contain exactly one of three mutually exclusive variants:
-- `"value"`: Fixed level (e.g., "spell acquired at level 3")
-- `"value+"`: Minimum level (e.g., "skill available at level 5 or higher")
-- `"rank"`: Rank-based progression (e.g., "rank 2 ability")
+**排他性**: `Lv.kind` フィールドには、互いに排他的な次の3種類のうち、ちょうど1つが入らなければならない
+- `"value"`: 固定のレベル（例: 「レベル3で習得するスペル」）
+- `"value+"`: 最低レベル（例: 「レベル5以上で使えるスキル」）
+- `"rank"`: ランク制の成長（例: 「ランク2の能力」）
 
-**CLI Query Flags**: 
-- `-l` (level filter) and `-r` (rank filter) cannot be used simultaneously
-- Querying by level (`-l`) searches records with `Lv.kind: "value"` or `"value+"`
-- Querying by rank (`-r`) searches records with `Lv.kind: "rank"`
+**CLI の検索フラグ**:
+- `-l`（レベルのフィルタ）と `-r`（ランクのフィルタ）は同時に使えない
+- レベル（`-l`）での検索は、`Lv.kind: "value"` または `"value+"` のレコードを対象にする
+- ランク（`-r`）での検索は、`Lv.kind: "rank"` のレコードを対象にする
 
-#### `Lv.kind` Variants and Query Behavior
+#### `Lv.kind` の種類と検索の動作
 
-**1. `Lv.kind: "value"` (Fixed Level)**
-- **CLI flag**: `-l <level>`
-- **Query behavior**: Returns records where `Lv.value` exactly matches the specified level
-- **Use case**: Spells with fixed acquisition level (e.g., "Fire Ball" acquired at level 3)
-- **Example**:
+**1. `Lv.kind: "value"`（固定のレベル）**
+- **CLI のフラグ**: `-l <level>`
+- **検索の動作**: `Lv.value` が指定のレベルと完全に一致するレコードを返す
+- **用途**: 習得レベルが固定のスペル（例: レベル3で習得する "Fire Ball"）
+- **例**:
   ```json
   { "name": "ファイア・ボール", "Lv": { "kind": "value", "value": 3 } }
   ```
-  Query: `gm spell find -l 3` → matches this record
+  検索: `gm spell find -l 3` → このレコードに一致する
 
-**2. `Lv.kind: "value+"` (Minimum Level)**
-- **CLI flag**: `-l <level>`
-- **Query behavior**: Returns records where `Lv.value+` is less than or equal to the specified level
-- **Use case**: Skills available from a minimum level onward (e.g., "Skill available at level 5 or higher")
-- **Example**:
+**2. `Lv.kind: "value+"`（最低レベル）**
+- **CLI のフラグ**: `-l <level>`
+- **検索の動作**: `Lv.value+` が指定のレベル以下であるレコードを返す
+- **用途**: 最低レベル以上で使えるスキル（例: 「レベル5以上で使えるスキル」）
+- **例**:
   ```json
   { "name": "上級剣術", "Lv": { "kind": "value+", "value+": 5 } }
   ```
-  Query: `gm skill find -l 7` → matches (since 5 ≤ 7)
-  Query: `gm skill find -l 3` → does NOT match (since 5 > 3)
+  検索: `gm skill find -l 7` → 一致する（5 ≤ 7 のため）
+  検索: `gm skill find -l 3` → 一致しない（5 > 3 のため）
 
-**3. `Lv.kind: "rank"` (Rank-based)**
-- **CLI flag**: `-r <rank>`
-- **Query behavior**: Returns records where `Lv.rank` exactly matches the specified rank
-- **Use case**: Rank-based progression systems (e.g., "Rank 2 magic")
-- **Value range**: Variable; depends on `schoolVariant` and system implementation
-- **Example**:
+**3. `Lv.kind: "rank"`（ランク制）**
+- **CLI のフラグ**: `-r <rank>`
+- **検索の動作**: `Lv.rank` が指定のランクと完全に一致するレコードを返す
+- **用途**: ランク制の成長システム（例: 「ランク2の魔法」）
+- **値の範囲**: 可変。`schoolVariant` とシステムの実装による
+- **例**:
   ```json
   { "name": "丙系魔法ランク2", "Lv": { "kind": "rank", "rank": 2 } }
   ```
-  Query: `gm spell find -r 2` → matches this record
+  検索: `gm spell find -r 2` → このレコードに一致する
 
-### School Variant Field (`schoolVariant`)
+### 系統バリアントのフィールド（`schoolVariant`）
 
-**CLI flag**: `-sv <variant>`
+**CLI のフラグ**: `-sv <variant>`
 
-**Query behavior**: 
-- Returns records where `schoolVariant` exactly matches the specified value (exact match only)
-- If `-sv` flag is specified, records without a `schoolVariant` field (or with `null` value) are excluded from results
+**検索の動作**:
+- `schoolVariant` が指定の値と完全に一致するレコードを返す（完全一致のみ）
+- `-sv` フラグを指定すると、`schoolVariant` フィールドが無い（または値が `null` の）レコードは結果から除外される
 
-**Example**:
+**例**:
 ```json
 { "name": "特殊甲系魔法", "school": "甲系", "schoolVariant": "特殊" }
 ```
-Query: `gm spell find -sv 特殊` → matches this record
+検索: `gm spell find -sv 特殊` → このレコードに一致する
 
-### God Field (`god`)
+### 神のフィールド（`god`）
 
-**Applicability**: Only applicable when `schoolVariant == "特殊"` AND `school == "甲系"`
+**適用範囲**: `schoolVariant == "特殊"` かつ `school == "甲系"` の場合にのみ適用される
 
-**CLI flag**: `-g <god_name>`
+**CLI のフラグ**: `-g <god_name>`
 
-**Query behavior**:
-- Returns records where `god` exactly matches the specified value (exact match only)
-- If `-g` flag is specified, records without a `god` field (or with `null` value) are excluded from results
+**検索の動作**:
+- `god` が指定の値と完全に一致するレコードを返す（完全一致のみ）
+- `-g` フラグを指定すると、`god` フィールドが無い（または値が `null` の）レコードは結果から除外される
 
-**Example**:
+**例**:
 ```json
 { 
   "name": "特殊甲系魔法の例", 
@@ -811,9 +811,9 @@ Query: `gm spell find -sv 特殊` → matches this record
   "god": "神名" 
 }
 ```
-Query: `gm spell find -sv 特殊 -g 神名` → matches this record
+検索: `gm spell find -sv 特殊 -g 神名` → このレコードに一致する
 
-**Note**: If `schoolVariant` is not "特殊" or `school` is not "甲系", the `god` field is not applicable and should not exist in the data.
+**注意**: `schoolVariant` が "特殊" でない、または `school` が "甲系" でない場合、`god` フィールドは適用されず、データに存在すべきではない。
 
 ## Spell Chat Palette Format
 
