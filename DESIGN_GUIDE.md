@@ -526,63 +526,63 @@ gm find "Monster Name" -l 3                 # System A のモンスターを検�
 - **メモリ**: 全モンスターをメモリに読み込む（10万件未満なら十分）
 - **ディスク**: JSON 形式は人が読めるが圧縮されていない（将来の最適化を検討する）
 
-## Status & Next Steps
+## 状況と次の手順
 
-### Current Implementation Status (as of 2025-11-30)
-- ✅ **Phase 1**: Single system, basic CRUD operations
-- ✅ **Phase 2**: Multiple data files, configuration file support, home directory paths
-- ⏳ **Phase 2.5**: External data export capabilities (next priority)
-- ⏳ **Phase 3**: System abstraction (planned after Phase 2.5)
-- 📌 **Future**: SQLite backend (optional), data format flexibility
+### 現在の実装状況（2025-11-30 時点）
+- ✅ **Phase 1**: 単一システム、基本的な CRUD 操作
+- ✅ **Phase 2**: 複数データファイル、設定ファイルへの対応、ホームディレクトリのパス
+- ⏳ **Phase 2.5**: 外部へのデータエクスポート機能（次の優先事項）
+- ⏳ **Phase 3**: システムの抽象化（Phase 2.5 の後に予定）
+- 📌 **将来**: SQLite バックエンド（任意）、データ形式の柔軟性
 
-### Decisions Made
-- **Priority**: Files (Phase 2) ✓ → Data Export (Phase 2.5) → Systems (Phase 3)
-- **Config format**: TOML (chose over YAML for simplicity)
-- **Path resolution**: Home directory relative (supports `~` expansion)
-- **Data merge**: Load all files into single collection for unified query
-- **Export format**: JSON and Google Sheets supported
-- **Manual execution**: Data export is user-triggered, no automation needed
-- **Phase 4**: Not planned (scope limited to core functionality)
-- **Extensibility**: Design supports adding new game systems and export formats
+### 決定事項
+- **優先順位**: ファイル（Phase 2）✓ → データエクスポート（Phase 2.5）→ システム（Phase 3）
+- **設定の形式**: TOML（単純さのため YAML ではなくこちらを選択）
+- **パスの解決**: ホームディレクトリからの相対パス（`~` の展開に対応）
+- **データの統合**: すべてのファイルを1つのコレクションに読み込み、まとめて検索する
+- **エクスポート形式**: JSON と Google Sheets に対応
+- **手動実行**: データのエクスポートはユーザーが実行し、自動化は不要
+- **Phase 4**: 予定なし（範囲は中核の機能に限定）
+- **拡張性**: 新しいゲームシステムやエクスポート形式を追加できる設計
 
-### Questions for Future Implementation
-- **Phase 3 Timing**: Begin when SW2.5 coverage is stable (current or next milestone)
-- **Database choice**: SQLite for local (preferred), PostgreSQL for remote (future)
-- **Caching strategy**: Consider Redis for API-backed data
-- **Multi-system config**: One file per system or unified config?
+### 今後の実装に向けた検討事項
+- **Phase 3 の時期**: SW2.5 の対応範囲が安定したら開始する（今回または次のマイルストーン）
+- **データベースの選択**: ローカルは SQLite（優先）、リモートは PostgreSQL（将来）
+- **キャッシュの戦略**: API から取得するデータには Redis を検討する
+- **複数システムの設定**: システムごとに1ファイルか、統合した設定か
 
-### Recommended Next Steps (Priority Order)
-1. **Phase 2.5 (Medium effort, high value)** - External data export capabilities
-2. **Phase 3 (Medium effort, high value)** - System abstraction for additional game systems
-3. **Enhanced validation** - Stricter JSON schema validation per system
-4. **Performance optimization** - For large datasets (>10k entities)
-5. **Documentation** - Comprehensive user guides and examples
+### 推奨する次の手順（優先順）
+1. **Phase 2.5（工数は中、価値は高い）** - 外部へのデータエクスポート機能
+2. **Phase 3（工数は中、価値は高い）** - ゲームシステムを追加するためのシステムの抽象化
+3. **検証の強化** - システムごとのより厳密な JSON スキーマの検証
+4. **性能の最適化** - 大きなデータセット（1万件を超えるエンティティ）向け
+5. **ドキュメント** - 包括的なユーザーガイドと例
 
 
-## Udonarium Export Format
+## Udonarium エクスポート形式
 
-### Design Principles
-- **Output format**: ZIP file containing XML file(s) for all monsters (single-part and multi-part)
-- **CLI flag**: `--export udonarium --output <zip_file_path>` specifies the ZIP output file path
-- **File naming (inside ZIP)**: Individual XML files follow naming convention:
-  - Single-part: `(monster_name).xml`
-  - Multi-part: `(monster_name)_(part_name)(no).xml` for each part
-  - Examples:
-    - Single-part: `ゴブリン.xml` inside `ゴブリン.zip`
-    - Multi-part: `トレント_幹.xml`, `トレント_根0.xml`, `トレント_根1.xml` inside `トレント.zip`
-- **Template selection**: Core template used for all parts (both コア=true and コア=false)
-- **XML structure**: Based on Udonarium character format with nested `<data>` elements
-- **Chat palette**: Auto-generated with hit, dodge, and resistance checks only (no special abilities)
-- **Field mapping**: TRPG-JSON Monster → Udonarium XML data structure
+### 設計の原則
+- **出力形式**: すべてのモンスター（部位が1つのものも複数のものも）について、XML ファイルを含む ZIP ファイル
+- **CLI のフラグ**: `--export udonarium --output <zip_file_path>` で ZIP の出力先を指定する
+- **ファイル名（ZIP の中）**: 個々の XML ファイルは次の命名規則に従う
+  - 部位が1つ: `(monster_name).xml`
+  - 複数部位: 部位ごとに `(monster_name)_(part_name)(no).xml`
+  - 例:
+    - 部位が1つ: `ゴブリン.zip` の中に `ゴブリン.xml`
+    - 複数部位: `トレント.zip` の中に `トレント_幹.xml`、`トレント_根0.xml`、`トレント_根1.xml`
+- **テンプレートの選択**: すべての部位（コア=true と コア=false の両方）でコアのテンプレートを使う
+- **XML の構造**: ネストした `<data>` 要素を持つ Udonarium のキャラクター形式に基づく
+- **チャットパレット**: 命中、回避、抵抗の判定だけを自動生成する（特殊能力は含めない）
+- **フィールドの対応**: TRPG-JSON の Monster → Udonarium の XML データ構造
 
-### XML Structure
+### XML の構造
 
-**Root element:**
+**ルート要素:**
 ```xml
 <character location.name="table" location.x="0" location.y="0" posZ="0" rotate="0" roll="0">
 ```
 
-**Data hierarchy:**
+**データの階層:**
 ```xml
 <data name="character">
   <data name="image">
@@ -599,7 +599,7 @@ gm find "Monster Name" -l 3                 # System A のモンスターを検�
       <data type="numberResource" currentValue="X" name="防護点">X</data>
     </data>
     <data name="ステータス・バフ・デバフ">
-      <!-- Hit rate, Damage, Dodge, Resistances -->
+      <!-- 命中力、打撃点、回避力、抵抗力 -->
     </data>
     <data name="特殊能力">
       <data name="特殊能力1" type="note"></data>
@@ -613,43 +613,43 @@ gm find "Monster Name" -l 3                 # System A のモンスターを検�
       <data name="移動速度"></data>
     </data>
     <data name="魔物知識">
-      <data name="生態" type="note"><!-- Category, Level --></data>
+      <data name="生態" type="note"><!-- カテゴリ、レベル --></data>
     </data>
   </data>
 </data>
 
 <chat-palette dicebot="SwordWorld2.5">
-<!-- Auto-generated commands: 命中力,打撃点, 回避力, 生命抵抗力, 精神抵抗力 -->
+<!-- 自動生成するコマンド: 命中力,打撃点, 回避力, 生命抵抗力, 精神抵抗力 -->
 </chat-palette>
 ```
 
-### Field Mapping
+### フィールドの対応
 
-**Rust Monster struct → Udonarium XML:**
+**Rust の Monster 構造体 → Udonarium の XML:**
 
-| Rust Field | JSON Key | Udonarium XML Location | Format | Notes |
+| Rust のフィールド | JSON キー | Udonarium XML の位置 | 形式 | 備考 |
 |------------|----------|------------------------|--------|-------|
-| `monster.name` | `name` | `character/common/name` | `name` or `name\n(part.name)` | If part.name is empty, output only name; if exists, concatenate |
-| `monster.category` | `Category` | `character/detail/魔物知識/生態` | Included in ecology note | Part of knowledge field |
-| `monster.level` | `Lv` | `character/detail/魔物知識/生態` | Included in ecology note | Part of knowledge field |
-| `part.hp` | `part.HP` | `character/detail/リソース/HP` | numeric value | |
-| `part.mp` | `part.MP` | `character/detail/リソース/MP` | numeric value | Output 0 if mp == -1 |
-| `part.armor` | `part.防護点` | `character/detail/リソース/防護点` | numeric value | |
-| `part.hit_rate` | `part.命中力` | `character/detail/ステータス・バフ・デバフ/命中力` | hit_rate - 7 | Subtract 7 (expected value to base value) |
-| `part.damage` | `part.打撃点` | `character/detail/ステータス・バフ・デバフ/打撃点` | numeric value | No adjustment needed (already base value) |
-| `part.dodge` | `part.回避力` | `character/detail/ステータス・バフ・デバフ/回避力` | dodge - 7 | Subtract 7 (expected value to base value) |
-| `monster.life_resistance` | `生命抵抗力` | `character/detail/ステータス・バフ・デバフ/生命抵抗力` | life_resistance - 7 | Subtract 7; core parts only |
-| `monster.mental_resistance` | `精神抵抗力` | `character/detail/ステータス・バフ・デバフ/精神抵抗力` | mental_resistance - 7 | Subtract 7; core parts only |
-| `monster.fame` | `知名度` | `character/detail/戦闘準備/魔物知識・先制判定` | Format: `知名度/弱点値\r先制値` | **Core parts only** |
-| `monster.weakness_value` | `弱点値` | `character/detail/戦闘準備/魔物知識・先制判定` | Format: `知名度/弱点値\r先制値` | **Core parts only** |
-| `monster.weakness` | `弱点` | `character/detail/情報/弱点` | string | **Core parts only** |
-| `monster.initiative` | `先制値` | `character/detail/戦闘準備/魔物知識・先制判定` | Format: `知名度/弱点値\r先制値` | **Core parts only** |
-| `monster.common_abilities` | `共通特殊能力` | `character/detail/特殊能力/特殊能力1` | text value | First special ability slot |
-| `part.special_abilities` | `part.部位特殊能力` | `character/detail/特殊能力/特殊能力2` | text value | Part-specific abilities |
+| `monster.name` | `name` | `character/common/name` | `name` または `name\n(part.name)` | part.name が空なら name だけを出力し、あれば連結する |
+| `monster.category` | `Category` | `character/detail/魔物知識/生態` | 生態のノートに含める | 魔物知識のフィールドの一部 |
+| `monster.level` | `Lv` | `character/detail/魔物知識/生態` | 生態のノートに含める | 魔物知識のフィールドの一部 |
+| `part.hp` | `part.HP` | `character/detail/リソース/HP` | 数値 | |
+| `part.mp` | `part.MP` | `character/detail/リソース/MP` | 数値 | mp == -1 のときは 0 を出力 |
+| `part.armor` | `part.防護点` | `character/detail/リソース/防護点` | 数値 | |
+| `part.hit_rate` | `part.命中力` | `character/detail/ステータス・バフ・デバフ/命中力` | hit_rate - 7 | 7 を引く（期待値から基準値へ） |
+| `part.damage` | `part.打撃点` | `character/detail/ステータス・バフ・デバフ/打撃点` | 数値 | 補正は不要（すでに基準値） |
+| `part.dodge` | `part.回避力` | `character/detail/ステータス・バフ・デバフ/回避力` | dodge - 7 | 7 を引く（期待値から基準値へ） |
+| `monster.life_resistance` | `生命抵抗力` | `character/detail/ステータス・バフ・デバフ/生命抵抗力` | life_resistance - 7 | 7 を引く。コア部位のみ |
+| `monster.mental_resistance` | `精神抵抗力` | `character/detail/ステータス・バフ・デバフ/精神抵抗力` | mental_resistance - 7 | 7 を引く。コア部位のみ |
+| `monster.fame` | `知名度` | `character/detail/戦闘準備/魔物知識・先制判定` | 形式: `知名度/弱点値\r先制値` | **コア部位のみ** |
+| `monster.weakness_value` | `弱点値` | `character/detail/戦闘準備/魔物知識・先制判定` | 形式: `知名度/弱点値\r先制値` | **コア部位のみ** |
+| `monster.weakness` | `弱点` | `character/detail/情報/弱点` | 文字列 | **コア部位のみ** |
+| `monster.initiative` | `先制値` | `character/detail/戦闘準備/魔物知識・先制判定` | 形式: `知名度/弱点値\r先制値` | **コア部位のみ** |
+| `monster.common_abilities` | `共通特殊能力` | `character/detail/特殊能力/特殊能力1` | テキスト | 特殊能力の1つ目の枠 |
+| `part.special_abilities` | `part.部位特殊能力` | `character/detail/特殊能力/特殊能力2` | テキスト | 部位ごとの能力 |
 
-### Chat Palette Auto-Generation
+### チャットパレットの自動生成
 
-**Generated commands include (hit/dodge/resistance checks only):**
+**生成するコマンド（命中、回避、抵抗の判定のみ）:**
 ```
 2d+{命中力}　命中判定
 2d+{回避力}　回避判定
@@ -658,22 +658,22 @@ gm find "Monster Name" -l 3                 # System A のモンスターを検�
 2d+{精神抵抗力}　精神抵抗判定
 ```
 
-**Notes:**
-- Commands reference Rust field names with -7 adjustment applied (命中力, 回避力, 生命抵抗力, 精神抵抗力 values already adjusted)
-- Special abilities are NOT included in chat palette
-- Dicebot: SwordWorld2.5
+**注意点:**
+- コマンドは -7 の補正を適用した Rust のフィールド名を参照する（命中力、回避力、生命抵抗力、精神抵抗力 の値は補正済み）
+- 特殊能力はチャットパレットに**含めない**
+- ダイスボット: SwordWorld2.5
 
-### XML Output Differences: Core vs Non-Core Parts
+### XML 出力の違い: コア部位とコア以外の部位
 
-**Core parts (コア=true):**
-- Include `character/detail/戦闘準備/魔物知識・先制判定`, `character/detail/情報/弱点`, and `character/detail/魔物知識/生態` sections
-- Format in 戦闘準備: `知名度/弱点値\n先制値`
-- Output all status values (命中力-7, 回避力-7, 生命抵抗力-7, 精神抵抗力-7)
+**コア部位（コア=true）:**
+- `character/detail/戦闘準備/魔物知識・先制判定`、`character/detail/情報/弱点`、`character/detail/魔物知識/生態` のセクションを含める
+- 戦闘準備の形式: `知名度/弱点値\n先制値`
+- すべてのステータス値を出力する（命中力-7、回避力-7、生命抵抗力-7、精神抵抗力-7）
 
-**Non-core parts (コア=false):**
-- **DO NOT include** `character/detail/戦闘準備`, `character/detail/情報`, `character/detail/魔物知識` sections
-- Output part-specific HP, MP, armor, hit_rate-7, dodge-7, life_resistance-7, mental_resistance-7
-- Include resistance values (for resistance judgment rolls)
+**コア以外の部位（コア=false）:**
+- `character/detail/戦闘準備`、`character/detail/情報`、`character/detail/魔物知識` のセクションは**含めない**
+- 部位ごとの HP、MP、armor、hit_rate-7、dodge-7、life_resistance-7、mental_resistance-7 を出力する
+- 抵抗値を含める（抵抗判定のロールのため）
 
 ### File Output Strategy
 

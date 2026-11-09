@@ -128,7 +128,7 @@ impl DataTransformer {
     /// 注意: 打撃点は調整不要。打撃点は既に基本値のため。
     /// 
     /// XML生成時とチャットパレット生成時に使用
-    /// 仕様参照: DESIGN_GUIDE.md の Udonarium Export Format
+    /// 仕様参照: DESIGN_GUIDE.md の Udonarium エクスポート形式
     pub fn adjust_value(value: i32) -> i32 {
         (value - 7).max(0) // 負の値は0に
     }
