@@ -608,9 +608,8 @@
       - Udonarium の節を訳すコミットで、`rust/core/src/export/udonarium/data_transformer.rs:131` のコメントの見出し名も更新する
    - [x] T055d `tasks.md` の未完了の節と決定事項（Meta、Priority Now、In Progress、未完了タスク、Canceled、Known Issues、Decisions & Links）— 2026-11-09
    - [ ] T055e 翻訳中に見つけた古い記述の整理（事実の誤りは 2026-11-09 に修正済み）
-      - 残り: 汎用名に置き換えるか Operator が判断する
-         - `README.md`: ライト、ゴブリン、トレント
-         - `DESIGN_GUIDE.md`: ゴブリン、トレント、アンシェント・ドラゴン、ファイア・ボール、ライト、魔法解除
+      - 文書の例: トレントなどの数値と部位構成の例を架空のデータに置き換えた（2026-11-09）。ゴブリン、ファイア・ボール、上級剣術は一般的な語なので残す（Operator 判断）
+      - 残り: 同じ値が `data/sample/monsters_sample.json`、`TUI_DESIGN.md:201`、テストに残っている。置き換えるか Operator が判断する
    - [ ] T055f `tasks.md` の完了済み履歴の翻訳（実施するかは T055d の後に Operator が判断）
 
 ## 🚮 中止・置き換え

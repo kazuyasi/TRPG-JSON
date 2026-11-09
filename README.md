@@ -132,8 +132,8 @@ spell name / MP:cost / 対象:target / 射程:range / 時間:duration / effect d
 
 ```bash
 # 補助スペルのパレットを生成
-gm spell palette -n "ライト"
-# 出力: ライト / MP:3 / 対象:任意の地点 / 射程:10m(起点指定) / 時間:一瞬 / 光源を生成する。
+gm spell palette -n "補助呪文名"
+# 出力: 補助呪文名 / MP:2 / 対象:1体 / 射程:術者 / 時間:10秒 / 効果の説明。
 
 # 通常のスペルのパレットを生成（クリップボードへコピー）
 gm spell palette -n "呪文名" -y
@@ -357,11 +357,11 @@ TRPG-JSON のモンスターデータを Udonarium のキャラクター XML 形
    - 作成されるもの: `ゴブリン.xml` を含む `ゴブリン.zip`
 
 2. **複数部位のモンスター**: 部位ごとの XML ファイルを含む ZIP ファイルを作成します
-   - 例: `gm monster select -n "トレント" --export udonarium --output トレント.zip`
-   - 作成されるもの: 次のファイルを含む `トレント.zip`
-     - `トレント_幹.xml`（全ステータスを持つコア部位）
-     - `トレント_根0.xml`（コア以外の部位）
-     - `トレント_根1.xml`（コア以外の部位）
+   - 例: `gm monster select -n "モンスターA" --export udonarium --output モンスターA.zip`
+   - 作成されるもの: 次のファイルを含む `モンスターA.zip`
+     - `モンスターA_部位A.xml`（全ステータスを持つコア部位）
+     - `モンスターA_部位B0.xml`（コア以外の部位）
+     - `モンスターA_部位B1.xml`（コア以外の部位）
 
 #### 機能
 
