@@ -360,77 +360,77 @@ mod tests {
 - エラー処理（ファイルが無い、形式が不正）をテストする
 - システムが混在するシナリオをテストする
 
-## Migration Guide: Single File → Multiple Files
+## 移行ガイド: 単一ファイル → 複数ファイル
 
-If you currently have one large `monsters.json` and want to split it:
+大きな `monsters.json` が1つあり、それを分割したい場合の手順です。
 
-**Step 1: Prepare the split data files**
+**手順 1: 分割したデータファイルを用意する**
 ```bash
-# Split monsters.json by category or level range
-# Example: Create separate files for each category
+# monsters.json をカテゴリやレベルの範囲で分割する
+# 例: カテゴリごとに別のファイルを作成する
 jq '.[] | select(.Category == "Category1")' data/systems/monsters.json > data/systems/monsters_part1.json
 jq '.[] | select(.Category == "Category2")' data/systems/monsters.json > data/systems/monsters_part2.json
 ```
 
-**Step 2: Update config file**
+**手順 2: 設定ファイルを更新する**
 ```toml
 [data]
-# Old (still works):
+# 従来の書き方（引き続き使える）:
 # monsters = "data/systems/monsters.json"
 
-# New (multiple files):
+# 新しい書き方（複数ファイル）:
 monsters = [
     "data/systems/monsters_part1.json",
     "data/systems/monsters_part2.json"
 ]
 ```
 
-**Step 3: Verify no data loss**
+**手順 3: データが失われていないことを確認する**
 ```bash
-gm find "Monster Name"  # Should still find entities
-gm select -l 6          # Should return all level 6 entities
+gm find "Monster Name"  # 引き続きエンティティが見つかるはず
+gm select -l 6          # レベル6のエンティティがすべて返るはず
 ```
 
-**Important Notes:**
-- All files must contain JSON arrays
-- File order doesn't affect search results (merged into single collection)
-- When adding/deleting, changes save to first file in list
-- Consider consolidation periodically to avoid too many files
+**重要な注意点:**
+- すべてのファイルは JSON 配列でなければならない
+- ファイルの順序は検索結果に影響しない（1つのコレクションにまとめられる）
+- 追加や削除の変更は、リストの最初のファイルに保存される
+- ファイルが増えすぎないよう、定期的な統合を検討する
 
-## Troubleshooting
+## トラブルシューティング
 
-### Problem: "Error: Data file not found"
-**Solutions:**
-1. Check path is relative to home directory: `~/playground/TRPG-JSON/...`
-2. Verify file exists: `ls ~/path/to/file.json`
-3. Check file permissions: `chmod 644 data/systems/monsters.json`
-4. Use absolute path as fallback: `/Users/username/playground/TRPG-JSON/...`
+### 問題: "Error: Data file not found"
+**解決策:**
+1. パスがホームディレクトリからの相対パスになっているか確認する: `~/playground/TRPG-JSON/...`
+2. ファイルが存在するか確認する: `ls ~/path/to/file.json`
+3. ファイルの権限を確認する: `chmod 644 data/systems/monsters.json`
+4. 代替策として絶対パスを使う: `/Users/username/playground/TRPG-JSON/...`
 
-### Problem: "JSON parsing error" on valid JSON
-**Solutions:**
-1. Verify file is valid JSON: `jq empty data/systems/monsters.json`
-2. Check for encoding issues: `file data/systems/monsters.json`
-3. Ensure root element is array: `jq '. | type' data/systems/monsters.json` → should output "array"
-4. Check for corrupt records: `jq '.[] | has("name")' data/systems/monsters.json`
+### 問題: 正しい JSON なのに "JSON parsing error" が出る
+**解決策:**
+1. ファイルが正しい JSON か確認する: `jq empty data/systems/monsters.json`
+2. 文字コードの問題がないか確認する: `file data/systems/monsters.json`
+3. ルート要素が配列か確認する: `jq '. | type' data/systems/monsters.json` → "array" と出力されるはず
+4. 壊れたレコードがないか確認する: `jq '.[] | has("name")' data/systems/monsters.json`
 
-### Problem: Multiple files with conflicting monster names
-**Solutions:**
-1. Use unique naming: "monsters_part1.json", "monsters_part2.json"
-2. Add metadata to identify source: Include "source" field in Monster extra fields
-3. Or consolidate into single file: `jq -s 'add' monsters_part*.json > monsters_consolidated.json`
+### 問題: 複数のファイルでモンスター名が衝突する
+**解決策:**
+1. 重複しないファイル名を付ける: "monsters_part1.json"、"monsters_part2.json"
+2. 出どころを示すメタデータを加える: Monster の追加フィールドに "source" を入れる
+3. または1つのファイルに統合する: `jq -s 'add' monsters_part*.json > monsters_consolidated.json`
 
-### Problem: add/delete affects wrong file
-**Note:** When using multiple files, modifications save to the first file in config list. 
-**Solution:** If you need different save behavior:
-1. Consider consolidating files occasionally
-2. Or reorganize config to put "editable" file first
-3. Future Phase 4 backends will support per-file tracking
+### 問題: add/delete が意図しないファイルに反映される
+**注意:** 複数のファイルを使う場合、変更は設定のリストの最初のファイルに保存されます。
+**解決策:** 保存の動作を変えたい場合:
+1. ときどきファイルを統合することを検討する
+2. または「編集する」ファイルがリストの最初に来るよう設定を組み替える
+3. 将来の Phase 4 のバックエンドでは、ファイルごとの追跡に対応する予定
 
-## Example: Adding a New System (Phase 3+)
+## 例: 新しいシステムの追加（Phase 3 以降）
 
-To add support for an additional game system after Phase 3 implementation:
+Phase 3 の実装後に、ゲームシステムを追加で対応させる手順です。
 
-**1. Create system module** in `core/src/systems/system_b.rs`:
+**1. システムのモジュールを作成する**（`core/src/systems/system_b.rs`）:
 ```rust
 use serde::{Deserialize, Serialize};
 use super::common::GameEntity;
@@ -453,7 +453,7 @@ impl GameEntity for Character {
 }
 ```
 
-**2. Create system factory** in `core/src/systems/mod.rs`:
+**2. システムのファクトリを作成する**（`core/src/systems/mod.rs`）:
 ```rust
 pub fn load_system(name: &str, config: &Config) -> Result<Box<dyn GameEntity>, String> {
      match name {
@@ -464,67 +464,67 @@ pub fn load_system(name: &str, config: &Config) -> Result<Box<dyn GameEntity>, S
  }
 ```
 
-**3. Update config schema** to support system selection:
+**3. システムを選べるよう設定のスキーマを更新する**:
 ```toml
 [data]
 monsters = ["data/systems/monsters.json"]
 
 [system]
-name = "system_a"  # Can be "system_a", "system_b", etc.
+name = "system_a"  # "system_a"、"system_b" などを指定できる
 
-# System B example:
+# System B の例:
 # [data]
 # characters = ["data/systems/characters.json"]
 # [system]
 # name = "system_b"
 ```
 
-**4. Update CLI** to accept system selection:
+**4. システムを選べるよう CLI を更新する**:
 ```bash
-gm --system system_b find "Character Name"  # Search System B characters
-gm find "Monster Name" -l 3                 # Search System A monsters (default)
+gm --system system_b find "Character Name"  # System B のキャラクターを検索
+gm find "Monster Name" -l 3                 # System A のモンスターを検索（既定）
 ```
 
-**5. Ensure backward compatibility** - default to SW2.5 if not specified
+**5. 後方互換性を確保する** - 指定がなければ SW2.5 を既定にする
 
-**Benefits of this approach:**
-- Plug-and-play system support
-- Reusable query logic (`find_by_name()` works for any `GameEntity`)
-- Separate data and code for each system
-- Easy to add new systems without modifying existing code
+**この方式の利点:**
+- システムをプラグインのように追加できる
+- 検索ロジックを再利用できる（`find_by_name()` はどの `GameEntity` でも動く）
+- システムごとにデータとコードを分けられる
+- 既存のコードを変更せずに新しいシステムを追加しやすい
 
-## References & Further Reading
+## 参考資料
 
-### Current Implementation
-- **CLI entry point**: `app/src/main.rs`
-- **Command handlers**: `app/src/commands/{monster,spell}.rs`
-- **Utilities**: `app/src/utils.rs` (I/O, formatting)
-- **Business logic**: `core/src/query.rs` (search functions)
-- **File I/O**: `core/src/io.rs` (load/save operations)
-- **Configuration**: `core/src/config.rs` (config parsing)
-- **Data models**: `core/src/lib.rs` (Monster, Part structs)
-- **Configuration file**: `config/default.toml`
+### 現在の実装
+- **CLI のエントリポイント**: `app/src/main.rs`
+- **コマンドのハンドラ**: `app/src/commands/{monster,spell}.rs`
+- **ユーティリティ**: `app/src/utils.rs`（入出力、整形）
+- **ビジネスロジック**: `core/src/query.rs`（検索の関数）
+- **ファイルの入出力**: `core/src/io.rs`（読み込みと保存）
+- **設定**: `core/src/config.rs`（設定の解析）
+- **データモデル**: `core/src/lib.rs`（Monster、Part の構造体）
+- **設定ファイル**: `config/default.toml`
 
-### Build & Development
-- See `AGENTS.md` for build/test commands
-- Rust 2024 edition, thiserror for error handling, serde for serialization
+### ビルドと開発
+- ビルドとテストのコマンドは `AGENTS.md` を参照
+- Rust 2024 edition、エラー処理は thiserror、シリアライズは serde
 
-### Related Documentation
-- `tasks.md` - Project task board and status
-- `README.md` - User-facing documentation
-- `AGENTS.md` - Development guidelines and git policy
+### 関連ドキュメント
+- `tasks.md` - プロジェクトのタスクボードと状況
+- `README.md` - ユーザー向けのドキュメント
+- `AGENTS.md` - 開発のガイドラインと git の方針
 
-### Design Patterns Used
-- **Trait-based design** (for future Phase 3 extensibility)
-- **Enum deserialization** (`#[serde(untagged)]` for config flexibility)
-- **Error propagation** (thiserror crate for ergonomic error handling)
-- **Configuration management** (TOML-based, environment variable support)
+### 使っている設計パターン
+- **トレイトベースの設計**（将来の Phase 3 の拡張性のため）
+- **enum のデシリアライズ**（設定の柔軟性のための `#[serde(untagged)]`）
+- **エラーの伝播**（thiserror クレートによる扱いやすいエラー処理）
+- **設定の管理**（TOML ベース、環境変数に対応）
 
-### Performance Considerations
-- **Current**: O(n) search over all loaded monsters
-- **Future**: Consider indexing for Phase 4+ with large datasets
-- **Memory**: All monsters loaded in memory (sufficient for <100k entities)
-- **Disk**: JSON format is human-readable but not compressed (consider future optimization)
+### 性能の考慮事項
+- **現在**: 読み込んだ全モンスターに対する O(n) の検索
+- **将来**: 大きなデータセット向けに Phase 4 以降でインデックスを検討する
+- **メモリ**: 全モンスターをメモリに読み込む（10万件未満なら十分）
+- **ディスク**: JSON 形式は人が読めるが圧縮されていない（将来の最適化を検討する）
 
 ## Status & Next Steps
 
