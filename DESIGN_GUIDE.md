@@ -155,7 +155,7 @@ CLI (app/) → Core Library (core/) → JSON File (data/systems/monsters.json)
 - **工数**: 低（2〜3日）✅
 - **効果**: 高い柔軟性、容易な移行 ✅
 
-### Phase 2.5: 外部へのデータエクスポート（次の推奨）
+### Phase 2.5: 外部へのデータエクスポート ✅（完了）
 - JSON と Google Sheets へのデータのエクスポートに対応
 - クラウドサービス向けの OAuth 2.0 認証（ユーザーにとって使いやすい）
 - エクスポート時に書式を保持
@@ -188,21 +188,21 @@ pub enum ExportFormat {
 **CLI の使い方:**
 ```bash
 # 検索結果を JSON ファイルへエクスポート
-gm select -l 6 --export json --output results.json
+gm monster select -l 6 --export json --output results.json
 
 # Google Sheets へエクスポート（OAuth 2.0 の設定が必要）
-gm select -c "Category" --export sheets --output "Spreadsheet ID"
+gm monster select -c "Category" --export sheets --output "Spreadsheet ID"
 ```
 
 **JSON エクスポートの手順:**
-1. ユーザーが実行: `gm select ... --export json --output <file>`
+1. ユーザーが実行: `gm monster select ... --export json --output <file>`
 2. システムがデータを検証
 3. データを JSON ファイルへエクスポート
 4. 確認メッセージを表示
 
 **Google Sheets エクスポートの手順:**
 1. ユーザーが Google OAuth 2.0 で認証（初回のみ）
-2. ユーザーが実行: `gm select ... --export sheets --output <spreadsheet-id>`
+2. ユーザーが実行: `gm monster select ... --export sheets --output <spreadsheet-id>`
 3. システムが指定の Google Sheet の行を作成または更新
 4. シートの URL を含む確認メッセージを表示
 
@@ -274,7 +274,7 @@ impl GameEntity for DndCharacter { ... }  // D&D
 1. **設定ファイルへの対応を追加**:
    - `config/default.toml` を作成する
    - `config` クレートか `toml` クレートを使う
-   - CLI のフラグでパスを上書きできるようにする: `gm --config config/custom.toml find "name"`
+   - CLI のフラグでパスを上書きできるようにする: `gm --config config/custom.toml monster find "name"`
 
 2. **データパスをパラメータにする**:
    - ハードコードされたパスを関数の引数に変える
@@ -387,14 +387,14 @@ monsters = [
 
 **手順 3: データが失われていないことを確認する**
 ```bash
-gm find "Monster Name"  # 引き続きエンティティが見つかるはず
-gm select -l 6          # レベル6のエンティティがすべて返るはず
+gm monster find "Monster Name"  # 引き続きエンティティが見つかるはず
+gm monster select -l 6          # レベル6のエンティティがすべて返るはず
 ```
 
 **重要な注意点:**
 - すべてのファイルは JSON 配列でなければならない
 - ファイルの順序は検索結果に影響しない（1つのコレクションにまとめられる）
-- 追加や削除の変更は、リストの最初のファイルに保存される
+- 新規の追加はリストの最初のファイルに保存し、同名の更新と削除は対象のモンスターを含むファイルだけを書き換える
 - ファイルが増えすぎないよう、定期的な統合を検討する
 
 ## トラブルシューティング
@@ -420,11 +420,10 @@ gm select -l 6          # レベル6のエンティティがすべて返るは�
 3. または1つのファイルに統合する: `jq -s 'add' monsters_part*.json > monsters_consolidated.json`
 
 ### 問題: add/delete が意図しないファイルに反映される
-**注意:** 複数のファイルを使う場合、変更は設定のリストの最初のファイルに保存されます。
-**解決策:** 保存の動作を変えたい場合:
+**注意:** 新規の追加は、設定のリストの最初のファイルに保存されます。同名の更新と削除は、そのモンスターを含むファイルだけを書き換えます（T052）。
+**解決策:** 新規の追加先を変えたい場合:
 1. ときどきファイルを統合することを検討する
 2. または「編集する」ファイルがリストの最初に来るよう設定を組み替える
-3. 将来の Phase 4 のバックエンドでは、ファイルごとの追跡に対応する予定
 
 ## 例: 新しいシステムの追加（Phase 3 以降）
 
@@ -482,7 +481,7 @@ name = "system_a"  # "system_a"、"system_b" などを指定できる
 **4. システムを選べるよう CLI を更新する**:
 ```bash
 gm --system system_b find "Character Name"  # System B のキャラクターを検索
-gm find "Monster Name" -l 3                 # System A のモンスターを検索（既定）
+gm monster find "Monster Name" -l 3         # System A のモンスターを検索（既定）
 ```
 
 **5. 後方互換性を確保する** - 指定がなければ SW2.5 を既定にする
@@ -496,13 +495,13 @@ gm find "Monster Name" -l 3                 # System A のモンスターを検�
 ## 参考資料
 
 ### 現在の実装
-- **CLI のエントリポイント**: `app/src/main.rs`
-- **コマンドのハンドラ**: `app/src/commands/{monster,spell}.rs`
-- **ユーティリティ**: `app/src/utils.rs`（入出力、整形）
-- **ビジネスロジック**: `core/src/query.rs`（検索の関数）
-- **ファイルの入出力**: `core/src/io.rs`（読み込みと保存）
-- **設定**: `core/src/config.rs`（設定の解析）
-- **データモデル**: `core/src/lib.rs`（Monster、Part の構造体）
+- **CLI のエントリポイント**: `rust/app/src/main.rs`
+- **コマンドのハンドラ**: `rust/app/src/commands/{monster,spell}.rs`
+- **ユーティリティ**: `rust/app/src/utils.rs`（入出力、整形）
+- **ビジネスロジック**: `rust/core/src/query.rs`（検索の関数）
+- **ファイルの入出力**: `rust/core/src/io.rs`（読み込みと保存）
+- **設定**: `rust/core/src/config.rs`（設定の解析）
+- **データモデル**: `rust/core/src/lib.rs`（Monster、Part の構造体）
 - **設定ファイル**: `config/default.toml`
 
 ### ビルドと開発
@@ -528,21 +527,21 @@ gm find "Monster Name" -l 3                 # System A のモンスターを検�
 
 ## 状況と次の手順
 
-### 現在の実装状況（2025-11-30 時点）
+### 現在の実装状況（2026-11-09 時点）
 - ✅ **Phase 1**: 単一システム、基本的な CRUD 操作
 - ✅ **Phase 2**: 複数データファイル、設定ファイルへの対応、ホームディレクトリのパス
-- ⏳ **Phase 2.5**: 外部へのデータエクスポート機能（次の優先事項）
-- ⏳ **Phase 3**: システムの抽象化（Phase 2.5 の後に予定）
+- ✅ **Phase 2.5**: 外部へのデータエクスポート機能（JSON、Google Sheets、Udonarium、CCFolia）
+- ⏳ **Phase 3**: システムの抽象化（未着手。`tasks.md` の T044 に相当。`tasks.md` の Phase 3 はスペル機能のことで、別の区分）
 - 📌 **将来**: SQLite バックエンド（任意）、データ形式の柔軟性
 
 ### 決定事項
-- **優先順位**: ファイル（Phase 2）✓ → データエクスポート（Phase 2.5）→ システム（Phase 3）
+- **優先順位**: ファイル（Phase 2）✓ → データエクスポート（Phase 2.5）✓ → システム（Phase 3）
 - **設定の形式**: TOML（単純さのため YAML ではなくこちらを選択）
 - **パスの解決**: ホームディレクトリからの相対パス（`~` の展開に対応）
 - **データの統合**: すべてのファイルを1つのコレクションに読み込み、まとめて検索する
-- **エクスポート形式**: JSON と Google Sheets に対応
+- **エクスポート形式**: JSON、Google Sheets、Udonarium、CCFolia に対応
 - **手動実行**: データのエクスポートはユーザーが実行し、自動化は不要
-- **Phase 4**: 予定なし（範囲は中核の機能に限定）
+- **Phase 4**: `tasks.md` の Phase 4 として進行中（TUI など）
 - **拡張性**: 新しいゲームシステムやエクスポート形式を追加できる設計
 
 ### 今後の実装に向けた検討事項
@@ -552,11 +551,10 @@ gm find "Monster Name" -l 3                 # System A のモンスターを検�
 - **複数システムの設定**: システムごとに1ファイルか、統合した設定か
 
 ### 推奨する次の手順（優先順）
-1. **Phase 2.5（工数は中、価値は高い）** - 外部へのデータエクスポート機能
-2. **Phase 3（工数は中、価値は高い）** - ゲームシステムを追加するためのシステムの抽象化
-3. **検証の強化** - システムごとのより厳密な JSON スキーマの検証
-4. **性能の最適化** - 大きなデータセット（1万件を超えるエンティティ）向け
-5. **ドキュメント** - 包括的なユーザーガイドと例
+1. **Phase 3（工数は中、価値は高い）** - ゲームシステムを追加するためのシステムの抽象化
+2. **検証の強化** - システムごとのより厳密な JSON スキーマの検証
+3. **性能の最適化** - 大きなデータセット（1万件を超えるエンティティ）向け
+4. **ドキュメント** - 包括的なユーザーガイドと例
 
 
 ## Udonarium エクスポート形式
@@ -679,10 +677,10 @@ gm find "Monster Name" -l 3                 # System A のモンスターを検�
 
 **CLI の使い方:**
 ```bash
-gm export --export udonarium --output <zip_file_path>
+gm monster select -n "モンスター名" --export udonarium --output <zip_file_path>
 # 例:
-gm export --export udonarium --output ゴブリン.zip
-gm export --export udonarium --output /path/to/monsters.zip
+gm monster select -n "ゴブリン" --export udonarium --output ゴブリン.zip
+gm monster select -l 6 --export udonarium --output /path/to/monsters.zip
 ```
 
 **部位が1つのモンスター:**
@@ -764,7 +762,7 @@ gm export --export udonarium --output /path/to/monsters.zip
   ```json
   { "name": "上級剣術", "Lv": { "kind": "value+", "value+": 5 } }
   ```
-  検索: `gm skill find -l 7` → 一致する（5 ≤ 7 のため）
+  検索: `gm skill find -l 7` → 一致する（5 ≤ 7 のため。`gm skill` は未実装で、T045 の予定）
   検索: `gm skill find -l 3` → 一致しない（5 > 3 のため）
 
 **3. `Lv.kind: "rank"`（ランク制）**
@@ -780,17 +778,17 @@ gm export --export udonarium --output /path/to/monsters.zip
 
 ### 系統バリアントのフィールド（`schoolVariant`）
 
-**CLI のフラグ**: `-sv <variant>`
+**CLI のフラグ**: `-v <variant>` / `--school-variant <variant>`
 
 **検索の動作**:
 - `schoolVariant` が指定の値と完全に一致するレコードを返す（完全一致のみ）
-- `-sv` フラグを指定すると、`schoolVariant` フィールドが無い（または値が `null` の）レコードは結果から除外される
+- `-v` フラグを指定すると、`schoolVariant` フィールドが無い（または値が `null` の）レコードは結果から除外される
 
 **例**:
 ```json
 { "name": "特殊甲系魔法", "school": "甲系", "schoolVariant": "特殊" }
 ```
-検索: `gm spell find -sv 特殊` → このレコードに一致する
+検索: `gm spell find -v 特殊` → このレコードに一致する
 
 ### 神のフィールド（`god`）
 
@@ -811,7 +809,7 @@ gm export --export udonarium --output /path/to/monsters.zip
   "god": "神名" 
 }
 ```
-検索: `gm spell find -sv 特殊 -g 神名` → このレコードに一致する
+検索: `gm spell find -v 特殊 -g 神名` → このレコードに一致する
 
 **注意**: `schoolVariant` が "特殊" でない、または `school` が "甲系" でない場合、`god` フィールドは適用されず、データに存在すべきではない。
 
@@ -848,7 +846,7 @@ Spell Name / MP:X / 対象:Y / 射程:Z / 時間:T / Effect Description
 
 **例:**
 ```
-2d+{甲系魔法}+{行使判定} 呪文名 / MP:15 / 対象:1エリア(半径4mすべて) / 射程:術者 / 時間:一瞬 / 対象に効果を与える。
+2d+{甲系魔法}+{行使修正}  呪文名 / MP:15 / 対象:1エリア(半径4mすべて) / 射程:術者 / 時間:一瞬 / 対象に効果を与える。
 ```
 
 **特徴:**

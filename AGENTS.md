@@ -2,7 +2,7 @@
 
 ## ビルドとテストのコマンド
 ```bash
-cd trpg-json
+cd rust
 cargo build --release    # 最適化したバイナリをビルド
 cargo build              # デバッグ版をビルド
 cargo test               # すべてのテストを実行

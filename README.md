@@ -10,7 +10,7 @@ TRPG（テーブルトーク・ロールプレイングゲーム）のゲーム�
 
 ### 前提条件
 
-- [Rust](https://www.rust-lang.org/tools/install) 1.70 以降
+- [Rust](https://www.rust-lang.org/tools/install) 1.85 以降
 
 ### インストール手順
 
@@ -132,11 +132,11 @@ spell name / MP:cost / 対象:target / 射程:range / 時間:duration / effect d
 
 ```bash
 # 補助スペルのパレットを生成
-gm spell palette "ライト"
+gm spell palette -n "ライト"
 # 出力: ライト / MP:3 / 対象:任意の地点 / 射程:10m(起点指定) / 時間:一瞬 / 光源を生成する。
 
 # 通常のスペルのパレットを生成（クリップボードへコピー）
-gm spell palette "呪文名" -y
+gm spell palette -n "呪文名" -y
 # 出力: 2d+{甲系魔法}+{行使修正}  呪文名 / MP:15 / 対象:1エリア(半径4m) / 射程:術者 / 時間:一瞬 / ...
 ```
 
@@ -353,11 +353,11 @@ TRPG-JSON のモンスターデータを Udonarium のキャラクター XML 形
 #### 仕組み
 
 1. **部位が1つのモンスター**: XML ファイルを1つ含む ZIP ファイルを作成します
-   - 例: `gm select -n "ゴブリン" --export udonarium --output ゴブリン.zip`
+   - 例: `gm monster select -n "ゴブリン" --export udonarium --output ゴブリン.zip`
    - 作成されるもの: `ゴブリン.xml` を含む `ゴブリン.zip`
 
 2. **複数部位のモンスター**: 部位ごとの XML ファイルを含む ZIP ファイルを作成します
-   - 例: `gm select -n "トレント" --export udonarium --output トレント.zip`
+   - 例: `gm monster select -n "トレント" --export udonarium --output トレント.zip`
    - 作成されるもの: 次のファイルを含む `トレント.zip`
      - `トレント_幹.xml`（全ステータスを持つコア部位）
      - `トレント_根0.xml`（コア以外の部位）
