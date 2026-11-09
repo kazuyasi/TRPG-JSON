@@ -2,7 +2,7 @@
 
 ## 🧭 Meta
 - Project: TRPG-JSON
-- Last Updated: 2026-11-09 JST (T051 TUI 選択リストペイン; v0.20.0)
+- Last Updated: 2026-11-09 JST (T055 ドキュメントの日本語化を計画; v0.20.0)
 - Responsibilities: kazuyasi (specification/approval/git operations) / Claude (proposal/implementation/testing)
 - Status: Phase 2.5 COMPLETE (T013-T027). Phase 3 COMPLETE (T028-T037). Phase 3.5 COMPLETE (T038-1/2/final). Phase 3.6 COMPLETE (T038.6, T040, T040.5). Phase 3.7 COMPLETE (T046, T047). UX improvements complete with enhanced error messages and statistics commands. Workspace version inheritance configured. Test suite: 291 total tests (251 core + 40 app). Ready for commit.
 
@@ -16,7 +16,7 @@
    - Status: All Phase 3.7 tasks complete and ready for commit
 
 ## 🚧 In Progress
-- 実装中のタスクはなし（T051 は 2026-11-09 に `claude/T051` で完了、マージ待ち）
+- T055 ドキュメントの日本語化（`claude/T055`、計画済み・翻訳は T055a から未着手）。詳細は Phase 4 の Backlog
 - 次の候補（Phase 4 内）: 未定。T042 は範囲の確認、T041 / T045 はデータ形式の決定が先
 
 ---
@@ -597,6 +597,22 @@
         4. ✅ `C` の順序、`E` の JSON / Udonarium / Sheets 出力、`E` のあとの `e` がヒット全件に戻ること、空のときの案内
 - [ ] T044 Phase 4: Multi-system support (extend beyond SW2.5)
 - [ ] T045 Phase 4: Skill/Rank-based magic CLI commands (gm skill find/list/palette)
+- [ ] T055 ドキュメントの日本語化
+   - 背景: Operator が日本語の方が読みやすいため、英語が残る文書を日本語化する。CLI ヘルプと `TUI_DESIGN.md` はすでに日本語なので対象外
+   - 方針（2026-11-09 確定）: 現役の文書を優先する。`DESIGN_GUIDE.md` は忠実な翻訳のみとし、古い記述の整理は別タスクにする。見出しも日本語にする（固有名詞は原文のまま）
+   - 翻訳の共通ルール
+      - コード識別子、JSON キー、コマンド、ファイルパスは原文のまま。コードブロックは説明コメントだけ翻訳する
+      - 用語は `README.md` の TUI の節と `TUI_DESIGN.md` に合わせる（スペル、部位、エクスポート）。`Phase N` はタスク名として原文のまま
+      - 翻訳コミットでは内容を変えない。古い記述や、汎用名に置き換えるべき固有名（例: `DESIGN_GUIDE.md:1013` の見出し）に気づいたら T055e の一覧に回す
+      - 過去のタスク記録にある行番号参照は履歴なので直さない
+   - コミット: 差分は追加と削除の合計で200行以内（原文で約100行ずつ、節の切れ目で分ける）。1コミットごとに Operator が確認する。`文書` 型なのでバージョンは上げない
+   - [ ] T055a `README.md`（約2コミット）
+   - [ ] T055b `AGENTS.md`（AI Behavior and Ethics Policy の節を除く、約1コミット）
+   - [ ] T055c `DESIGN_GUIDE.md`（節ごとに約6コミット）
+      - Udonarium の節を訳すコミットで、`rust/core/src/export/udonarium/data_transformer.rs:131` のコメントの見出し名も更新する
+   - [ ] T055d `tasks.md` の未完了の節と決定事項（Meta、Priority Now、In Progress、未完了タスク、Canceled、Known Issues、Decisions & Links）
+   - [ ] T055e `DESIGN_GUIDE.md` の古い記述の整理（T055c で見つけた箇所を一覧にして着手）
+   - [ ] T055f `tasks.md` の完了済み履歴の翻訳（実施するかは T055d の後に Operator が判断）
 
 ## 🚮 Canceled / Superseded
 - [ ] T007 Data analysis feature implementation (deemed unnecessary) — 2025-09-14
