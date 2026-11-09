@@ -92,18 +92,20 @@ pub enum Focus {
 }
 
 impl Focus {
-    /// Tab キーでの次のフォーカス
-    pub fn next(self) -> Self {
+    /// Tab キーでの次のフォーカス（`has_picks` は選択リストのペインが巡回に入るか）
+    pub fn next(self, has_picks: bool) -> Self {
         match self {
             Focus::Search => Focus::List,
             Focus::List => Focus::Detail,
+            Focus::Detail if has_picks => Focus::Picks,
             Focus::Detail | Focus::Picks => Focus::Search,
         }
     }
 
-    /// Shift-Tab キーでの前のフォーカス
-    pub fn prev(self) -> Self {
+    /// Shift-Tab キーでの前のフォーカス（`has_picks` は選択リストのペインが巡回に入るか）
+    pub fn prev(self, has_picks: bool) -> Self {
         match self {
+            Focus::Search if has_picks => Focus::Picks,
             Focus::Search | Focus::Picks => Focus::Detail,
             Focus::List => Focus::Search,
             Focus::Detail => Focus::List,
@@ -306,6 +308,7 @@ impl ListView {
         match self.picks.iter().position(|&i| i == index) {
             Some(pos) => {
                 self.picks.remove(pos);
+                self.clamp_pick_cursor();
                 false
             }
             None => {
@@ -313,6 +316,22 @@ impl ListView {
                 true
             }
         }
+    }
+
+    /// 選択リストを差し替える（読み直し後の index）
+    fn set_picks(&mut self, picks: Vec<usize>) {
+        self.picks = picks;
+        self.clamp_pick_cursor();
+    }
+
+    /// 選択リストのカーソルを `delta` だけ動かす（範囲外は端で止める）
+    pub fn move_pick_cursor(&mut self, delta: isize) {
+        self.pick_cursor = self.pick_cursor.saturating_add_signed(delta);
+        self.clamp_pick_cursor();
+    }
+
+    fn clamp_pick_cursor(&mut self) {
+        self.pick_cursor = self.pick_cursor.min(self.picks.len().saturating_sub(1));
     }
 
     /// 選択中の項目の元データ index
@@ -469,10 +488,7 @@ impl App {
             self.status = Some(StatusMessage::info("選択リストに入れる項目がありません"));
             return;
         };
-        let name = match self.tab {
-            Tab::Monster => self.monsters[index].name.clone(),
-            Tab::Spell => self.spells[index].name.clone(),
-        };
+        let name = self.item_name(index);
         let added = self.view_mut().toggle_pick(index);
         let verb = if added { "に追加しました" } else { "から外しました" };
         let count = self.view().picks.len();
@@ -480,6 +496,34 @@ impl App {
             "\"{}\" を選択リスト{}（{} 件）",
             name, verb, count
         )));
+    }
+
+    /// 選択リストのカーソル行を外す（空になったら結果リストへフォーカスを戻す）
+    pub fn remove_pick(&mut self) {
+        let view = self.view();
+        let Some(&index) = view.picks.get(view.pick_cursor) else {
+            return;
+        };
+        let name = self.item_name(index);
+        self.view_mut().toggle_pick(index);
+        self.leave_empty_picks();
+        let count = self.view().picks.len();
+        self.status = Some(StatusMessage::info(format!("\"{}\" を選択リストから外しました（{} 件）", name, count)));
+    }
+
+    /// 現在のタブの選択リストが空なら、選択リストのペインからフォーカスを外す
+    pub fn leave_empty_picks(&mut self) {
+        if self.focus == Focus::Picks && self.view().picks.is_empty() {
+            self.focus = Focus::List;
+        }
+    }
+
+    /// 現在のタブの元データ index の項目名
+    fn item_name(&self, index: usize) -> String {
+        match self.tab {
+            Tab::Monster => self.monsters[index].name.clone(),
+            Tab::Spell => self.spells[index].name.clone(),
+        }
     }
 
     /// 現在のタブのヒット結果を検索バーの条件で作り直す
@@ -544,6 +588,7 @@ impl App {
             Ok(spells) => dropped += self.replace_spells(spells),
             Err(e) => errors.push(format!("スペルデータを読み込めません（前のデータのままです）: {}", e)),
         }
+        self.leave_empty_picks();
         let note = match dropped {
             0 => String::new(),
             n => format!("。データから消えた {} 件を選択リストから外しました", n),
@@ -567,7 +612,7 @@ impl App {
         let previous = self.selected_monster().map(|m| m.name.clone());
         let picked: Vec<String> = self.monster_view.picks.iter().map(|&i| self.monsters[i].name.clone()).collect();
         self.monsters = monsters;
-        self.monster_view.picks = remap_picks(&picked, self.monsters.iter().map(|m| m.name.as_str()));
+        self.monster_view.set_picks(remap_picks(&picked, self.monsters.iter().map(|m| m.name.as_str())));
         let filter = self.reload_monster_filter();
         let hits = monster_hits(&self.monsters, &filter);
         let keep = position_by_name(&hits, previous.as_deref(), |i| &self.monsters[i].name);
@@ -587,7 +632,7 @@ impl App {
         let previous = self.selected_spell().map(|s| s.name.clone());
         let picked: Vec<String> = self.spell_view.picks.iter().map(|&i| self.spells[i].name.clone()).collect();
         self.spells = spells;
-        self.spell_view.picks = remap_picks(&picked, self.spells.iter().map(|s| s.name.as_str()));
+        self.spell_view.set_picks(remap_picks(&picked, self.spells.iter().map(|s| s.name.as_str())));
         let filter = self.reload_spell_filter();
         let hits = spell_hits(&self.spells, &filter);
         let keep = position_by_name(&hits, previous.as_deref(), |i| &self.spells[i].name);

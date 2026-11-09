@@ -26,6 +26,8 @@ pub fn update(app: &mut App, action: Action) -> Option<Effect> {
         Action::OpenStats => open_stats(app),
         Action::Reload => return Some(Effect::Reload(app.sources.clone())),
         Action::TogglePick => app.toggle_pick(),
+        Action::RemovePick => app.remove_pick(),
+        Action::TogglePicksFocus => toggle_picks_focus(app),
         // モーダルが無いときは何もしない
         Action::CloseModal | Action::CopyJson | Action::CycleExportFormat | Action::SubmitExport => {}
         Action::CopyCcfolia if app.tab == Tab::Monster => return copy_ccfolia(app),
@@ -34,12 +36,15 @@ pub fn update(app: &mut App, action: Action) -> Option<Effect> {
         // 他のタブのコピーキーは無視する
         Action::CopyCcfolia | Action::CopyPalette | Action::CopyAllPalettes => {}
         Action::Quit => app.should_quit = true,
-        Action::SwitchTab(tab) => app.tab = tab,
+        Action::SwitchTab(tab) => {
+            app.tab = tab;
+            app.leave_empty_picks();
+        }
         Action::FocusSearch => app.focus = Focus::Search,
         Action::FocusList => app.focus = Focus::List,
         Action::FocusDetail => app.focus = Focus::Detail,
-        Action::FocusNext => app.focus = app.focus.next(),
-        Action::FocusPrev => app.focus = app.focus.prev(),
+        Action::FocusNext => app.focus = app.focus.next(!app.view().picks.is_empty()),
+        Action::FocusPrev => app.focus = app.focus.prev(!app.view().picks.is_empty()),
         Action::InsertChar(_)
         | Action::DeleteChar
         | Action::DeleteCharForward
@@ -58,6 +63,7 @@ pub fn update(app: &mut App, action: Action) -> Option<Effect> {
                 (Focus::Detail, Tab::Monster) => move_in_monster_detail(app, action),
                 // スペル詳細は部位表がないので ↑↓ も本文の1行スクロールにする
                 (Focus::Detail, Tab::Spell) => scroll_detail(app, action),
+                (Focus::Picks, _) => move_in_picks(app, action),
                 _ => move_in_list(app, action),
             }
         }
@@ -354,6 +360,31 @@ fn copy_all_palettes(app: &mut App) -> Option<Effect> {
         ));
     }
     Some(Effect::CopyToClipboard { text: palettes.join("\n"), success })
+}
+
+/// 選択リストのペインへ移る。すでにいれば結果リストへ戻る
+fn toggle_picks_focus(app: &mut App) {
+    if app.focus == Focus::Picks {
+        app.focus = Focus::List;
+    } else if app.view().picks.is_empty() {
+        app.status = Some(StatusMessage::info("選択リストは空です（結果リストの Space で追加できます）"));
+    } else {
+        app.focus = Focus::Picks;
+    }
+}
+
+fn move_in_picks(app: &mut App, action: Action) {
+    let view = app.view_mut();
+    let page = view.page() as isize;
+    match action {
+        Action::Up => view.move_pick_cursor(-1),
+        Action::Down => view.move_pick_cursor(1),
+        Action::PageUp => view.move_pick_cursor(-page),
+        Action::PageDown => view.move_pick_cursor(page),
+        Action::Top => view.pick_cursor = 0,
+        Action::Bottom => view.move_pick_cursor(isize::MAX),
+        _ => {}
+    }
 }
 
 fn move_in_list(app: &mut App, action: Action) {
@@ -1422,6 +1453,67 @@ mod tests {
         update(&mut app, Action::TogglePick);
         app.apply_reload(reloaded(Err("壊れたファイル"), Ok(Vec::new())));
         assert_eq!(picked_names(&app), vec!["サンプル動物"]);
+    }
+
+    /// 上から順に n 件を選択リストへ入れ、ペインへフォーカスする
+    fn app_with_picks(n: usize) -> App {
+        let mut app = sample_app();
+        for _ in 0..n {
+            update(&mut app, Action::TogglePick);
+            update(&mut app, Action::Down);
+        }
+        update(&mut app, Action::TogglePicksFocus);
+        app
+    }
+
+    #[test]
+    fn test_picks_focus_needs_items() {
+        let mut app = sample_app();
+        update(&mut app, Action::TogglePicksFocus);
+        assert_eq!(app.focus, Focus::List);
+        update(&mut app, Action::FocusNext);
+        update(&mut app, Action::FocusNext);
+        assert_eq!(app.focus, Focus::Search); // 空なら Tab の巡回に入らない
+
+        let mut app = app_with_picks(1);
+        assert_eq!(app.focus, Focus::Picks);
+        update(&mut app, Action::FocusNext);
+        assert_eq!(app.focus, Focus::Search);
+        update(&mut app, Action::FocusPrev);
+        assert_eq!(app.focus, Focus::Picks);
+        update(&mut app, Action::TogglePicksFocus);
+        assert_eq!(app.focus, Focus::List);
+    }
+
+    #[test]
+    fn test_move_and_remove_in_picks_keeps_result_cursor() {
+        let mut app = app_with_picks(3);
+        let selected = app.monster_view.selected;
+        update(&mut app, Action::Bottom);
+        assert_eq!(app.monster_view.pick_cursor, 2);
+        update(&mut app, Action::Down);
+        assert_eq!(app.monster_view.pick_cursor, 2);
+        assert_eq!(app.monster_view.selected, selected);
+
+        update(&mut app, Action::RemovePick);
+        assert_eq!(picked_names(&app), vec!["サンプル動物", "テストの戦士"]);
+        assert_eq!(app.monster_view.pick_cursor, 1);
+    }
+
+    #[test]
+    fn test_focus_leaves_picks_when_empty() {
+        let mut app = app_with_picks(1);
+        update(&mut app, Action::RemovePick);
+        assert_eq!(app.focus, Focus::List);
+
+        // スペルタブの選択リストは空
+        let mut app = app_with_picks(1);
+        update(&mut app, Action::SwitchTab(Tab::Spell));
+        assert_eq!(app.focus, Focus::List);
+
+        let mut app = app_with_picks(1);
+        app.apply_reload(reloaded(Ok(Vec::new()), Ok(Vec::new())));
+        assert_eq!(app.focus, Focus::List);
     }
 
     fn reloaded(monsters: Result<Vec<Monster>, &str>, spells: Result<Vec<Spell>, &str>) -> ReloadedData {
