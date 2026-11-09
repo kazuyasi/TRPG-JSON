@@ -2,7 +2,7 @@
 
 ## 🧭 メタ情報
 - プロジェクト: TRPG-JSON
-- 最終更新: 2026-11-09 JST（T055 ドキュメントの日本語化を完了、v0.20.0）
+- 最終更新: 2026-11-09 JST（T056 ドキュメントとソースコードの整合確認を完了、T057〜T063 を追加、v0.20.1）
 - 担当: kazuyasi（仕様・承認・git 操作）/ Claude（提案・実装・テスト）
 - 状況: Phase 2.5 完了（T013-T027）。Phase 3 完了（T028-T037）。Phase 3.5 完了（T038-1/2/final）。Phase 3.6 完了（T038.6、T040、T040.5）。Phase 3.7 完了（T046、T047）。エラーメッセージの改善と統計コマンドにより UX の改善が完了。Phase 4 は進行中（T043、T048〜T054 は完了。T041、T042、T044、T045 は未完了）。ワークスペースのバージョン継承を設定済み。テストスイート: 全 432 件（core 258 + app 174）。
 
@@ -12,8 +12,8 @@
 - 現在の最優先タスクはなし。次の候補は「進行中」の節を参照
 
 ## 🚧 進行中
-- 実装中のタスクはなし（T055 は 2026-11-09 に `claude/T055` で完了、マージ待ち）
-- 次の候補（Phase 4 内）: 未定。T042 は範囲の確認、T041 / T045 はデータ形式の決定が先
+- 進行中のタスクはなし（T056 は `claude/T056` でマージ待ち）
+- 次の候補（Phase 4 内）: T056 で見つかった T057〜T063。T042 は範囲の確認、T041 / T045 はデータ形式の決定が先
 
 ---
 
@@ -593,6 +593,7 @@
         4. ✅ `C` の順序、`E` の JSON / Udonarium / Sheets 出力、`E` のあとの `e` がヒット全件に戻ること、空のときの案内
 - [ ] T044 Phase 4: 複数システムへの対応（SW2.5 以外への拡張）
 - [ ] T045 Phase 4: スキル / ランク制魔法の CLI コマンド（gm skill find/list/palette）
+   - 方針（2026-11-09 Operator 確認）: 特技は `format_magic_category` を通さず、判定の式も別に定める。2文字の特技に「魔法」が付くのを避けるため、スペルの「2文字なら魔法」のルールは変えない
 - [x] T055 ドキュメントの日本語化 — 2026-11-09
    - 背景: Operator が日本語の方が読みやすいため、英語が残る文書を日本語化する。CLI ヘルプと `TUI_DESIGN.md` はすでに日本語なので対象外
    - 方針（2026-11-09 確定）: 現役の文書を優先する。`DESIGN_GUIDE.md` は忠実な翻訳のみとし、古い記述の整理は別タスクにする。見出しも日本語にする（固有名詞は原文のまま）
@@ -612,6 +613,36 @@
       - `data/sample/monsters_sample.json`、`TUI_DESIGN.md:201`、テストのトレントなどはそのまま残す（Operator 判断）
       - 「エンティティ」は「項目」などに置き換えた
    - T055f `tasks.md` の完了済み履歴の翻訳: 見送り（2026-11-09 Operator 判断。完了済みの履歴は英語のまま残す）
+- [x] T056 ドキュメントとソースコードの整合確認 — 2026-11-09
+   - 背景: T055 では翻訳中に気づいた食い違いだけを直し、文書とコードの系統的な照合はしていない
+   - 方針: コードを正とする。まず読み取りだけで照合して食い違いの一覧を作り、Operator が文書を直すものとコードの方がおかしいものを判断してから修正する。コードの不具合は別タスクに分ける
+   - 対象外: `TUI_DESIGN.md`（更新が続いていてずれが少ないはず）、シナリオと Phase 3 の設計例（将来の構想）、`tasks.md` の完了済み履歴（過去の記録）
+   - [x] T056a `README.md` 全体（コマンドとオプションに加え、TUI、検索構文、エクスポートの節も対象）— 2026-11-09
+   - [x] T056b `DESIGN_GUIDE.md` の仕様の節（Udonarium、スペルのチャットパレット、Google Sheets、`Lv` などのデータ構造）— 2026-11-09
+   - [x] T056c `DESIGN_GUIDE.md` の構成図、参考資料、トラブルシューティング。割り当てのない節（ロードマップの Phase 1〜2.5、コード構成、セキュリティ、テスト戦略、移行ガイド、状況と次の手順）も含める — 2026-11-09
+- [ ] T057 Google 認証まわりの改善（T056a で発見）
+   - 背景: `README.md` は現在の動作に合わせて直したが、次の点はコード側を改善する余地がある
+   - [ ] T057a `credentials.json` の権限を制限する（`rust/core/src/export/auth.rs` の `save_credentials` は `fs::write` のみ）
+   - [ ] T057b アクセストークンの期限切れ時に自動で更新する（今はエクスポートが1回失敗し、再実行で認証し直す）
+   - [ ] T057c 実際のパスと異なる記述を直す: `auth.rs` のコメントとエラーメッセージの `~/.config`（macOS は `~/Library/Application Support`）、`part_namer.rs` のコメントのファイル名の例
+- [ ] T058 `-l 0` / `lv:0` でランク制のスペルがヒットする不具合を直す（T056a で発見）
+   - 原因: `rust/core/src/query.rs` の `extract_spell_level` は、`value` / `value+` がないスペルに `0` を返す。`spell_find_multi` はこの値を指定のレベルと比べるので、`gm spell palette -l 0` や TUI の `lv:0` でランク制のスペルが一致する
+   - 期待する動作: `-l` は `Lv.kind` が `value` / `value+` のスペルだけを対象にする（`README.md`、`DESIGN_GUIDE.md` の記述どおり）
+   - 備考: レベル 0 のスペルの実在は未確認（2026-11-09 Operator）。`extract_spell_level` が `0` を返すことを確かめるテスト（`test_extract_spell_level_returns_zero_for_rank_spells`）があるので、直し方に合わせて見直す
+- [ ] T059 `Lv.kind` が `value+` のスペルを `-l` で「指定のレベル以下」なら一致させる（T056b で発見、Operator 判断）
+   - 現状: `rust/core/src/query.rs` の `spell_find_multi` は完全一致で、`value+` が 5 のスペルは `-l 7` でヒットしない。`DESIGN_GUIDE.md` の「`Lv.kind` の種類と検索の動作」が正しい仕様
+   - TUI の `lv:` も同じ関数を使うので、動作が変わる。`README.md` の `-l`（完全一致）の説明も合わせて直す
+- [ ] T060 Google Sheets の空き行がないときにエラーにする（T056b で発見）
+   - 現状: `rust/core/src/export/sheets_api.rs` の `find_empty_row` は空きがなくても 1001 行目を返し、`SheetsApiError::NoEmptyRows` にならない。直したら `DESIGN_GUIDE.md` の「エラー処理」も更新する
+- [ ] T061 `部位数` の扱いを決める（T056b で発見）
+   - 背景: 同じ部位の持ち方は、要素を分けるデータと1要素に `部位数` を書くデータの両方がある（2026-11-09 Operator）。Google Sheets と Udonarium の出力は要素の数だけで、`部位数` を見ていない
+   - 決めたら `DESIGN_GUIDE.md` の Google Sheets の例（`"部位数": 2` の1要素から部位 B を2組出力）も合わせる
+- [ ] T062 コードの古いコメントなどを整理する（T056b で発見、動作は変えない）
+   - `rust/core/src/export/udonarium/data_transformer.rs`: 抵抗力の「コア部位のみ」のコメントと、中身が同じ `if` の分岐
+   - `rust/core/src/export/palette.rs`: `format_target` のコメントのエリア形式（実際は `対象.エリア.*`）
+   - `rust/core/src/lib.rs`: 存在しない `schema/spell_array.json` への参照
+- [ ] T063 TUI の詳細ペインの `movein` の表示を直す（T056b で発見）
+   - 現状: `rust/app/src/tui/format.rs` は常に「水中」と表示するが、`movein` はモンスターによって飛行・水中・土中などになる（2026-11-09 Operator）。`TUI_DESIGN.md` の記述も合わせて直す
 
 ## 🚮 中止・置き換え
 - [ ] T007 データ分析機能の実装（不要と判断）— 2025-09-14

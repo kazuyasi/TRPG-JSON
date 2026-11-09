@@ -6,21 +6,22 @@
 
 ## 現在のアーキテクチャ
 
-### 単一データソースのモデル
+### 構成
 ```
-CLI (app/) → Core Library (core/) → JSON File (data/systems/monsters.json)
-                     ↓
-               Query Module
-               (find_by_name, find_by_level, etc.)
-                     ↓
-               I/O Module
-               (load_json_array, save_json_array_file)
+CLI / TUI (rust/app/)
+    ↓
+Core Library (rust/core/)
+    ├─ Config: 設定ファイルの読み込み
+    ├─ I/O: JSON ファイルの読み書き（複数ファイルは1つにまとめる）
+    ├─ Query: モンスターとスペルの検索（find_multi、spell_find_multi など）
+    ├─ Stats: 統計
+    └─ Export: JSON、Google Sheets、Udonarium、CCFolia、チャットパレット
 ```
 
 **現在の実装:**
-- **データパス**: TOML ファイルで設定: `data/systems/monsters.json`
-- **データ構造**: `Vec<Monster>`
-- **ファイル形式**: Monster オブジェクトの JSON 配列
+- **データパス**: TOML の設定ファイルで、モンスターとスペルのファイルをそれぞれ指定する（複数可）
+- **データ構造**: `Vec<Monster>`、`Vec<Spell>`
+- **ファイル形式**: Monster / Spell オブジェクトの JSON 配列
 
 ## 拡張のシナリオ
 
@@ -142,7 +143,7 @@ CLI (app/) → Core Library (core/) → JSON File (data/systems/monsters.json)
 
 ## 実装ロードマップ
 
-### Phase 1: 現状 ✅
+### Phase 1: 基本機能 ✅（完了）
 - 単一のゲームシステム
 - 単一のデータファイル（monsters.json）
 - 設定によるデータパスの指定
@@ -170,7 +171,7 @@ CLI (app/) → Core Library (core/) → JSON File (data/systems/monsters.json)
 ```rust
 // core/src/export/mod.rs
 pub trait DataExporter {
-    fn export(&self, data: &[Monster], config: &ExportConfig) -> Result<(), String>;
+    fn export(&self, data: &[Monster], config: &ExportConfig) -> Result<(), ExportError>;
 }
 
 pub struct ExportConfig {
@@ -181,7 +182,8 @@ pub struct ExportConfig {
 pub enum ExportFormat {
     Json,
     GoogleSheets,
-    // 今後: 独自の形式
+    Udonarium,
+    // CCFolia は1体ずつのコピーのため、この enum を使わず別の経路で出力する
 }
 ```
 
@@ -203,7 +205,7 @@ gm monster select -c "Category" --export sheets --output "Spreadsheet ID"
 **Google Sheets エクスポートの手順:**
 1. ユーザーが Google OAuth 2.0 で認証（初回のみ）
 2. ユーザーが実行: `gm monster select ... --export sheets --output <spreadsheet-id>`
-3. システムが指定の Google Sheet の行を作成または更新
+3. システムが指定の Google Sheet の末尾に行を追記
 4. シートの URL を含む確認メッセージを表示
 
 **この方式の利点:**
@@ -269,96 +271,63 @@ impl GameEntity for DndCharacter { ... }  // D&D
 - **解決策**: サンプルデータと本番データを分ける
 - **状況**: サンプルデータが用意できるまで保留
 
-## 当面の次の手順（必要な場合）
-
-1. **設定ファイルへの対応を追加**:
-   - `config/default.toml` を作成する
-   - `config` クレートか `toml` クレートを使う
-   - CLI のフラグでパスを上書きできるようにする: `gm --config config/custom.toml monster find "name"`
-
-2. **データパスをパラメータにする**:
-   - ハードコードされたパスを関数の引数に変える
-   - `main()` からハンドラ関数へ渡す
-   - 代わりに設定ファイルから読み込む
-
-3. 新しいシナリオの**単体テストを追加**:
-   - 複数ファイルの読み込み
-   - 設定の解析
-   - ファイルが無い場合のエラー処理
-
-## コード構成のベストプラクティス
+## コード構成
 
 ```
-trpg-json/
-├── core/
-│   ├── src/
-│   │   ├── lib.rs
-│   │   ├── models.rs          # Monster、Part など
-│   │   ├── query.rs           # 検索の関数
-│   │   ├── io.rs              # ファイルの入出力
-│   │   ├── systems/
-│   │   │   ├── mod.rs
-│   │   │   ├── system_a.rs    # システム A 固有
-│   │   │   ├── common.rs      # 共通のトレイト
-│   │   └── config.rs          # 設定の読み込み
-│   └── Cargo.toml
-├── app/
-│   ├── src/
-│   │   ├── main.rs            # エントリポイントとルーティング
-│   │   ├── commands/
-│   │   │   ├── mod.rs
-│   │   │   ├── monster.rs     # モンスターのコマンドのハンドラ
-│   │   │   └── spell.rs       # スペルのコマンドのハンドラ
-│   │   └── utils.rs           # 共通の入出力と UI のユーティリティ
-│   └── Cargo.toml
+TRPG-JSON/
+├── rust/
+│   ├── Cargo.toml                 # ワークスペース
+│   ├── core/
+│   │   ├── src/
+│   │   │   ├── lib.rs             # Monster、Part、Spell
+│   │   │   ├── query.rs           # 検索の関数
+│   │   │   ├── io.rs              # ファイルの入出力
+│   │   │   ├── config.rs          # 設定の読み込み
+│   │   │   ├── stats.rs           # 統計
+│   │   │   └── export/            # 各形式へのエクスポートとチャットパレット
+│   │   └── Cargo.toml
+│   └── app/
+│       ├── src/
+│       │   ├── main.rs            # エントリポイントとルーティング
+│       │   ├── commands/
+│       │   │   ├── mod.rs
+│       │   │   ├── monster.rs     # モンスターのコマンドのハンドラ
+│       │   │   └── spell.rs       # スペルのコマンドのハンドラ
+│       │   ├── tui/               # TUI モード（gm tui）
+│       │   └── utils.rs           # 共通の入出力と UI のユーティリティ
+│       └── Cargo.toml
 ├── config/
-│   └── default.toml           # 既定の設定
+│   └── default.toml               # 既定の設定
 ├── data/
-│   ├── systems/
-│   │   ├── monsters.json      # 暗号化済み
-│   │   └── items.json         # 将来
-│   └── samples/               # サンプルデータ
-└── README.md
+│   └── sample/                    # サンプルデータ
+├── AGENTS.md
+├── DESIGN_GUIDE.md
+├── README.md
+├── TUI_DESIGN.md
+└── tasks.md
 ```
 
 ## セキュリティの考慮事項
 
-### 暗号化されたデータ
-- 本番のデータファイルはすべて `git-crypt` で暗号化したままにする
-- 開発環境: 必要なときだけ復号する
-- CI/CD: 暗号化した認証情報を使うか、オフラインで処理する
+### データの管理
+- 本番のデータはレポジトリに入れない。追跡するのは `data/sample/` のサンプルデータだけ
+- 書籍に由来するデータは著作権の管理が必要なのでコミットしない（`AGENTS.md` のデータ利用のガイドラインを参照）
+- 本番のデータファイルは、設定ファイルでレポジトリの外のパスを指定して読み込む
 
-### 設定ファイル
-- ローカルの設定の上書き用に `.gitignore` の記載を維持する
-- 例: `config/local.toml`（コミットしない）
-- 本番の設定は暗号化してコミットする
+### 設定ファイルと認証情報
+- 個人のデータパスは、OS の設定ディレクトリの `trpg-json/default.toml` か `--config` で指定する（`README.md` の「設定ファイル」を参照）
+- Google の認証情報は OS の設定ディレクトリに平文で保存する（権限の制限は T057 で対応予定）
 
-### 複数システムへの対応
+### 複数システムへの対応（Phase 3 の予定）
 - システムごとにデータディレクトリを分ける
-- システムごとに独立した暗号化の方針を持てる
 - 読み込む前にシステムの互換性を検証する
 
 ## テスト戦略
 
-### 単体テスト
-```rust
-#[cfg(test)]
-mod tests {
-    #[test]
-    fn test_load_multiple_files() { ... }
-    
-    #[test]
-    fn test_config_loading() { ... }
-    
-    #[test]
-    fn test_system_detection() { ... }
-}
-```
-
-### 統合テスト
-- 異なるデータソースからの読み込みをテストする
-- エラー処理（ファイルが無い、形式が不正）をテストする
-- システムが混在するシナリオをテストする
+- 単体テストは各モジュールの `#[cfg(test)] mod tests` に置く（`rust/core/src`、`rust/app/src`）
+- ファイルを使うテストは `tempfile` で一時ファイルを作る
+- `tests/` ディレクトリの統合テストは今はない
+- 実行方法は `AGENTS.md` を参照
 
 ## 移行ガイド: 単一ファイル → 複数ファイル
 
@@ -368,8 +337,8 @@ mod tests {
 ```bash
 # monsters.json をカテゴリやレベルの範囲で分割する
 # 例: カテゴリごとに別のファイルを作成する
-jq '.[] | select(.Category == "Category1")' data/systems/monsters.json > data/systems/monsters_part1.json
-jq '.[] | select(.Category == "Category2")' data/systems/monsters.json > data/systems/monsters_part2.json
+jq '[.[] | select(.Category == "Category1")]' data/systems/monsters.json > data/systems/monsters_part1.json
+jq '[.[] | select(.Category == "Category2")]' data/systems/monsters.json > data/systems/monsters_part2.json
 ```
 
 **手順 2: 設定ファイルを更新する**
@@ -393,20 +362,20 @@ gm monster select -l 6          # レベル6のモンスターがすべて返る
 
 **重要な注意点:**
 - すべてのファイルは JSON 配列でなければならない
-- ファイルの順序は検索結果に影響しない（1つのコレクションにまとめられる）
+- ファイルの順序は一致するかどうかには影響しない（1つのコレクションにまとめられる）。CLI の結果の並びは設定の順になる
 - 新規の追加はリストの最初のファイルに保存し、同名の更新と削除は対象のモンスターを含むファイルだけを書き換える
 - ファイルが増えすぎないよう、定期的な統合を検討する
 
 ## トラブルシューティング
 
-### 問題: "Error: Data file not found"
+### 問題: 「エラー: モンスターデータファイルが見つかりません」
 **解決策:**
-1. パスがホームディレクトリからの相対パスになっているか確認する: `~/playground/TRPG-JSON/...`
+1. パスがホームディレクトリからの相対パスになっているか確認する（`~` は展開されないので書かない）: `playground/TRPG-JSON/...`
 2. ファイルが存在するか確認する: `ls ~/path/to/file.json`
 3. ファイルの権限を確認する: `chmod 644 data/systems/monsters.json`
 4. 代替策として絶対パスを使う: `/Users/username/playground/TRPG-JSON/...`
 
-### 問題: 正しい JSON なのに "JSON parsing error" が出る
+### 問題: 「JSON解析エラー」または「無効なデータ形式: JSONのルート要素が配列ではありません」が出る
 **解決策:**
 1. ファイルが正しい JSON か確認する: `jq empty data/systems/monsters.json`
 2. 文字コードの問題がないか確認する: `file data/systems/monsters.json`
@@ -501,7 +470,10 @@ gm monster find "Monster Name" -l 3         # System A のモンスターを検�
 - **ビジネスロジック**: `rust/core/src/query.rs`（検索の関数）
 - **ファイルの入出力**: `rust/core/src/io.rs`（読み込みと保存）
 - **設定**: `rust/core/src/config.rs`（設定の解析）
-- **データモデル**: `rust/core/src/lib.rs`（Monster、Part の構造体）
+- **データモデル**: `rust/core/src/lib.rs`（Monster、Part、Spell の構造体）
+- **エクスポート**: `rust/core/src/export/`（JSON、Google Sheets、Udonarium、CCFolia、チャットパレット）
+- **統計**: `rust/core/src/stats.rs`
+- **TUI**: `rust/app/src/tui/`（設計は `TUI_DESIGN.md` を参照）
 - **設定ファイル**: `config/default.toml`
 
 ### ビルドと開発
@@ -517,7 +489,7 @@ gm monster find "Monster Name" -l 3         # System A のモンスターを検�
 - **トレイトベースの設計**（将来の Phase 3 の拡張性のため）
 - **enum のデシリアライズ**（設定の柔軟性のための `#[serde(untagged)]`）
 - **エラーの伝播**（thiserror クレートによる扱いやすいエラー処理）
-- **設定の管理**（TOML ベース、環境変数に対応）
+- **設定の管理**（TOML ベース）
 
 ### 性能の考慮事項
 - **現在**: 読み込んだ全モンスターに対する O(n) の検索
@@ -537,7 +509,7 @@ gm monster find "Monster Name" -l 3         # System A のモンスターを検�
 ### 決定事項
 - **優先順位**: ファイル（Phase 2）✓ → データエクスポート（Phase 2.5）✓ → システム（Phase 3）
 - **設定の形式**: TOML（単純さのため YAML ではなくこちらを選択）
-- **パスの解決**: ホームディレクトリからの相対パス（`~` の展開に対応）
+- **パスの解決**: ホームディレクトリからの相対パス、または絶対パス（`~` は展開しない）
 - **データの統合**: すべてのファイルを1つのコレクションに読み込み、まとめて検索する
 - **エクスポート形式**: JSON、Google Sheets、Udonarium、CCFolia に対応
 - **手動実行**: データのエクスポートはユーザーが実行し、自動化は不要
@@ -564,13 +536,13 @@ gm monster find "Monster Name" -l 3         # System A のモンスターを検�
 - **CLI のフラグ**: `--export udonarium --output <zip_file_path>` で ZIP の出力先を指定する
 - **ファイル名（ZIP の中）**: 個々の XML ファイルは次の命名規則に従う
   - 部位が1つ: `(monster_name).xml`
-  - 複数部位: 部位ごとに `(monster_name)_(part_name)(no).xml`
+  - 複数部位: 部位ごとに `(monster_name)_(part_name).xml`。同じ名前の部位が複数あるときは `(monster_name)_(part_name)_(no).xml`
   - 例:
     - 部位が1つ: `ゴブリン.zip` の中に `ゴブリン.xml`
-    - 複数部位: `モンスターA.zip` の中に `モンスターA_部位A.xml`、`モンスターA_部位B0.xml`、`モンスターA_部位B1.xml`
-- **テンプレートの選択**: すべての部位（コア=true と コア=false の両方）でコアのテンプレートを使う
+    - 複数部位: `モンスターA.zip` の中に `モンスターA_部位A.xml`、`モンスターA_部位B_0.xml`、`モンスターA_部位B_1.xml`
+- **テンプレートの選択**: コア部位（コア=true）とコア以外の部位（コア=false）で別のテンプレートを使う（違いは「XML 出力の違い」の項を参照）
 - **XML の構造**: ネストした `<data>` 要素を持つ Udonarium のキャラクター形式に基づく
-- **チャットパレット**: 命中、回避、抵抗の判定だけを自動生成する（特殊能力は含めない）
+- **チャットパレット**: 計算、固定値判定、ダイス判定のコマンドを自動生成する（特殊能力は含めない）
 - **フィールドの対応**: TRPG-JSON の Monster → Udonarium の XML データ構造
 
 ### XML の構造
@@ -608,7 +580,6 @@ gm monster find "Monster Name" -l 3         # System A のモンスターを検�
     </data>
     <data name="情報">
       <data name="弱点" type="note"></data>
-      <data name="移動速度"></data>
     </data>
     <data name="魔物知識">
       <data name="生態" type="note"><!-- カテゴリ、レベル --></data>
@@ -617,7 +588,7 @@ gm monster find "Monster Name" -l 3         # System A のモンスターを検�
 </data>
 
 <chat-palette dicebot="SwordWorld2.5">
-<!-- 自動生成するコマンド: 命中力,打撃点, 回避力, 生命抵抗力, 精神抵抗力 -->
+<!-- 自動生成するコマンド: 計算、固定値判定、ダイス判定（「チャットパレットの自動生成」の項を参照） -->
 </chat-palette>
 ```
 
@@ -633,25 +604,39 @@ gm monster find "Monster Name" -l 3         # System A のモンスターを検�
 | `part.hp` | `part.HP` | `character/detail/リソース/HP` | 数値 | |
 | `part.mp` | `part.MP` | `character/detail/リソース/MP` | 数値 | mp == -1 のときは 0 を出力 |
 | `part.armor` | `part.防護点` | `character/detail/リソース/防護点` | 数値 | |
-| `part.hit_rate` | `part.命中力` | `character/detail/ステータス・バフ・デバフ/命中力` | hit_rate - 7 | 7 を引く（期待値から基準値へ） |
+| `part.hit_rate` | `part.命中力` | `character/detail/ステータス・バフ・デバフ/命中力` | hit_rate - 7 | 7 を引く（期待値から基準値へ。下限は 0） |
 | `part.damage` | `part.打撃点` | `character/detail/ステータス・バフ・デバフ/打撃点` | 数値 | 補正は不要（すでに基準値） |
-| `part.dodge` | `part.回避力` | `character/detail/ステータス・バフ・デバフ/回避力` | dodge - 7 | 7 を引く（期待値から基準値へ） |
-| `monster.life_resistance` | `生命抵抗力` | `character/detail/ステータス・バフ・デバフ/生命抵抗力` | life_resistance - 7 | 7 を引く。コア部位のみ |
-| `monster.mental_resistance` | `精神抵抗力` | `character/detail/ステータス・バフ・デバフ/精神抵抗力` | mental_resistance - 7 | 7 を引く。コア部位のみ |
-| `monster.fame` | `知名度` | `character/detail/戦闘準備/魔物知識・先制判定` | 形式: `知名度/弱点値\r先制値` | **コア部位のみ** |
-| `monster.weakness_value` | `弱点値` | `character/detail/戦闘準備/魔物知識・先制判定` | 形式: `知名度/弱点値\r先制値` | **コア部位のみ** |
-| `monster.weakness` | `弱点` | `character/detail/情報/弱点` | 文字列 | **コア部位のみ** |
-| `monster.initiative` | `先制値` | `character/detail/戦闘準備/魔物知識・先制判定` | 形式: `知名度/弱点値\r先制値` | **コア部位のみ** |
+| `part.dodge` | `part.回避力` | `character/detail/ステータス・バフ・デバフ/回避力` | dodge - 7 | 7 を引く（期待値から基準値へ。下限は 0） |
+| `monster.life_resistance` | `生命抵抗力` | `character/detail/ステータス・バフ・デバフ/生命抵抗力` | life_resistance - 7 | 7 を引く（下限は 0）。コア以外の部位にも同じ値を出力する |
+| `monster.mental_resistance` | `精神抵抗力` | `character/detail/ステータス・バフ・デバフ/精神抵抗力` | mental_resistance - 7 | 7 を引く（下限は 0）。コア以外の部位にも同じ値を出力する |
+| `monster.fame` | `知名度` | `character/detail/戦闘準備/魔物知識・先制判定` | 形式: `知名度/弱点値\n先制値` | **コア部位のみ** |
+| `monster.weakness_value` | `弱点値` | `character/detail/戦闘準備/魔物知識・先制判定` | 形式: `知名度/弱点値\n先制値` | **コア部位のみ** |
+| `monster.weakness` | `弱点` | `character/detail/情報/弱点` | 変換後の文字列 | **コア部位のみ**。"エネルギー" → "E"、"ダメージ" → "ダメ"、"属性" は削除 |
+| `monster.initiative` | `先制値` | `character/detail/戦闘準備/魔物知識・先制判定` | 形式: `知名度/弱点値\n先制値` | **コア部位のみ** |
 | `monster.common_abilities` | `共通特殊能力` | `character/detail/特殊能力/特殊能力1` | テキスト | 特殊能力の1つ目の枠 |
 | `part.special_abilities` | `part.部位特殊能力` | `character/detail/特殊能力/特殊能力2` | テキスト | 部位ごとの能力 |
 
 ### チャットパレットの自動生成
 
-**生成するコマンド（命中、回避、抵抗の判定のみ）:**
+**生成するコマンド（コア部位もコア以外の部位も同じ）:**
 ```
+//-----計算
+C({HP}+{防護点}+{ダメージ軽減}-()) 　【残HP（物理ダメージ）】
+C({HP}+{ダメージ軽減}-())　【残HP（魔法ダメージ）】
+C({MP}-())　【MP消費】
+C{HP}　【現在HP】
+C{MP}　【現在MP】
+
+//-----固定値判定
+C({命中力}+7) 命中判定（固定値）
+C({回避力}+7) 回避判定（固定値）
+C({生命抵抗力}+7) 生命抵抗判定（固定値）
+C({精神抵抗力}+7) 精神抵抗判定（固定値）
+
+//-----ダイス判定
 2d+{命中力}　命中判定
-2d+{回避力}　回避判定
 2d+{打撃点}　ダメージロール
+2d+{回避力}　回避判定
 2d+{生命抵抗力}　生命抵抗判定
 2d+{精神抵抗力}　精神抵抗判定
 ```
@@ -690,31 +675,31 @@ gm monster select -l 6 --export udonarium --output /path/to/monsters.zip
 
 **複数部位のモンスター（コア部位が複数あるものを含む）:**
 - 出力形式: 複数の XML ファイルを含む ZIP ファイル
-- ZIP の中のファイル名の規則: `(monster_name)_(part_name)(no).xml`
+- ZIP の中のファイル名の規則: `(monster_name)_(part_name).xml`。同じ名前の部位が複数あるときは `(monster_name)_(part_name)_(no).xml`
 - 例: `--output モンスターA.zip` で次のファイルを含む ZIP ファイルを作成する
   ```
   モンスターA_部位A.xml (コア部位 - 戦闘準備 情報 魔物知識 を含む)
-  モンスターA_部位B0.xml (コア以外の部位)
-  モンスターA_部位B1.xml (コア以外の部位)
+  モンスターA_部位B_0.xml (コア以外の部位)
+  モンスターA_部位B_1.xml (コア以外の部位)
   ```
 - コア部位が複数ある例: `--output モンスターB.zip` で次のファイルを作成する
   ```
-  モンスターB_部位A0.xml (コア部位 - 戦闘準備 情報 魔物知識 を含む)
-  モンスターB_部位A1.xml (コア部位 - 戦闘準備 情報 魔物知識 を含む)
+  モンスターB_部位A_0.xml (コア部位 - 戦闘準備 情報 魔物知識 を含む)
+  モンスターB_部位A_1.xml (コア部位 - 戦闘準備 情報 魔物知識 を含む)
   モンスターB_部位B.xml (コア以外の部位)
   ```
 
 ### 部位の命名アルゴリズム
 
-1. `part.name` が空なら、コア=true には "core" を使い、それ以外には連番を使う
+1. `part.name` が空なら、コア=true にはモンスター名だけを使い、それ以外にはモンスター名に `_` と番号を付ける（番号は、名前が空の部位を先頭から 0, 1, 2... と数えたもの）
 2. `part.name` があれば、その名前を使う
-3. 名前が重複する場合（例: "部位B" の部位が複数ある）は、連番（0, 1, 2...）を付ける
+3. 名前が重複する場合（例: "部位B" の部位が複数ある）は、部位名のあとに `_` と連番（0, 1, 2...）を付ける
 
 **例:**
 - `name=""` で `コア=true` の部位 → `monster.xml`
-- `name=""` で `コア=false` の部位（最初のもの）→ `monster_0.xml`
+- `name=""` で `コア=false` の部位 → `monster_0.xml`（名前が空のコア部位が先にあれば `monster_1.xml` から）
 - `name="部位A"` で `コア=true` の部位 → `monster_部位A.xml`
-- `name="部位B"` の部位 → `monster_部位B0.xml`、`monster_部位B1.xml`
+- `name="部位B"` の部位 → `monster_部位B_0.xml`、`monster_部位B_1.xml`（1つだけなら `monster_部位B.xml`）
 
 ### 実装上の注意
 
@@ -722,7 +707,7 @@ gm monster select -l 6 --export udonarium --output /path/to/monsters.zip
 - その他のキャラクター属性（posZ、rotate、roll）は "0" にする
 - ダイスボットは "SwordWorld2.5" にする
 - numberResource 要素では、利便性のために `currentValue` 属性を使う
-- データの変換では、必要に応じて空や null の値を "-" として扱う
+- データの変換では、HP、命中力、回避力、打撃点の値がなければ 0 として出力する
 
 ## スペルとスキルのデータ構造の仕様
 
@@ -752,7 +737,7 @@ gm monster select -l 6 --export udonarium --output /path/to/monsters.zip
   ```json
   { "name": "ファイア・ボール", "Lv": { "kind": "value", "value": 3 } }
   ```
-  検索: `gm spell find -l 3` → このレコードに一致する
+  検索: `gm spell find "ファイア" -l 3` → このレコードに一致する
 
 **2. `Lv.kind: "value+"`（最低レベル）**
 - **CLI のフラグ**: `-l <level>`
@@ -774,7 +759,7 @@ gm monster select -l 6 --export udonarium --output /path/to/monsters.zip
   ```json
   { "name": "丙系魔法ランク2", "Lv": { "kind": "rank", "rank": 2 } }
   ```
-  検索: `gm spell find -r 2` → このレコードに一致する
+  検索: `gm spell find "魔法" -r 2` → このレコードに一致する
 
 ### 系統バリアントのフィールド（`schoolVariant`）
 
@@ -788,7 +773,7 @@ gm monster select -l 6 --export udonarium --output /path/to/monsters.zip
 ```json
 { "name": "特殊甲系魔法", "school": "甲系", "schoolVariant": "特殊" }
 ```
-検索: `gm spell find -v 特殊` → このレコードに一致する
+検索: `gm spell find "魔法" -v 特殊` → このレコードに一致する
 
 ### 神のフィールド（`god`）
 
@@ -809,7 +794,7 @@ gm monster select -l 6 --export udonarium --output /path/to/monsters.zip
   "god": "神名" 
 }
 ```
-検索: `gm spell find -v 特殊 -g 神名` → このレコードに一致する
+検索: `gm spell find "魔法" -v 特殊 -g 神名` → このレコードに一致する
 
 **注意**: `schoolVariant` が "特殊" でない、または `school` が "甲系" でない場合、`god` フィールドは適用されず、データに存在すべきではない。
 
@@ -829,8 +814,8 @@ Spell Name / MP:X / 対象:Y / 射程:Z / 時間:T / Effect Description
 
 **例:**
 ```
-補助呪文名 / MP:2 / 対象:1体 / 射程:術者 / 効果の説明。
-補助呪文名2 / MP:5 / 対象:1体 / 射程:接触 / 効果の説明。
+補助呪文名 / MP:2 / 対象:1体 / 射程:術者 / 時間:10秒 / 効果の説明。
+補助呪文名2 / MP:5 / 対象:1体 / 射程:接触 / 時間:一瞬 / 効果の説明。
 ```
 
 **特徴:**
@@ -864,18 +849,18 @@ Spell Name / MP:X / 対象:Y / 射程:Z / 時間:T / Effect Description
   - 使われているフィールド名によらず、値をそのまま出力する
   - 例: `射程` の値が "10m(起点指定)"、または `射程(m)` の値が "10"
 - `対象` のフィールド: 対象の情報（別の項を参照）
-- `category`: 魔法カテゴリ名の導出（別の項を参照）
+- `school`: 魔法カテゴリ名の導出（別の項を参照）
 - `効果`: 効果の説明。そのまま出力する
 - `時間` のフィールド: 持続時間の情報（別の項を参照）
 
 #### 魔法カテゴリ名
-**`category` が全角2文字ちょうどではないとき:**
-- 魔法カテゴリ → `category` をそのまま使う
-- 例: `category` が "ハイテクノロジー" なら、魔法カテゴリは "ハイテクノロジー"
+**`school` が2文字ちょうどではないとき:**
+- 魔法カテゴリ → `school` をそのまま使う
+- 例: `school` が "ハイテクノロジー" なら、魔法カテゴリは "ハイテクノロジー"
 
-**`category` が全角2文字ちょうどのとき:**
-- 魔法カテゴリ → `category` + "魔法"
-- 例: `category` が "丙系" なら、魔法カテゴリは "丙系魔法"
+**`school` が2文字ちょうどのとき（全角・半角は問わない）:**
+- 魔法カテゴリ → `school` + "魔法"
+- 例: `school` が "丙系" なら、魔法カテゴリは "丙系魔法"
 
 #### 対象
 **`対象.kind == "個別"` のとき:**
@@ -883,8 +868,8 @@ Spell Name / MP:X / 対象:Y / 射程:Z / 時間:T / Effect Description
 - 例: `対象.個別` が "1体全" なら "1体全" と出力
 
 **`対象.kind == "エリア"` のとき:**
-- 出力形式: `対象.value`(半径`対象.半径(m)`m`対象.末尾`)
-- 例: `対象.value` が "2エリア"、`対象.半径(m)` が "10"、`対象.末尾` が "空間" なら "2エリア(半径10m空間)" と出力
+- 出力形式: `対象.エリア.value`(半径`対象.エリア.半径(m)`m`対象.エリア.末尾`)
+- 例: `対象.エリア.value` が "2エリア"、`対象.エリア.半径(m)` が "10"、`対象.エリア.末尾` が "空間" なら "2エリア(半径10m空間)" と出力
 
 #### 時間
 **`時間.value` が文字列のとき:**
@@ -893,7 +878,7 @@ Spell Name / MP:X / 対象:Y / 射程:Z / 時間:T / Effect Description
 
 **`時間.value` が整数のとき:**
 - 出力: `時間.value` + `時間.unit`
-- 例: `時間.value` が "3"、`時間.unit` が "年" なら "3年" と出力
+- 例: `時間.value` が 3、`時間.unit` が "年" なら "3年" と出力
 
 ---
 
@@ -908,11 +893,11 @@ Spell Name / MP:X / 対象:Y / 射程:Z / 時間:T / Effect Description
 - **複数部位**: n 部位 × 各2行を出力する
   - 例: 部位が3つ（部位A, 部位B, 部位B）のモンスターA → 2行 + 2行 + 2行 = 合計6行
   - 例: 部位が1つのモンスター → 合計2行
-- **部位のデータが無い場合**: `name` と `共通特殊能力` の列以外は "-" で埋める
-- **空または負の値**: "-" に変換する
+- **部位のデータが無い場合**: `HP`、`命中力`、`回避力` の値がなければ、そのセルは空のままにする
+- **負の値**: `MP` の負の値と移動の `-1` だけを "-" に変換する
 - **出力先**: "search" シートのみ
-- **挿入位置**: 3行目から走査し、A 列の奇数行（3, 5, 7, 9...行目）で最初の空セルを見つけて、そこに挿入する
-- **エラー処理**: 空の行が見つからなければ、エラーを表示してエクスポートを中止する
+- **挿入位置**: A 列の3〜1000行目を読み、最後に値がある行より後の最初の奇数行から挿入する（途中の空き行は使わない）
+- **エラー処理**: 今は空きがなくてもエラーにならず、1001 行目に書き込む（T060 で直す予定）
 - **弱点フィールドの変換**: `弱点` の列で "エネルギー" を "E"、"ダメージ" を "ダメ" に置き換え、"属性" を削除する
 - **`\n()` の扱い**: `\n()` の中身が空なら、`\n()` 全体を省く
 
@@ -937,7 +922,7 @@ Spell Name / MP:X / 対象:Y / 射程:Z / 時間:T / Effect Description
 - 6行目: 2つ目の部位（部位B）の部位ごとの特殊能力 + 弱点
 - 7行目: 2つ目の部位（部位B）のデータ + 共通のデータ
 - 8行目: 2つ目の部位（部位B）の部位ごとの特殊能力 + 弱点
-- 共通のデータのフィールドはすべての行（3, 4, 5, 6, 7, 8）で繰り返す
+- 共通のデータのフィールドはすべての奇数行（3, 5, 7）で繰り返す
 
 ### 列の対応
 
@@ -952,13 +937,13 @@ Spell Name / MP:X / 対象:Y / 射程:Z / 時間:T / Effect Description
 | X | `精神抵抗力` | 精神抵抗力。最初の部位以外は "-" |
 | Z | "3" | 固定の定数（ルール上の制約） |
 | AB | `moveon\n(moveon_des)` | 地上の移動速度と説明。`moveon==-1` なら "-" |
-| AD | `movein\n(movein_des)` | 空中の移動速度と説明。`movein==-1` なら "-" |
+| AD | `movein\n(movein_des)` | 地上以外の移動速度と説明（飛行・水中・土中など、種類はモンスターによる）。`movein==-1` なら "-" |
 | AF | `part.命中力` | 部位の命中力 |
 | AH | `part.回避力` | 部位の回避力 |
 | AJ | `data` | ルールブックの参照ページ |
-| AM（奇数行） | `共通特殊能力` | 共通特殊能力（同じモンスターのすべての行で繰り返す） |
+| AM（奇数行） | `part.打撃点` と `共通特殊能力` | `2d+打撃点、共通特殊能力` の形（例: `2d+6、飛行`）。打撃点が 0 なら `2d`、打撃点がなければ共通特殊能力だけ。同じモンスターのすべての奇数行で繰り返す |
 | AM+1（偶数行） | `part.部位特殊能力` | 部位ごとの特殊能力 |
-| AW（奇数行） | `知名度 / 弱点値` | 知名度 / 弱点値。最初の部位以外は "-" |
+| AW（奇数行） | `知名度 / 弱点値` | 知名度 / 弱点値。最初の部位以外は "-/-" |
 | AW+1（偶数行） | `弱点`（変換後） | フィールド変換を適用した弱点のデバフ。最初の部位以外は "-" |
 
 ### セル結合の構造
@@ -1000,8 +985,8 @@ Google Sheets API でデータを挿入するとき:
    - 例: "炎属性ダメージ+2" → "炎ダメ+2"
 
 4. **行をまたぐ共通のデータ**:
-   - `name`、`共通特殊能力` の列は、同じモンスターのすべての行で繰り返す
-   - 例: モンスターA（2部位、6行）では、AM、AM+1、AW、AW+1 の列が 3, 4, 5, 6, 7, 8 行目に現れる
+   - `name`、`共通特殊能力` の列は、同じモンスターのすべての奇数行で繰り返す
+   - 例: モンスターA（2部位、6行）では、`name` と `共通特殊能力` の列が 3, 5, 7 行目に現れる
 
 5. **部位ごとのデータ**:
    - `part.HP`、`part.MP`、`part.防護点` など → 別の部位に移るときだけ変わる
@@ -1015,6 +1000,8 @@ Google Sheets API でデータを挿入するとき:
 {
   "name": "モンスターA",
   "先制値": 10,
+  "生命抵抗力": 9,
+  "精神抵抗力": 8,
   "共通特殊能力": "共通能力の例",
   "知名度": 12,
   "弱点値": 15,
@@ -1057,11 +1044,11 @@ Google Sheets API でデータを挿入するとき:
 |-----|---|---|---|---|---|---|---|---|----|----|----|----|----|----|------|
 | 3 | ★モンスターA\n(部位A) | 50 | 20 | 4 | 10 | 9 | 8 | 3 | - | - | 12 | 11 | SAMPLE | 共通能力の例 | 12/15 |
 | 4 |||||||||||||| 能力A | 炎ダメ+1 |
-| 5 | モンスターA\n(部位B) | 30 | 10 | 2 | - | - | - | 3 | - | - | 10 | 9 | SAMPLE | 共通能力の例 | - |
+| 5 | モンスターA\n(部位B) | 30 | 10 | 2 | - | - | - | 3 | - | - | 10 | 9 | SAMPLE | 共通能力の例 | -/- |
 | 6 |||||||||||||| 能力B | - |
-| 7 | モンスターA\n(部位B) | 30 | 10 | 2 | - | - | - | 3 | - | - | 10 | 9 | SAMPLE | 共通能力の例 | - |
+| 7 | モンスターA\n(部位B) | 30 | 10 | 2 | - | - | - | 3 | - | - | 10 | 9 | SAMPLE | 共通能力の例 | -/- |
 | 8 |||||||||||||| 能力B | - |
 
 **注意点:**
 - 3〜4行目: 1つ目の部位（部位A、コア=true）→ 先頭に "★" を付け、共通の値を出力し、すべてのフィールドを埋める
-- 5〜8行目: 2つ目の部位（部位B、コア=false）→ "★" は付けず、`先制値`/`生命抵抗力`/`精神抵抗力`/`知名度`/`弱点値`/`弱点` は "-"
+- 5〜8行目: 2つ目の部位（部位B、コア=false）→ "★" は付けず、`先制値`/`生命抵抗力`/`精神抵抗力`/`弱点` は "-"、`知名度`/`弱点値` は "-/-"
