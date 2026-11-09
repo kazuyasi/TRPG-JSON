@@ -285,9 +285,30 @@ pub struct ListView {
     pub detail_scroll: u16,
     /// 検索構文を解釈できなかったときの理由（検索バーを警告色にし、直前の結果を残す）
     pub query_error: Option<String>,
+    /// 選択リストの項目の元データ index（追加順）。検索条件を変えても保持する
+    pub picks: Vec<usize>,
 }
 
 impl ListView {
+    /// 元データ index の項目が選択リストにあるか
+    pub fn is_picked(&self, index: usize) -> bool {
+        self.picks.contains(&index)
+    }
+
+    /// 選択リストへ追加する。すでにあれば外す。追加したら `true`
+    fn toggle_pick(&mut self, index: usize) -> bool {
+        match self.picks.iter().position(|&i| i == index) {
+            Some(pos) => {
+                self.picks.remove(pos);
+                false
+            }
+            None => {
+                self.picks.push(index);
+                true
+            }
+        }
+    }
+
     /// 選択中の項目の元データ index
     pub fn selected_index(&self) -> Option<usize> {
         self.hits.get(self.selected).copied()
@@ -436,6 +457,25 @@ impl App {
         self.spell_view.selected_index().and_then(|i| self.spells.get(i))
     }
 
+    /// カーソル行の項目を選択リストへ追加する／外す（結果はステータス行に出す）
+    pub fn toggle_pick(&mut self) {
+        let Some(index) = self.view().selected_index() else {
+            self.status = Some(StatusMessage::info("選択リストに入れる項目がありません"));
+            return;
+        };
+        let name = match self.tab {
+            Tab::Monster => self.monsters[index].name.clone(),
+            Tab::Spell => self.spells[index].name.clone(),
+        };
+        let added = self.view_mut().toggle_pick(index);
+        let verb = if added { "に追加しました" } else { "から外しました" };
+        let count = self.view().picks.len();
+        self.status = Some(StatusMessage::info(format!(
+            "\"{}\" を選択リスト{}（{} 件）",
+            name, verb, count
+        )));
+    }
+
     /// 現在のタブのヒット結果を検索バーの条件で作り直す
     pub fn refresh_hits(&mut self) {
         match self.tab {
@@ -489,29 +529,39 @@ impl App {
     /// 読み込みに失敗した種類は今のデータを残す。結果をステータス行のメッセージで返す。
     pub fn apply_reload(&mut self, data: ReloadedData) -> StatusMessage {
         let mut errors = Vec::new();
+        let mut dropped = 0;
         match data.monsters {
-            Ok(monsters) => self.replace_monsters(monsters),
+            Ok(monsters) => dropped += self.replace_monsters(monsters),
             Err(e) => errors.push(format!("モンスターデータを読み込めません（前のデータのままです）: {}", e)),
         }
         match data.spells {
-            Ok(spells) => self.replace_spells(spells),
+            Ok(spells) => dropped += self.replace_spells(spells),
             Err(e) => errors.push(format!("スペルデータを読み込めません（前のデータのままです）: {}", e)),
         }
+        let note = match dropped {
+            0 => String::new(),
+            n => format!("。データから消えた {} 件を選択リストから外しました", n),
+        };
         if errors.is_empty() {
             StatusMessage::success(format!(
-                "データを再読み込みしました（モンスター {} 件・スペル {} 件）",
+                "データを再読み込みしました（モンスター {} 件・スペル {} 件）{}",
                 self.monsters.len(),
-                self.spells.len()
+                self.spells.len(),
+                note
             ))
         } else {
-            StatusMessage::error(errors.join(" / "))
+            StatusMessage::error(format!("{}{}", errors.join(" / "), note))
         }
     }
 
     /// モンスターを差し替える。選択中の項目は名前で探し、部位の選択とスクロールも保つ
-    fn replace_monsters(&mut self, monsters: Vec<Monster>) {
+    ///
+    /// 選択リストも名前で引き直し、データから消えて外した件数を返す。
+    fn replace_monsters(&mut self, monsters: Vec<Monster>) -> usize {
         let previous = self.selected_monster().map(|m| m.name.clone());
+        let picked: Vec<String> = self.monster_view.picks.iter().map(|&i| self.monsters[i].name.clone()).collect();
         self.monsters = monsters;
+        self.monster_view.picks = remap_picks(&picked, self.monsters.iter().map(|m| m.name.as_str()));
         let filter = self.reload_monster_filter();
         let hits = monster_hits(&self.monsters, &filter);
         let keep = position_by_name(&hits, previous.as_deref(), |i| &self.monsters[i].name);
@@ -521,12 +571,17 @@ impl App {
         if !kept || self.selected_part >= part_count {
             self.reset_monster_detail();
         }
+        picked.len() - self.monster_view.picks.len()
     }
 
     /// スペルを差し替える。選択中の項目は名前で探し、本文のスクロールも保つ
-    fn replace_spells(&mut self, spells: Vec<Spell>) {
+    ///
+    /// 選択リストも名前で引き直し、データから消えて外した件数を返す。
+    fn replace_spells(&mut self, spells: Vec<Spell>) -> usize {
         let previous = self.selected_spell().map(|s| s.name.clone());
+        let picked: Vec<String> = self.spell_view.picks.iter().map(|&i| self.spells[i].name.clone()).collect();
         self.spells = spells;
+        self.spell_view.picks = remap_picks(&picked, self.spells.iter().map(|s| s.name.as_str()));
         let filter = self.reload_spell_filter();
         let hits = spell_hits(&self.spells, &filter);
         let keep = position_by_name(&hits, previous.as_deref(), |i| &self.spells[i].name);
@@ -534,6 +589,7 @@ impl App {
         if !self.spell_view.replace_hits_after_reload(hits, keep) {
             self.spell_view.detail_scroll = 0;
         }
+        picked.len() - self.spell_view.picks.len()
     }
 
     /// 再読み込みで使うモンスターの検索条件（検索語を解釈できなければ直前に解釈できた条件）
@@ -595,6 +651,20 @@ fn spell_hits(spells: &[Spell], filter: &SpellQuery) -> Vec<usize> {
             .then_with(|| spells[a].name.cmp(&spells[b].name))
     });
     hits
+}
+
+/// 読み直したデータの中で選択リストの名前を探し、新しい index の列を返す（順序は保つ）
+///
+/// 同名の項目を複数選んでいたら、まだ使っていない同名の項目へ順に割り当てる。見つからない名前は外す。
+fn remap_picks<'a>(picked: &[String], names: impl Iterator<Item = &'a str>) -> Vec<usize> {
+    let names: Vec<&str> = names.collect();
+    let mut picks = Vec::new();
+    for name in picked {
+        if let Some(i) = (0..names.len()).find(|i| names[*i] == name && !picks.contains(i)) {
+            picks.push(i);
+        }
+    }
+    picks
 }
 
 /// ヒット中で名前が `name` の最初の項目の位置

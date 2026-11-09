@@ -25,6 +25,7 @@ pub fn update(app: &mut App, action: Action) -> Option<Effect> {
         Action::OpenExport => open_export(app),
         Action::OpenStats => open_stats(app),
         Action::Reload => return Some(Effect::Reload(app.sources.clone())),
+        Action::TogglePick => app.toggle_pick(),
         // モーダルが無いときは何もしない
         Action::CloseModal | Action::CopyJson | Action::CycleExportFormat | Action::SubmitExport => {}
         Action::CopyCcfolia if app.tab == Tab::Monster => return copy_ccfolia(app),
@@ -1346,6 +1347,82 @@ mod tests {
     }
 
     // ---- データの再読み込み（R） ----
+
+    fn picked_names(app: &App) -> Vec<&str> {
+        app.monster_view.picks.iter().map(|&i| app.monsters[i].name.as_str()).collect()
+    }
+
+    #[test]
+    fn test_toggle_pick_adds_in_order_and_removes() {
+        let mut app = sample_app();
+        update(&mut app, Action::Down);
+        update(&mut app, Action::TogglePick);
+        update(&mut app, Action::Up);
+        update(&mut app, Action::TogglePick);
+        assert_eq!(picked_names(&app), vec!["テストの戦士", "サンプル動物"]);
+        assert_eq!(app.status.as_ref().unwrap().text, "\"サンプル動物\" を選択リストに追加しました（2 件）");
+
+        update(&mut app, Action::TogglePick);
+        assert_eq!(picked_names(&app), vec!["テストの戦士"]);
+        assert_eq!(app.status.as_ref().unwrap().text, "\"サンプル動物\" を選択リストから外しました（1 件）");
+    }
+
+    #[test]
+    fn test_picks_survive_query_change() {
+        let mut app = sample_app();
+        update(&mut app, Action::TogglePick);
+        update(&mut app, Action::FocusSearch);
+        type_str(&mut app, "テストの");
+        update(&mut app, Action::FocusList);
+        update(&mut app, Action::TogglePick);
+        assert_eq!(names(&app), vec!["テストの戦士"]);
+        assert_eq!(picked_names(&app), vec!["サンプル動物", "テストの戦士"]);
+    }
+
+    #[test]
+    fn test_picks_are_per_tab_and_empty_hits_only_informs() {
+        let mut app = sample_app();
+        update(&mut app, Action::TogglePick);
+        update(&mut app, Action::SwitchTab(Tab::Spell));
+        update(&mut app, Action::TogglePick);
+        assert!(app.spell_view.picks.is_empty());
+        assert_eq!(app.status.as_ref().unwrap().text, "選択リストに入れる項目がありません");
+        assert_eq!(app.monster_view.picks.len(), 1);
+    }
+
+    #[test]
+    fn test_reload_remaps_picks_by_name_and_reports_dropped() {
+        let mut app = sample_app();
+        update(&mut app, Action::TogglePick); // サンプル動物
+        update(&mut app, Action::Down);
+        update(&mut app, Action::TogglePick); // テストの戦士
+        let monsters = vec![
+            monster("新しいモンスター", 2, "動物", vec![part("", true)]),
+            monster("テストの戦士", 3, "蛮族", vec![part("", true)]),
+        ];
+        let status = app.apply_reload(reloaded(Ok(monsters), Ok(Vec::new())));
+        assert_eq!(picked_names(&app), vec!["テストの戦士"]);
+        assert!(status.text.ends_with("。データから消えた 1 件を選択リストから外しました"), "{}", status.text);
+    }
+
+    #[test]
+    fn test_reload_keeps_same_named_picks_apart() {
+        let same = || monster("同名", 1, "動物", vec![part("", true)]);
+        let mut app = App::new(vec![same(), same()], Vec::new(), Tab::Monster);
+        update(&mut app, Action::TogglePick);
+        update(&mut app, Action::Down);
+        update(&mut app, Action::TogglePick);
+        app.apply_reload(reloaded(Ok(vec![same(), same()]), Ok(Vec::new())));
+        assert_eq!(app.monster_view.picks, vec![0, 1]);
+    }
+
+    #[test]
+    fn test_reload_failure_keeps_picks() {
+        let mut app = sample_app();
+        update(&mut app, Action::TogglePick);
+        app.apply_reload(reloaded(Err("壊れたファイル"), Ok(Vec::new())));
+        assert_eq!(picked_names(&app), vec!["サンプル動物"]);
+    }
 
     fn reloaded(monsters: Result<Vec<Monster>, &str>, spells: Result<Vec<Spell>, &str>) -> ReloadedData {
         ReloadedData {

@@ -729,6 +729,16 @@ mod tests {
     }
 
     #[test]
+    fn test_render_marks_picked_rows() {
+        let mut app = sample_app();
+        assert!(!contains(&render(&app, 120, 24), "✓"));
+        let index = app.monster_view.selected_index().unwrap();
+        app.monster_view.picks.push(index);
+        let name = app.monsters[index].name.clone();
+        assert!(contains(&render(&app, 120, 24), &format!("✓{}", name)));
+    }
+
+    #[test]
     fn test_render_too_small() {
         let app = App::default();
         let rows = render(&app, 80, MIN_HEIGHT - 1);

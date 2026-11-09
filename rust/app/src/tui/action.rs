@@ -73,6 +73,8 @@ pub enum Action {
     SubmitExport,
     /// 設定のデータファイルを読み直す
     Reload,
+    /// カーソル行の項目を選択リストへ追加する／外す
+    TogglePick,
 }
 
 /// キーイベントを Action に変換する（割り当てのないキーは `None`）
@@ -132,6 +134,7 @@ pub fn from_key(key: KeyEvent, focus: Focus, modal_open: bool) -> Option<Action>
         KeyCode::Char('j') => Some(Action::Down),
         KeyCode::Char('g') | KeyCode::Home => Some(Action::Top),
         KeyCode::Char('G') | KeyCode::End => Some(Action::Bottom),
+        KeyCode::Char(' ') if focus == Focus::List => Some(Action::TogglePick),
         KeyCode::Enter if focus == Focus::List => Some(Action::FocusDetail),
         KeyCode::Esc if focus == Focus::Detail => Some(Action::FocusList),
         _ => None,
@@ -315,6 +318,14 @@ mod tests {
         // 検索中は文字入力
         assert_eq!(from_key(press(KeyCode::Char('y')), Focus::Search, false), Some(Action::InsertChar('y')));
         assert_eq!(from_key(shift_y, Focus::Search, false), Some(Action::InsertChar('Y')));
+    }
+
+    #[test]
+    fn test_space_toggles_pick_only_in_list() {
+        let space = press(KeyCode::Char(' '));
+        assert_eq!(from_key(space, Focus::List, false), Some(Action::TogglePick));
+        assert_eq!(from_key(space, Focus::Detail, false), None);
+        assert_eq!(from_key(space, Focus::Search, false), Some(Action::InsertChar(' ')));
     }
 
     #[test]
