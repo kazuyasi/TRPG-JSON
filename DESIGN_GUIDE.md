@@ -6,21 +6,22 @@
 
 ## 現在のアーキテクチャ
 
-### 単一データソースのモデル
+### 構成
 ```
-CLI (app/) → Core Library (core/) → JSON File (data/systems/monsters.json)
-                     ↓
-               Query Module
-               (find_by_name, find_by_level, etc.)
-                     ↓
-               I/O Module
-               (load_json_array, save_json_array_file)
+CLI / TUI (rust/app/)
+    ↓
+Core Library (rust/core/)
+    ├─ Config: 設定ファイルの読み込み
+    ├─ I/O: JSON ファイルの読み書き（複数ファイルは1つにまとめる）
+    ├─ Query: モンスターとスペルの検索（find_multi、spell_find_multi など）
+    ├─ Stats: 統計
+    └─ Export: JSON、Google Sheets、Udonarium、CCFolia、チャットパレット
 ```
 
 **現在の実装:**
-- **データパス**: TOML ファイルで設定: `data/systems/monsters.json`
-- **データ構造**: `Vec<Monster>`
-- **ファイル形式**: Monster オブジェクトの JSON 配列
+- **データパス**: TOML の設定ファイルで、モンスターとスペルのファイルをそれぞれ指定する（複数可）
+- **データ構造**: `Vec<Monster>`、`Vec<Spell>`
+- **ファイル形式**: Monster / Spell オブジェクトの JSON 配列
 
 ## 拡張のシナリオ
 
@@ -142,7 +143,7 @@ CLI (app/) → Core Library (core/) → JSON File (data/systems/monsters.json)
 
 ## 実装ロードマップ
 
-### Phase 1: 現状 ✅
+### Phase 1: 基本機能 ✅（完了）
 - 単一のゲームシステム
 - 単一のデータファイル（monsters.json）
 - 設定によるデータパスの指定
@@ -170,7 +171,7 @@ CLI (app/) → Core Library (core/) → JSON File (data/systems/monsters.json)
 ```rust
 // core/src/export/mod.rs
 pub trait DataExporter {
-    fn export(&self, data: &[Monster], config: &ExportConfig) -> Result<(), String>;
+    fn export(&self, data: &[Monster], config: &ExportConfig) -> Result<(), ExportError>;
 }
 
 pub struct ExportConfig {
@@ -181,7 +182,8 @@ pub struct ExportConfig {
 pub enum ExportFormat {
     Json,
     GoogleSheets,
-    // 今後: 独自の形式
+    Udonarium,
+    // CCFolia は1体ずつのコピーのため、この enum を使わず別の経路で出力する
 }
 ```
 
@@ -203,7 +205,7 @@ gm monster select -c "Category" --export sheets --output "Spreadsheet ID"
 **Google Sheets エクスポートの手順:**
 1. ユーザーが Google OAuth 2.0 で認証（初回のみ）
 2. ユーザーが実行: `gm monster select ... --export sheets --output <spreadsheet-id>`
-3. システムが指定の Google Sheet の行を作成または更新
+3. システムが指定の Google Sheet の末尾に行を追記
 4. シートの URL を含む確認メッセージを表示
 
 **この方式の利点:**
@@ -269,96 +271,63 @@ impl GameEntity for DndCharacter { ... }  // D&D
 - **解決策**: サンプルデータと本番データを分ける
 - **状況**: サンプルデータが用意できるまで保留
 
-## 当面の次の手順（必要な場合）
-
-1. **設定ファイルへの対応を追加**:
-   - `config/default.toml` を作成する
-   - `config` クレートか `toml` クレートを使う
-   - CLI のフラグでパスを上書きできるようにする: `gm --config config/custom.toml monster find "name"`
-
-2. **データパスをパラメータにする**:
-   - ハードコードされたパスを関数の引数に変える
-   - `main()` からハンドラ関数へ渡す
-   - 代わりに設定ファイルから読み込む
-
-3. 新しいシナリオの**単体テストを追加**:
-   - 複数ファイルの読み込み
-   - 設定の解析
-   - ファイルが無い場合のエラー処理
-
-## コード構成のベストプラクティス
+## コード構成
 
 ```
-trpg-json/
-├── core/
-│   ├── src/
-│   │   ├── lib.rs
-│   │   ├── models.rs          # Monster、Part など
-│   │   ├── query.rs           # 検索の関数
-│   │   ├── io.rs              # ファイルの入出力
-│   │   ├── systems/
-│   │   │   ├── mod.rs
-│   │   │   ├── system_a.rs    # システム A 固有
-│   │   │   ├── common.rs      # 共通のトレイト
-│   │   └── config.rs          # 設定の読み込み
-│   └── Cargo.toml
-├── app/
-│   ├── src/
-│   │   ├── main.rs            # エントリポイントとルーティング
-│   │   ├── commands/
-│   │   │   ├── mod.rs
-│   │   │   ├── monster.rs     # モンスターのコマンドのハンドラ
-│   │   │   └── spell.rs       # スペルのコマンドのハンドラ
-│   │   └── utils.rs           # 共通の入出力と UI のユーティリティ
-│   └── Cargo.toml
+TRPG-JSON/
+├── rust/
+│   ├── Cargo.toml                 # ワークスペース
+│   ├── core/
+│   │   ├── src/
+│   │   │   ├── lib.rs             # Monster、Part、Spell
+│   │   │   ├── query.rs           # 検索の関数
+│   │   │   ├── io.rs              # ファイルの入出力
+│   │   │   ├── config.rs          # 設定の読み込み
+│   │   │   ├── stats.rs           # 統計
+│   │   │   └── export/            # 各形式へのエクスポートとチャットパレット
+│   │   └── Cargo.toml
+│   └── app/
+│       ├── src/
+│       │   ├── main.rs            # エントリポイントとルーティング
+│       │   ├── commands/
+│       │   │   ├── mod.rs
+│       │   │   ├── monster.rs     # モンスターのコマンドのハンドラ
+│       │   │   └── spell.rs       # スペルのコマンドのハンドラ
+│       │   ├── tui/               # TUI モード（gm tui）
+│       │   └── utils.rs           # 共通の入出力と UI のユーティリティ
+│       └── Cargo.toml
 ├── config/
-│   └── default.toml           # 既定の設定
+│   └── default.toml               # 既定の設定
 ├── data/
-│   ├── systems/
-│   │   ├── monsters.json      # 暗号化済み
-│   │   └── items.json         # 将来
-│   └── samples/               # サンプルデータ
-└── README.md
+│   └── sample/                    # サンプルデータ
+├── AGENTS.md
+├── DESIGN_GUIDE.md
+├── README.md
+├── TUI_DESIGN.md
+└── tasks.md
 ```
 
 ## セキュリティの考慮事項
 
-### 暗号化されたデータ
-- 本番のデータファイルはすべて `git-crypt` で暗号化したままにする
-- 開発環境: 必要なときだけ復号する
-- CI/CD: 暗号化した認証情報を使うか、オフラインで処理する
+### データの管理
+- 本番のデータはレポジトリに入れない。追跡するのは `data/sample/` のサンプルデータだけ
+- 書籍に由来するデータは著作権の管理が必要なのでコミットしない（`AGENTS.md` のデータ利用のガイドラインを参照）
+- 本番のデータファイルは、設定ファイルでレポジトリの外のパスを指定して読み込む
 
-### 設定ファイル
-- ローカルの設定の上書き用に `.gitignore` の記載を維持する
-- 例: `config/local.toml`（コミットしない）
-- 本番の設定は暗号化してコミットする
+### 設定ファイルと認証情報
+- 個人のデータパスは、OS の設定ディレクトリの `trpg-json/default.toml` か `--config` で指定する（`README.md` の「設定ファイル」を参照）
+- Google の認証情報は OS の設定ディレクトリに平文で保存する（権限の制限は T057 で対応予定）
 
-### 複数システムへの対応
+### 複数システムへの対応（Phase 3 の予定）
 - システムごとにデータディレクトリを分ける
-- システムごとに独立した暗号化の方針を持てる
 - 読み込む前にシステムの互換性を検証する
 
 ## テスト戦略
 
-### 単体テスト
-```rust
-#[cfg(test)]
-mod tests {
-    #[test]
-    fn test_load_multiple_files() { ... }
-    
-    #[test]
-    fn test_config_loading() { ... }
-    
-    #[test]
-    fn test_system_detection() { ... }
-}
-```
-
-### 統合テスト
-- 異なるデータソースからの読み込みをテストする
-- エラー処理（ファイルが無い、形式が不正）をテストする
-- システムが混在するシナリオをテストする
+- 単体テストは各モジュールの `#[cfg(test)] mod tests` に置く（`rust/core/src`、`rust/app/src`）
+- ファイルを使うテストは `tempfile` で一時ファイルを作る
+- `tests/` ディレクトリの統合テストは今はない
+- 実行方法は `AGENTS.md` を参照
 
 ## 移行ガイド: 単一ファイル → 複数ファイル
 
@@ -368,8 +337,8 @@ mod tests {
 ```bash
 # monsters.json をカテゴリやレベルの範囲で分割する
 # 例: カテゴリごとに別のファイルを作成する
-jq '.[] | select(.Category == "Category1")' data/systems/monsters.json > data/systems/monsters_part1.json
-jq '.[] | select(.Category == "Category2")' data/systems/monsters.json > data/systems/monsters_part2.json
+jq '[.[] | select(.Category == "Category1")]' data/systems/monsters.json > data/systems/monsters_part1.json
+jq '[.[] | select(.Category == "Category2")]' data/systems/monsters.json > data/systems/monsters_part2.json
 ```
 
 **手順 2: 設定ファイルを更新する**
@@ -393,20 +362,20 @@ gm monster select -l 6          # レベル6のモンスターがすべて返る
 
 **重要な注意点:**
 - すべてのファイルは JSON 配列でなければならない
-- ファイルの順序は検索結果に影響しない（1つのコレクションにまとめられる）
+- ファイルの順序は一致するかどうかには影響しない（1つのコレクションにまとめられる）。CLI の結果の並びは設定の順になる
 - 新規の追加はリストの最初のファイルに保存し、同名の更新と削除は対象のモンスターを含むファイルだけを書き換える
 - ファイルが増えすぎないよう、定期的な統合を検討する
 
 ## トラブルシューティング
 
-### 問題: "Error: Data file not found"
+### 問題: 「エラー: モンスターデータファイルが見つかりません」
 **解決策:**
-1. パスがホームディレクトリからの相対パスになっているか確認する: `~/playground/TRPG-JSON/...`
+1. パスがホームディレクトリからの相対パスになっているか確認する（`~` は展開されないので書かない）: `playground/TRPG-JSON/...`
 2. ファイルが存在するか確認する: `ls ~/path/to/file.json`
 3. ファイルの権限を確認する: `chmod 644 data/systems/monsters.json`
 4. 代替策として絶対パスを使う: `/Users/username/playground/TRPG-JSON/...`
 
-### 問題: 正しい JSON なのに "JSON parsing error" が出る
+### 問題: 「JSON解析エラー」または「無効なデータ形式: JSONのルート要素が配列ではありません」が出る
 **解決策:**
 1. ファイルが正しい JSON か確認する: `jq empty data/systems/monsters.json`
 2. 文字コードの問題がないか確認する: `file data/systems/monsters.json`
@@ -501,7 +470,10 @@ gm monster find "Monster Name" -l 3         # System A のモンスターを検�
 - **ビジネスロジック**: `rust/core/src/query.rs`（検索の関数）
 - **ファイルの入出力**: `rust/core/src/io.rs`（読み込みと保存）
 - **設定**: `rust/core/src/config.rs`（設定の解析）
-- **データモデル**: `rust/core/src/lib.rs`（Monster、Part の構造体）
+- **データモデル**: `rust/core/src/lib.rs`（Monster、Part、Spell の構造体）
+- **エクスポート**: `rust/core/src/export/`（JSON、Google Sheets、Udonarium、CCFolia、チャットパレット）
+- **統計**: `rust/core/src/stats.rs`
+- **TUI**: `rust/app/src/tui/`（設計は `TUI_DESIGN.md` を参照）
 - **設定ファイル**: `config/default.toml`
 
 ### ビルドと開発
@@ -517,7 +489,7 @@ gm monster find "Monster Name" -l 3         # System A のモンスターを検�
 - **トレイトベースの設計**（将来の Phase 3 の拡張性のため）
 - **enum のデシリアライズ**（設定の柔軟性のための `#[serde(untagged)]`）
 - **エラーの伝播**（thiserror クレートによる扱いやすいエラー処理）
-- **設定の管理**（TOML ベース、環境変数に対応）
+- **設定の管理**（TOML ベース）
 
 ### 性能の考慮事項
 - **現在**: 読み込んだ全モンスターに対する O(n) の検索
@@ -537,7 +509,7 @@ gm monster find "Monster Name" -l 3         # System A のモンスターを検�
 ### 決定事項
 - **優先順位**: ファイル（Phase 2）✓ → データエクスポート（Phase 2.5）✓ → システム（Phase 3）
 - **設定の形式**: TOML（単純さのため YAML ではなくこちらを選択）
-- **パスの解決**: ホームディレクトリからの相対パス（`~` の展開に対応）
+- **パスの解決**: ホームディレクトリからの相対パス、または絶対パス（`~` は展開しない）
 - **データの統合**: すべてのファイルを1つのコレクションに読み込み、まとめて検索する
 - **エクスポート形式**: JSON、Google Sheets、Udonarium、CCFolia に対応
 - **手動実行**: データのエクスポートはユーザーが実行し、自動化は不要
