@@ -1,12 +1,12 @@
-# TRPG-JSON Data Extension Design Guide
+# TRPG-JSON データ拡張設計ガイド
 
-## Overview
+## 概要
 
-This guide describes how to extend the TRPG-JSON system to support additional data sources and game systems beyond the current implementation.
+このガイドでは、現在の実装を超えて、追加のデータソースやゲームシステムに対応できるよう TRPG-JSON システムを拡張する方法を説明します。
 
-## Current Architecture
+## 現在のアーキテクチャ
 
-### Single Data Source Model
+### 単一データソースのモデル
 ```
 CLI (app/) → Core Library (core/) → JSON File (data/systems/monsters.json)
                      ↓
@@ -17,28 +17,28 @@ CLI (app/) → Core Library (core/) → JSON File (data/systems/monsters.json)
                (load_json_array, save_json_array_file)
 ```
 
-**Current Implementation:**
-- **Data Path**: Configured via TOML file: `data/systems/monsters.json`
-- **Data Structure**: `Vec<Monster>`
-- **File Format**: JSON array of Monster objects
+**現在の実装:**
+- **データパス**: TOML ファイルで設定: `data/systems/monsters.json`
+- **データ構造**: `Vec<Monster>`
+- **ファイル形式**: Monster オブジェクトの JSON 配列
 
-## Extension Scenarios
+## 拡張のシナリオ
 
-### Scenario 1: Multiple Game Systems
+### シナリオ 1: 複数のゲームシステム
 
-**Goal**: Support different game systems with different data structures
+**目標**: データ構造の異なる複数のゲームシステムに対応する
 
-**Design Approach:**
+**設計方針:**
 
-1. **Create System-Specific Modules** in `core/`:
+1. `core/` に**システムごとのモジュールを作成**:
    ```rust
    // core/src/systems/
-   pub mod system_a;   // Game System A
-   pub mod system_b;   // Game System B
-   pub mod common;     // Shared traits
+   pub mod system_a;   // ゲームシステム A
+   pub mod system_b;   // ゲームシステム B
+   pub mod common;     // 共通のトレイト
    ```
 
-2. **Define Common Trait**:
+2. **共通トレイトを定義**:
    ```rust
    // core/src/systems/common.rs
    pub trait GameEntity: Serialize + Deserialize {
@@ -48,32 +48,32 @@ CLI (app/) → Core Library (core/) → JSON File (data/systems/monsters.json)
    }
    ```
 
-3. **Implement for Each System**:
+3. **システムごとに実装**:
    ```rust
-   // Existing Monster struct implements GameEntity
+   // 既存の Monster 構造体に GameEntity を実装
    impl GameEntity for Monster { ... }
    
-   // New D&D Character struct
+   // 新しい D&D の Character 構造体
    pub struct Character { ... }
    impl GameEntity for Character { ... }
    ```
 
-4. **Generalize Query Module**:
+4. **検索モジュールを汎用化**:
    ```rust
-   // core/src/query.rs - Add generic functions
+   // core/src/query.rs - ジェネリックな関数を追加
    pub fn find_by_name<T: GameEntity>(
        entities: &[T], 
        name: &str
    ) -> Vec<&T> { ... }
    ```
 
-### Scenario 2: Multiple Data Files per System
+### シナリオ 2: システムごとの複数データファイル
 
-**Goal**: Support splitting large datasets (e.g., monsters by category)
+**目標**: 大きなデータセットの分割（例: カテゴリごとのモンスター）に対応する
 
-**Design Approach:**
+**設計方針:**
 
-1. **Extend I/O Module** to handle multiple files:
+1. 複数のファイルを扱えるよう **I/O モジュールを拡張**:
    ```rust
    // core/src/io.rs
    pub fn load_multiple_json_arrays<P: AsRef<Path>>(
@@ -88,7 +88,7 @@ CLI (app/) → Core Library (core/) → JSON File (data/systems/monsters.json)
    }
    ```
 
-2. **Create System Configuration**:
+2. **システムの設定を作成**:
     ```rust
     // config/system_a.toml
     [data_files]
@@ -96,20 +96,20 @@ CLI (app/) → Core Library (core/) → JSON File (data/systems/monsters.json)
     items = ["data/systems/items.json"]
     ```
 
-3. **Update CLI** to load multiple sources:
+3. 複数のソースを読み込むよう **CLI を更新**:
     ```rust
     // app/src/main.rs
     let config = Config::load("config/default.toml")?;
     let monsters = load_multiple_json_arrays(&config.data_files)?;
     ```
 
-### Scenario 3: Mixed Data Sources (JSON, Database, API)
+### シナリオ 3: データソースの混在（JSON、データベース、API）
 
-**Goal**: Support reading from multiple storage backends
+**目標**: 複数のストレージバックエンドからの読み込みに対応する
 
-**Design Approach:**
+**設計方針:**
 
-1. **Define Data Source Trait**:
+1. **データソースのトレイトを定義**:
    ```rust
    // core/src/io.rs
    pub trait DataSource {
@@ -118,7 +118,7 @@ CLI (app/) → Core Library (core/) → JSON File (data/systems/monsters.json)
    }
    ```
 
-2. **Implement Multiple Backends**:
+2. **複数のバックエンドを実装**:
    ```rust
    pub struct JsonSource { path: String }
    pub struct SqliteSource { db_path: String }
@@ -129,7 +129,7 @@ CLI (app/) → Core Library (core/) → JSON File (data/systems/monsters.json)
    impl DataSource for ApiSource { ... }
    ```
 
-3. **Use in CLI**:
+3. **CLI で使う**:
    ```rust
    let source: Box<dyn DataSource> = match config.backend {
        "json" => Box::new(JsonSource::new(path)),
@@ -140,33 +140,33 @@ CLI (app/) → Core Library (core/) → JSON File (data/systems/monsters.json)
    let monsters = source.load()?;
    ```
 
-## Implementation Roadmap
+## 実装ロードマップ
 
-### Phase 1: Current State ✅
-- Single game system
-- Single data file (monsters.json)
-- Configuration-based data path
-- Basic CRUD operations (find, list, select, add, delete)
+### Phase 1: 現状 ✅
+- 単一のゲームシステム
+- 単一のデータファイル（monsters.json）
+- 設定によるデータパスの指定
+- 基本的な CRUD 操作（find、list、select、add、delete）
 
-### Phase 2: File Flexibility ✅ (Completed)
-- Configuration file support (TOML)
-- Multiple data files per system
-- Home directory relative paths
-- **Effort**: Low (2-3 days) ✅
-- **Benefits**: High flexibility, easy migration ✅
+### Phase 2: ファイルの柔軟性 ✅（完了）
+- 設定ファイル（TOML）への対応
+- システムごとの複数データファイル
+- ホームディレクトリからの相対パス
+- **工数**: 低（2〜3日）✅
+- **効果**: 高い柔軟性、容易な移行 ✅
 
-### Phase 2.5: External Data Export (Recommended Next)
-- Support for exporting data to JSON and Google Sheets
-- OAuth 2.0 authentication for cloud services (user-friendly)
-- Preserve formatting when exporting
-- Manual execution (no automation needed)
-- **Effort**: Medium (3-4 days)
-- **Benefits**: Enable data sharing and collaborative editing capabilities
-- **Target**: Small teams, single data manager
+### Phase 2.5: 外部へのデータエクスポート（次の推奨）
+- JSON と Google Sheets へのデータのエクスポートに対応
+- クラウドサービス向けの OAuth 2.0 認証（ユーザーにとって使いやすい）
+- エクスポート時に書式を保持
+- 手動で実行（自動化は不要）
+- **工数**: 中（3〜4日）
+- **効果**: データの共有と共同編集が可能になる
+- **対象**: 小規模なチーム、データ管理者が1人の場合
 
-### Phase 2.5 Implementation Details: External Data Export
+### Phase 2.5 の実装詳細: 外部へのデータエクスポート
 
-**Export Interface:**
+**エクスポートのインターフェース:**
 ```rust
 // core/src/export/mod.rs
 pub trait DataExporter {
@@ -174,50 +174,50 @@ pub trait DataExporter {
 }
 
 pub struct ExportConfig {
-    pub destination: String,  // File path for JSON, Spreadsheet ID for Google Sheets
+    pub destination: String,  // JSON ではファイルパス、Google Sheets ではスプレッドシート ID
     pub format: ExportFormat,
 }
 
 pub enum ExportFormat {
     Json,
     GoogleSheets,
-    // Future: Custom formats
+    // 今後: 独自の形式
 }
 ```
 
-**CLI Usage:**
+**CLI の使い方:**
 ```bash
-# Export search results to JSON file
+# 検索結果を JSON ファイルへエクスポート
 gm select -l 6 --export json --output results.json
 
-# Export to Google Sheets (requires OAuth 2.0 setup)
+# Google Sheets へエクスポート（OAuth 2.0 の設定が必要）
 gm select -c "Category" --export sheets --output "Spreadsheet ID"
 ```
 
-**Setup Steps for JSON Export:**
-1. User runs: `gm select ... --export json --output <file>`
-2. System validates data
-3. Data exported to JSON file
-4. Confirmation message displayed
+**JSON エクスポートの手順:**
+1. ユーザーが実行: `gm select ... --export json --output <file>`
+2. システムがデータを検証
+3. データを JSON ファイルへエクスポート
+4. 確認メッセージを表示
 
-**Setup Steps for Google Sheets Export:**
-1. User authenticates with Google OAuth 2.0 (one-time setup)
-2. User runs: `gm select ... --export sheets --output <spreadsheet-id>`
-3. System creates/updates rows in the specified Google Sheet
-4. Confirmation message with sheet URL displayed
+**Google Sheets エクスポートの手順:**
+1. ユーザーが Google OAuth 2.0 で認証（初回のみ）
+2. ユーザーが実行: `gm select ... --export sheets --output <spreadsheet-id>`
+3. システムが指定の Google Sheet の行を作成または更新
+4. シートの URL を含む確認メッセージを表示
 
-**Advantages of this approach:**
-- JSON export: No authentication needed, file-based, easy to version control
-- Google Sheets: Cloud-based, collaborative editing, real-time synchronization
-- Data remains under user control
-- Flexible destination options
+**この方式の利点:**
+- JSON エクスポート: 認証が不要で、ファイルベースのためバージョン管理しやすい
+- Google Sheets: クラウドベースで、共同編集とリアルタイムの同期ができる
+- データはユーザーの管理下に置かれる
+- 出力先を柔軟に選べる
 
-**Design Considerations:**
-- JSON export: Standard JSON array format with Monster objects
-- Google Sheets: OAuth 2.0 authentication, Google Sheets API integration
-- Data validation before export
-- Integration with existing command structure
-- Error handling for authentication and API failures
+**設計上の考慮点:**
+- JSON エクスポート: Monster オブジェクトの標準的な JSON 配列形式
+- Google Sheets: OAuth 2.0 認証、Google Sheets API との連携
+- エクスポート前のデータ検証
+- 既存のコマンド構造との統合
+- 認証と API の失敗に対するエラー処理
 
 ### Phase 3: System Abstraction
 - Trait-based system separation
