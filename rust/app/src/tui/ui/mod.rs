@@ -197,7 +197,8 @@ fn help_text(app: &App) -> &'static str {
         (_, Focus::Search) => {
             "文字入力:絞り込み  ←→:カーソル  Enter/Esc:リストへ  Ctrl-u:クリア  Ctrl-c:終了"
         }
-        (_, Focus::Picks) => "↑↓/jk:移動  x:外す  v/Esc:結果リストへ  ?:ヘルプ  q:終了",
+        (Tab::Monster, Focus::Picks) => "↑↓/jk:移動  x:外す  E:出力  v/Esc:結果リストへ  ?:ヘルプ  q:終了",
+        (Tab::Spell, Focus::Picks) => "↑↓/jk:移動  x:外す  C:パレット  v/Esc:結果リストへ  ?:ヘルプ  q:終了",
         (Tab::Monster, Focus::List) => {
             "↑↓/jk:選択  Enter:詳細  c:ココフォリア  e:出力  J:JSON  /:検索  ?:ヘルプ  q:終了"
         }

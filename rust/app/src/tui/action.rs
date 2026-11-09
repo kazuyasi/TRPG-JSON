@@ -79,6 +79,10 @@ pub enum Action {
     RemovePick,
     /// 選択リストのペインと結果リストの間でフォーカスを移す
     TogglePicksFocus,
+    /// 選択リストの全スペルのチャットパレットを改行区切りでクリップボードへコピー
+    CopyPicks,
+    /// 選択リストのモンスターのエクスポートモーダルを開く
+    OpenPicksExport,
 }
 
 /// キーイベントを Action に変換する（割り当てのないキーは `None`）
@@ -141,6 +145,8 @@ pub fn from_key(key: KeyEvent, focus: Focus, modal_open: bool) -> Option<Action>
         KeyCode::Char(' ') if focus == Focus::List => Some(Action::TogglePick),
         KeyCode::Char('x') if focus == Focus::Picks => Some(Action::RemovePick),
         KeyCode::Char('v') => Some(Action::TogglePicksFocus),
+        KeyCode::Char('C') => Some(Action::CopyPicks),
+        KeyCode::Char('E') => Some(Action::OpenPicksExport),
         KeyCode::Esc if focus == Focus::Picks => Some(Action::FocusList),
         KeyCode::Enter if focus == Focus::List => Some(Action::FocusDetail),
         KeyCode::Esc if focus == Focus::Detail => Some(Action::FocusList),
@@ -344,6 +350,12 @@ mod tests {
         assert_eq!(key(KeyCode::Char('v'), Focus::Picks), Some(Action::TogglePicksFocus));
         assert_eq!(key(KeyCode::Char('v'), Focus::Search), Some(Action::InsertChar('v')));
         assert_eq!(key(KeyCode::Esc, Focus::Picks), Some(Action::FocusList));
+        for focus in [Focus::List, Focus::Detail, Focus::Picks] {
+            assert_eq!(key(KeyCode::Char('C'), focus), Some(Action::CopyPicks));
+            assert_eq!(key(KeyCode::Char('E'), focus), Some(Action::OpenPicksExport));
+        }
+        assert_eq!(key(KeyCode::Char('C'), Focus::Search), Some(Action::InsertChar('C')));
+        assert_eq!(key(KeyCode::Char('E'), Focus::Search), Some(Action::InsertChar('E')));
     }
 
     #[test]

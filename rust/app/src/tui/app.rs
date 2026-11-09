@@ -194,6 +194,16 @@ impl ExportChoice {
     }
 }
 
+/// エクスポートモーダルで書き出す対象
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum ExportTarget {
+    /// ヒット中の全件（`e`）
+    #[default]
+    Hits,
+    /// 選択リストの全件（`E`）
+    Picks,
+}
+
 /// エクスポートモーダルの入力内容
 ///
 /// ファイルの出力先とスプレッドシート ID は別々に持ち、形式を切り替えても失わない。
@@ -204,7 +214,9 @@ pub struct ExportForm {
     pub path: LineInput,
     /// スプレッドシート ID（Sheets）
     pub sheet_id: LineInput,
-    /// 書き出す件数（開いた時点のヒット件数）
+    /// 書き出す対象
+    pub target: ExportTarget,
+    /// 書き出す件数（開いた時点の対象の件数）
     pub count: usize,
 }
 
@@ -215,6 +227,7 @@ impl Default for ExportForm {
             format: ExportChoice::Json,
             path: format!("monsters{}", ExportChoice::Json.extension()).into(),
             sheet_id: LineInput::default(),
+            target: ExportTarget::default(),
             count: 0,
         }
     }
