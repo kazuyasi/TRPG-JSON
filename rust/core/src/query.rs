@@ -554,19 +554,19 @@ mod tests {
                     "対象": { "kind": "個別", "個別": "魔法1つ" }
                 },
                 {
-                    "name": "FairyMagic_Rank2",
-                    "school": "妖精魔法",
+                    "name": "RankMagic_Rank2",
+                    "school": "丙系魔法",
                     "Lv": { "kind": "rank", "rank": 2 },
                     "MP": { "kind": "value", "value": 5 },
-                    "effect": "Rank 2 fairy magic",
+                    "effect": "Rank 2 magic",
                     "対象": { "kind": "個別", "個別": "1体" }
                 },
                 {
-                    "name": "FairyMagic_Rank3",
-                    "school": "妖精魔法",
+                    "name": "RankMagic_Rank3",
+                    "school": "丙系魔法",
                     "Lv": { "kind": "rank", "rank": 3 },
                     "MP": { "kind": "value", "value": 8 },
-                    "effect": "Rank 3 fairy magic",
+                    "effect": "Rank 3 magic",
                     "対象": { "kind": "個別", "個別": "1体" }
                 }
             ]"#;
@@ -721,7 +721,7 @@ mod tests {
         let spells = sample_spells();
         let results = spell_find_by_rank(&spells, 2);
         assert_eq!(results.len(), 1);
-        assert_eq!(results[0].name, "FairyMagic_Rank2");
+        assert_eq!(results[0].name, "RankMagic_Rank2");
     }
 
     #[test]
@@ -730,7 +730,7 @@ mod tests {
         // Currently only one spell per rank in sample data
         let results = spell_find_by_rank(&spells, 3);
         assert_eq!(results.len(), 1);
-        assert_eq!(results[0].name, "FairyMagic_Rank3");
+        assert_eq!(results[0].name, "RankMagic_Rank3");
     }
 
     #[test]
@@ -753,23 +753,23 @@ mod tests {
         let spells = sample_spells();
         let results = spell_find_multi(&spells, None, None, None, Some(2), None, None);
         assert_eq!(results.len(), 1);
-        assert_eq!(results[0].name, "FairyMagic_Rank2");
+        assert_eq!(results[0].name, "RankMagic_Rank2");
     }
 
     #[test]
     fn test_spell_find_multi_rank_and_school() {
         let spells = sample_spells();
-        let results = spell_find_multi(&spells, None, Some("妖精魔法"), None, Some(3), None, None);
+        let results = spell_find_multi(&spells, None, Some("丙系魔法"), None, Some(3), None, None);
         assert_eq!(results.len(), 1);
-        assert_eq!(results[0].name, "FairyMagic_Rank3");
+        assert_eq!(results[0].name, "RankMagic_Rank3");
     }
 
     #[test]
     fn test_spell_find_multi_rank_and_name() {
         let spells = sample_spells();
-        let results = spell_find_multi(&spells, Some("Fairy"), None, None, Some(2), None, None);
+        let results = spell_find_multi(&spells, Some("RankMagic"), None, None, Some(2), None, None);
         assert_eq!(results.len(), 1);
-        assert_eq!(results[0].name, "FairyMagic_Rank2");
+        assert_eq!(results[0].name, "RankMagic_Rank2");
     }
 
     #[test]
@@ -778,7 +778,7 @@ mod tests {
         // When both level and rank are specified, level takes priority
         let results = spell_find_multi(&spells, None, None, Some(7), Some(2), None, None);
         assert_eq!(results.len(), 2); // Magic_16470 and Magic_88250 (level 7)
-        // Should not include FairyMagic_Rank2
+        // Should not include RankMagic_Rank2
     }
 
     #[test]
@@ -800,7 +800,7 @@ mod tests {
     fn test_extract_spell_level_returns_zero_for_rank_spells() {
         let spells = sample_spells();
         // Rank-based spells should return 0 for level extraction
-        let rank_spell = &spells[5]; // FairyMagic_Rank2 (rank-based)
+        let rank_spell = &spells[5]; // RankMagic_Rank2 (rank-based)
         assert_eq!(extract_spell_level(rank_spell), 0);
     }
 
@@ -881,7 +881,7 @@ mod tests {
         let json_data = r#"[
             {
                 "name": "Divine_Spell_1",
-                "school": "神聖",
+                "school": "甲系",
                 "schoolVariant": "特殊",
                 "god": "Deity_A",
                 "Lv": { "kind": "value", "value": 5 },
@@ -891,7 +891,7 @@ mod tests {
             },
             {
                 "name": "Divine_Spell_2",
-                "school": "神聖",
+                "school": "甲系",
                 "schoolVariant": "特殊",
                 "god": "Deity_B",
                 "Lv": { "kind": "value", "value": 7 },
@@ -912,7 +912,7 @@ mod tests {
         let json_data = r#"[
             {
                 "name": "Divine_A_1",
-                "school": "神聖",
+                "school": "甲系",
                 "god": "Deity_A",
                 "Lv": { "kind": "value", "value": 3 },
                 "MP": { "kind": "value", "value": 20 },
@@ -921,7 +921,7 @@ mod tests {
             },
             {
                 "name": "Divine_A_2",
-                "school": "神聖",
+                "school": "甲系",
                 "god": "Deity_A",
                 "Lv": { "kind": "value", "value": 5 },
                 "MP": { "kind": "value", "value": 25 },
@@ -971,7 +971,7 @@ mod tests {
         let json_data = r#"[
             {
                 "name": "Divine_Test",
-                "school": "神聖",
+                "school": "甲系",
                 "god": "Deity_A",
                 "Lv": { "kind": "value", "value": 5 },
                 "MP": { "kind": "value", "value": 30 },
@@ -991,7 +991,7 @@ mod tests {
         let json_data = r#"[
             {
                 "name": "Divine_Special",
-                "school": "神聖",
+                "school": "甲系",
                 "schoolVariant": "特殊",
                 "god": "Deity_A",
                 "Lv": { "kind": "value", "value": 7 },
@@ -1001,7 +1001,7 @@ mod tests {
             },
             {
                 "name": "Divine_Special_Wrong_God",
-                "school": "神聖",
+                "school": "甲系",
                 "schoolVariant": "特殊",
                 "god": "Deity_B",
                 "Lv": { "kind": "value", "value": 7 },
