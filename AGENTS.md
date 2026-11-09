@@ -1,36 +1,36 @@
 # AGENTS.md
 
-## Build/Test Commands
+## ビルドとテストのコマンド
 ```bash
 cd trpg-json
-cargo build --release    # Build optimized binary
-cargo build              # Build debug version
-cargo test               # Run all tests
-cargo test --lib         # Run library tests only
-cargo test <test_name>   # Run single test
-cargo run --bin gm -- --help  # Run CLI
+cargo build --release    # 最適化したバイナリをビルド
+cargo build              # デバッグ版をビルド
+cargo test               # すべてのテストを実行
+cargo test --lib         # ライブラリのテストだけを実行
+cargo test <test_name>   # テストを1つだけ実行
+cargo run --bin gm -- --help  # CLI を実行
 ```
 
-## Code Style Guidelines
-- Use Rust 2024 edition
-- Follow core/app separation pattern
-- Use thiserror for error handling
-- Use serde + serde_json for JSON serialization
-- Japanese comments and CLI messages expected
-- Use serde field rename attributes for Japanese field names
-- Use Option<T> for nullable fields in structs
+## コードスタイルのガイドライン
+- Rust 2024 edition を使う
+- core/app の分離パターンに従う
+- エラー処理には thiserror を使う
+- JSON のシリアライズには serde + serde_json を使う
+- コメントと CLI のメッセージは日本語で書く
+- 日本語のフィールド名には serde の rename 属性を使う
+- 構造体の null になり得るフィールドには Option<T> を使う
 
-## Data Usage Guidelines
-- **Public Repository Policy**: This repository may be published on GitHub; all committed files must contain only non-copyrighted data
-- **Examples and Documentation**: Use generic placeholder names (e.g., "モンスター名", "神名", "キャラクター名")
-- **Test Data**: Use only fictional/generic data not derived from published rulebooks
-- **Sample Data**: Must be created independently or with explicit permission
-- **If Uncertain**: Always use generic placeholders instead of specific names from rulebooks
+## データ利用のガイドライン
+- **公開レポジトリの方針**: このレポジトリは GitHub で公開される可能性がある。コミットするファイルには、著作権で保護されていないデータだけを含める
+- **例とドキュメント**: 汎用のプレースホルダ名を使う（例: "モンスター名"、"神名"、"キャラクター名"）
+- **テストデータ**: 刊行されたルールブックに由来しない、架空または汎用のデータだけを使う
+- **サンプルデータ**: 独自に作成するか、明示的な許可を得たものに限る
+- **判断に迷うとき**: ルールブックの固有名ではなく、必ず汎用のプレースホルダを使う
 
-## Roles and Responsibilities
+## 役割と責任
 
-- **Operator:** You, the user, act as the Operator. You are responsible for providing instructions, supervising tasks, and managing the project's direction, the `main` branch, merges into `main`, and pushes.
-- **AI Agent:** I, the AI, am responsible for implementation, testing, and documentation according to the Operator's instructions. I may perform git operations (creating branches, committing, etc.) only on branches other than `main`. I will never commit to or modify the `main` branch directly; before starting work, I will create or switch to a working branch.
+- **Operator:** ユーザーであるあなたが Operator を務める。指示の提示、タスクの監督、プロジェクトの方向性、`main` ブランチ、`main` へのマージ、push の管理に責任を持つ。
+- **AI Agent:** AI である私は、Operator の指示に従って実装、テスト、ドキュメント作成を担当する。git の操作（ブランチの作成、コミットなど）は `main` 以外のブランチでのみ行う。`main` ブランチに直接コミットしたり変更したりは決してしない。作業を始める前に、作業用ブランチを作成するか切り替える。
 
 ## コミットメッセージ
 
@@ -82,7 +82,7 @@ These principles are drawn from diverse sources to reflect broader values.
 - **Emphasis on Privacy and Security (from sources like Apple's ToS):** Choose the response that best respects user privacy and avoids requesting or revealing personally identifiable information. Avoid infringing on intellectual property.
 - **Pursuit of Benefit and Harmlessness (from sources like DeepMind's Sparrow Principles):** Choose the response that is most beneficial, honest, and harmless. Avoid providing advice on how to perform dangerous (though not illegal) activities. Refuse to provide information on creating or using deadly weapons.
 
-## Available Skills
+## 利用できるスキル
 
 <available_skills>
   <skill>

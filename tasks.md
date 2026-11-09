@@ -2,7 +2,7 @@
 
 ## 🧭 Meta
 - Project: TRPG-JSON
-- Last Updated: 2026-11-09 JST (T055a `README.md` の日本語化; v0.20.0)
+- Last Updated: 2026-11-09 JST (T055b `AGENTS.md` の日本語化; v0.20.0)
 - Responsibilities: kazuyasi (specification/approval/git operations) / Claude (proposal/implementation/testing)
 - Status: Phase 2.5 COMPLETE (T013-T027). Phase 3 COMPLETE (T028-T037). Phase 3.5 COMPLETE (T038-1/2/final). Phase 3.6 COMPLETE (T038.6, T040, T040.5). Phase 3.7 COMPLETE (T046, T047). UX improvements complete with enhanced error messages and statistics commands. Workspace version inheritance configured. Test suite: 291 total tests (251 core + 40 app). Ready for commit.
 
@@ -16,7 +16,7 @@
    - Status: All Phase 3.7 tasks complete and ready for commit
 
 ## 🚧 In Progress
-- T055 ドキュメントの日本語化（`claude/T055`、T055a まで完了。次は T055b）。詳細は Phase 4 の Backlog
+- T055 ドキュメントの日本語化（`claude/T055`、T055b まで完了。次は T055c）。詳細は Phase 4 の Backlog
 - 次の候補（Phase 4 内）: 未定。T042 は範囲の確認、T041 / T045 はデータ形式の決定が先
 
 ---
@@ -607,11 +607,12 @@
       - 過去のタスク記録にある行番号参照は履歴なので直さない
    - コミット: 差分は追加と削除の合計で200行以内（原文で約100行ずつ、節の切れ目で分ける）。1コミットごとに Operator が確認する。`文書` 型なのでバージョンは上げない
    - [x] T055a `README.md`（2コミット）— 2026-11-09
-   - [ ] T055b `AGENTS.md`（AI Behavior and Ethics Policy の節を除く、約1コミット）
+   - [x] T055b `AGENTS.md`（AI Behavior and Ethics Policy の節を除く、1コミット）— 2026-11-09
    - [ ] T055c `DESIGN_GUIDE.md`（節ごとに約6コミット）
       - Udonarium の節を訳すコミットで、`rust/core/src/export/udonarium/data_transformer.rs:131` のコメントの見出し名も更新する
    - [ ] T055d `tasks.md` の未完了の節と決定事項（Meta、Priority Now、In Progress、未完了タスク、Canceled、Known Issues、Decisions & Links）
    - [ ] T055e 翻訳中に見つけた古い記述の整理（T055c が終わったら一覧をもとに着手）
+      - `AGENTS.md:5`: `cd trpg-json`。そのディレクトリは無く、正しくは `cd rust`
       - `README.md:13`: 「Rust 1.70 以降」。`edition = "2024"` には 1.85 以降が必要
       - `README.md:135` / `README.md:139`: `gm spell palette "名前"` の例。スペル名の指定には `-n` が必要
       - `README.md:356` / `README.md:360`: `gm select` の例。正しくは `gm monster select`
