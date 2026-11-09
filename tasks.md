@@ -2,7 +2,7 @@
 
 ## 🧭 メタ情報
 - プロジェクト: TRPG-JSON
-- 最終更新: 2026-11-09 JST（T056a `README.md` の整合確認を完了、T057 を追加、v0.20.1）
+- 最終更新: 2026-11-09 JST（T056a `README.md` の整合確認を完了、T057 と T058 を追加、v0.20.1）
 - 担当: kazuyasi（仕様・承認・git 操作）/ Claude（提案・実装・テスト）
 - 状況: Phase 2.5 完了（T013-T027）。Phase 3 完了（T028-T037）。Phase 3.5 完了（T038-1/2/final）。Phase 3.6 完了（T038.6、T040、T040.5）。Phase 3.7 完了（T046、T047）。エラーメッセージの改善と統計コマンドにより UX の改善が完了。Phase 4 は進行中（T043、T048〜T054 は完了。T041、T042、T044、T045 は未完了）。ワークスペースのバージョン継承を設定済み。テストスイート: 全 432 件（core 258 + app 174）。
 
@@ -625,6 +625,10 @@
    - [ ] T057a `credentials.json` の権限を制限する（`rust/core/src/export/auth.rs` の `save_credentials` は `fs::write` のみ）
    - [ ] T057b アクセストークンの期限切れ時に自動で更新する（今はエクスポートが1回失敗し、再実行で認証し直す）
    - [ ] T057c 実際のパスと異なる記述を直す: `auth.rs` のコメントとエラーメッセージの `~/.config`（macOS は `~/Library/Application Support`）、`part_namer.rs` のコメントのファイル名の例
+- [ ] T058 `-l 0` / `lv:0` でランク制のスペルがヒットする不具合を直す（T056a で発見）
+   - 原因: `rust/core/src/query.rs` の `extract_spell_level` は、`value` / `value+` がないスペルに `0` を返す。`spell_find_multi` はこの値を指定のレベルと比べるので、`gm spell palette -l 0` や TUI の `lv:0` でランク制のスペルが一致する
+   - 期待する動作: `-l` は `Lv.kind` が `value` / `value+` のスペルだけを対象にする（`README.md`、`DESIGN_GUIDE.md` の記述どおり）
+   - 備考: レベル 0 のスペルの実在は未確認（2026-11-09 Operator）。`extract_spell_level` が `0` を返すことを確かめるテスト（`test_extract_spell_level_returns_zero_for_rank_spells`）があるので、直し方に合わせて見直す
 
 ## 🚮 中止・置き換え
 - [ ] T007 データ分析機能の実装（不要と判断）— 2025-09-14
