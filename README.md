@@ -1,50 +1,50 @@
-# TRPG-JSON Repository
+# TRPG-JSON レポジトリ
 
-A JSON-based data management system for TRPG (Tabletop Role-Playing Game) game systems.
+TRPG（テーブルトーク・ロールプレイングゲーム）のゲームシステム向けの、JSON ベースのデータ管理システムです。
 
-## Overview
+## 概要
 
-This repository provides tools for managing and querying TRPG game data (such as monsters, characters, and items) in JSON format. It includes a command-line interface for searching and filtering game data.
+このレポジトリは、TRPG のゲームデータ（モンスター、キャラクター、アイテムなど）を JSON 形式で管理・検索するためのツールを提供します。ゲームデータを検索・絞り込みするコマンドラインインターフェースを含みます。
 
-## Installation
+## インストール
 
-### Prerequisites
+### 前提条件
 
-- [Rust](https://www.rust-lang.org/tools/install) 1.70 or later
+- [Rust](https://www.rust-lang.org/tools/install) 1.70 以降
 
-### Install Steps
+### インストール手順
 
 ```bash
-# Option 1: From repository root
+# 方法1: レポジトリのルートから
 cargo install --path rust/app
 
-# Option 2: From rust/app directory
+# 方法2: rust/app ディレクトリから
 cd rust/app
 cargo install --path .
 ```
 
-The `gm` command will be installed to your Cargo bin directory (typically `~/.cargo/bin`). Make sure this directory is in your `PATH`.
+`gm` コマンドは Cargo の bin ディレクトリ（通常は `~/.cargo/bin`）にインストールされます。このディレクトリが `PATH` に含まれていることを確認してください。
 
-## Usage
+## 使い方
 
-This is a command-line tool for managing TRPG game data in JSON format.
+JSON 形式の TRPG ゲームデータを管理するコマンドラインツールです。
 
-### Basic Monster Commands
+### モンスターの基本コマンド
 
 ```bash
-# Search for a monster by name
+# 名前でモンスターを検索
 gm monster find "monster name"
 
-# List monsters matching a pattern
+# パターンに一致するモンスターを一覧表示
 gm monster list "pattern"
 
-# Query with filters
+# フィルタを指定して検索
 gm monster select -l 6 -c "Category"
 
-# Add a new monster
+# モンスターを追加
 gm monster add monster.json
 
-# Delete a monster
+# モンスターを削除
 gm monster delete "monster name"
 ```
 
@@ -53,99 +53,99 @@ gm monster delete "monster name"
 - `add`（同名あり）: 確認のうえ、そのモンスターを含むファイルだけを書き換えます（位置はそのまま）
 - `delete`: 確認のうえ、そのモンスターを含むファイルだけを書き換えます。同名が複数のファイルにあるときは、確認メッセージにファイルを列挙し、すべてから削除します
 
-### Spell Management
+### スペルの管理
 
-The tool includes comprehensive spell management capabilities for querying and manipulating spell data.
+スペルデータを検索・操作するためのスペル管理機能を備えています。
 
-#### Spell Search Commands
+#### スペルの検索コマンド
 
 ```bash
-# Search for a spell by name
+# 名前でスペルを検索
 gm spell find "spell name"
 
-# Search by level
+# レベルで検索
 gm spell find "spell name" -l 5
 
-# Search by rank (for rank-based magic systems)
+# ランクで検索（ランク制の魔法システム向け）
 gm spell find "spell name" -r 3
 
-# Search by school
+# 系統で検索
 gm spell find "spell name" -s "甲系"
 
-# Search by schoolVariant
+# schoolVariant で検索
 gm spell find "spell name" -v "特殊"
 
-# Search by god (for divine magic)
+# 神で検索（神聖魔法向け）
 gm spell find "spell name" -g "神名"
 
-# Combine multiple filters
+# 複数のフィルタを組み合わせる
 gm spell find "magic" -l 3 -s "甲系"
 gm spell find "甲系" -v "特殊" -g "神名"
 
-# List spells matching a pattern
+# パターンに一致するスペルを一覧表示
 gm spell list "pattern"
 
-# Generate chat palette for spells (supports multiple filters)
+# スペルのチャットパレットを生成（複数のフィルタに対応）
 gm spell palette -n "spell name"
-gm spell palette -l 5              # All level 5 spells
-gm spell palette -r 3              # All rank 3 spells
-gm spell palette -s "甲系"         # All spells of a school
-gm spell palette -v "特殊"         # All special variant spells
-gm spell palette -g "神名"         # All spells of a deity
+gm spell palette -l 5              # レベル5のスペルすべて
+gm spell palette -r 3              # ランク3のスペルすべて
+gm spell palette -s "甲系"         # 指定した系統のスペルすべて
+gm spell palette -v "特殊"         # 特殊バリアントのスペルすべて
+gm spell palette -g "神名"         # 指定した神のスペルすべて
 
-# Combine filters for precise palette generation
+# フィルタを組み合わせて対象を絞ってパレットを生成
 gm spell palette -n "magic" -s "甲系" -l 5
 gm spell palette -v "特殊" -g "神名"
 
-# Copy spell palette to clipboard (macOS/Linux/Windows)
+# スペルのパレットをクリップボードへコピー（macOS/Linux/Windows）
 gm spell palette -n "spell name" -y
-# or
+# または
 gm spell palette -n "spell name" --copy
 ```
 
-**Filter Options:**
-- `-n`: Spell name (partial match)
-- `-l`: Level (exact match, for `Lv.kind: "value"` or `"value+"`)
-- `-r`: Rank (exact match, for `Lv.kind: "rank"`)
-- `-s`: School/Category (exact match)
-- `-v` / `--school-variant`: School variant (exact match)
-- `-g` / `--god`: God/Deity name (exact match)
-- `-y` / `--copy`: Copy first result to clipboard
+**フィルタのオプション:**
+- `-n`: スペル名（部分一致）
+- `-l`: レベル（完全一致。`Lv.kind: "value"` または `"value+"` が対象）
+- `-r`: ランク（完全一致。`Lv.kind: "rank"` が対象）
+- `-s`: 系統 / カテゴリ（完全一致）
+- `-v` / `--school-variant`: 系統のバリアント（完全一致）
+- `-g` / `--god`: 神の名前（完全一致）
+- `-y` / `--copy`: 最初の結果をクリップボードへコピー
 
-**Note:** Level (`-l`) and rank (`-r`) filters are mutually exclusive. If both are specified, level takes priority.
+**注意:** レベル（`-l`）とランク（`-r`）のフィルタは同時に使えません。両方を指定した場合はレベルが優先されます。
 
-#### Spell Palette Output Format
+#### スペルのパレットの出力形式
 
-The `gm spell palette` command generates formatted spell data for use in TRPG chat systems:
+`gm spell palette` コマンドは、TRPG のチャットシステムで使える形式のスペルデータを生成します。
 
-**Support Spells** (`補助=true`):
+**補助スペル**（`補助=true`）:
 ```
 spell name / MP:cost / 対象:target / 射程:range / 時間:duration / effect description
 ```
 
-**Regular Spells** (`補助=false`):
+**通常のスペル**（`補助=false`）:
 ```
 2d+{magic_category}+{行使修正}  spell name / MP:cost / 対象:target / 射程:range / 時間:duration / effect description
 ```
 
-**Examples:**
+**例:**
 
 ```bash
-# Generate palette for support spell
+# 補助スペルのパレットを生成
 gm spell palette "ライト"
-# Output: ライト / MP:3 / 対象:任意の地点 / 射程:10m(起点指定) / 時間:一瞬 / 光源を生成する。
+# 出力: ライト / MP:3 / 対象:任意の地点 / 射程:10m(起点指定) / 時間:一瞬 / 光源を生成する。
 
-# Generate palette for regular spell (with copy to clipboard)
+# 通常のスペルのパレットを生成（クリップボードへコピー）
 gm spell palette "呪文名" -y
-# Output: 2d+{甲系魔法}+{行使修正}  呪文名 / MP:15 / 対象:1エリア(半径4m) / 射程:術者 / 時間:一瞬 / ...
+# 出力: 2d+{甲系魔法}+{行使修正}  呪文名 / MP:15 / 対象:1エリア(半径4m) / 射程:術者 / 時間:一瞬 / ...
 ```
 
-#### Magic Category Formatting
+#### 魔法カテゴリの整形
 
-Magic categories are automatically formatted:
-- 2-character categories (e.g., "甲系", "丙系") become "甲系魔法", "丙系魔法"
-- Longer categories (e.g., "ハイテクノロジー") remain unchanged
-- The `{行使修正}` placeholder is preserved for dicebot substitution
+魔法カテゴリは自動的に整形されます。
+- 2文字のカテゴリ（例: "甲系"、"丙系"）は "甲系魔法"、"丙系魔法" になります
+- それより長いカテゴリ（例: "ハイテクノロジー"）は変更されません
+- `{行使修正}` のプレースホルダは、ダイスボットでの置換のためにそのまま残ります
 
 ## TUI モード（`gm tui`）
 
