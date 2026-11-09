@@ -73,6 +73,16 @@ pub enum Action {
     SubmitExport,
     /// 設定のデータファイルを読み直す
     Reload,
+    /// カーソル行の項目を選択リストへ追加する／外す
+    TogglePick,
+    /// 選択リストのカーソル行を外す
+    RemovePick,
+    /// 選択リストのペインと結果リストの間でフォーカスを移す
+    TogglePicksFocus,
+    /// 選択リストの全スペルのチャットパレットを改行区切りでクリップボードへコピー
+    CopyPicks,
+    /// 選択リストのモンスターのエクスポートモーダルを開く
+    OpenPicksExport,
 }
 
 /// キーイベントを Action に変換する（割り当てのないキーは `None`）
@@ -132,6 +142,12 @@ pub fn from_key(key: KeyEvent, focus: Focus, modal_open: bool) -> Option<Action>
         KeyCode::Char('j') => Some(Action::Down),
         KeyCode::Char('g') | KeyCode::Home => Some(Action::Top),
         KeyCode::Char('G') | KeyCode::End => Some(Action::Bottom),
+        KeyCode::Char(' ') if focus == Focus::List => Some(Action::TogglePick),
+        KeyCode::Char('x') if focus == Focus::Picks => Some(Action::RemovePick),
+        KeyCode::Char('v') => Some(Action::TogglePicksFocus),
+        KeyCode::Char('C') => Some(Action::CopyPicks),
+        KeyCode::Char('E') => Some(Action::OpenPicksExport),
+        KeyCode::Esc if focus == Focus::Picks => Some(Action::FocusList),
         KeyCode::Enter if focus == Focus::List => Some(Action::FocusDetail),
         KeyCode::Esc if focus == Focus::Detail => Some(Action::FocusList),
         _ => None,
@@ -315,6 +331,31 @@ mod tests {
         // 検索中は文字入力
         assert_eq!(from_key(press(KeyCode::Char('y')), Focus::Search, false), Some(Action::InsertChar('y')));
         assert_eq!(from_key(shift_y, Focus::Search, false), Some(Action::InsertChar('Y')));
+    }
+
+    #[test]
+    fn test_space_toggles_pick_only_in_list() {
+        let space = press(KeyCode::Char(' '));
+        assert_eq!(from_key(space, Focus::List, false), Some(Action::TogglePick));
+        assert_eq!(from_key(space, Focus::Detail, false), None);
+        assert_eq!(from_key(space, Focus::Search, false), Some(Action::InsertChar(' ')));
+    }
+
+    #[test]
+    fn test_picks_pane_keys() {
+        let key = |c, focus| from_key(press(c), focus, false);
+        assert_eq!(key(KeyCode::Char('x'), Focus::Picks), Some(Action::RemovePick));
+        assert_eq!(key(KeyCode::Char('x'), Focus::List), None);
+        assert_eq!(key(KeyCode::Char('v'), Focus::List), Some(Action::TogglePicksFocus));
+        assert_eq!(key(KeyCode::Char('v'), Focus::Picks), Some(Action::TogglePicksFocus));
+        assert_eq!(key(KeyCode::Char('v'), Focus::Search), Some(Action::InsertChar('v')));
+        assert_eq!(key(KeyCode::Esc, Focus::Picks), Some(Action::FocusList));
+        for focus in [Focus::List, Focus::Detail, Focus::Picks] {
+            assert_eq!(key(KeyCode::Char('C'), focus), Some(Action::CopyPicks));
+            assert_eq!(key(KeyCode::Char('E'), focus), Some(Action::OpenPicksExport));
+        }
+        assert_eq!(key(KeyCode::Char('C'), Focus::Search), Some(Action::InsertChar('C')));
+        assert_eq!(key(KeyCode::Char('E'), Focus::Search), Some(Action::InsertChar('E')));
     }
 
     #[test]

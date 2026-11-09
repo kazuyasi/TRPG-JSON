@@ -5,10 +5,13 @@ use trpg_json_core::stats::{MonsterStats, SpellStats};
 use trpg_json_core::{Monster, Spell};
 
 use super::action::Action;
-use super::app::{App, ExportForm, Focus, Modal, ModalKind, StatusMessage, Tab};
+use super::app::{App, ExportForm, ExportTarget, Focus, Modal, ModalKind, StatusMessage, Tab};
 use super::effect::Effect;
 use super::input::LineInput;
 use crate::commands::monster::ccfolia_json;
+
+/// 選択リストが空のときの案内
+const EMPTY_PICKS: &str = "選択リストは空です（結果リストの Space で追加できます）";
 
 /// Action を App に適用する
 ///
@@ -22,23 +25,31 @@ pub fn update(app: &mut App, action: Action) -> Option<Effect> {
     match action {
         Action::OpenHelp => app.modal = Some(Modal::new(ModalKind::Help)),
         Action::OpenJson => open_json(app),
-        Action::OpenExport => open_export(app),
+        Action::OpenExport => open_export(app, ExportTarget::Hits),
+        Action::OpenPicksExport => open_export(app, ExportTarget::Picks),
         Action::OpenStats => open_stats(app),
         Action::Reload => return Some(Effect::Reload(app.sources.clone())),
+        Action::TogglePick => app.toggle_pick(),
+        Action::RemovePick => app.remove_pick(),
+        Action::TogglePicksFocus => toggle_picks_focus(app),
         // モーダルが無いときは何もしない
         Action::CloseModal | Action::CopyJson | Action::CycleExportFormat | Action::SubmitExport => {}
         Action::CopyCcfolia if app.tab == Tab::Monster => return copy_ccfolia(app),
         Action::CopyPalette if app.tab == Tab::Spell => return copy_palette(app),
         Action::CopyAllPalettes if app.tab == Tab::Spell => return copy_all_palettes(app),
+        Action::CopyPicks if app.tab == Tab::Spell => return copy_picks(app),
         // 他のタブのコピーキーは無視する
-        Action::CopyCcfolia | Action::CopyPalette | Action::CopyAllPalettes => {}
+        Action::CopyCcfolia | Action::CopyPalette | Action::CopyAllPalettes | Action::CopyPicks => {}
         Action::Quit => app.should_quit = true,
-        Action::SwitchTab(tab) => app.tab = tab,
+        Action::SwitchTab(tab) => {
+            app.tab = tab;
+            app.leave_empty_picks();
+        }
         Action::FocusSearch => app.focus = Focus::Search,
         Action::FocusList => app.focus = Focus::List,
         Action::FocusDetail => app.focus = Focus::Detail,
-        Action::FocusNext => app.focus = app.focus.next(),
-        Action::FocusPrev => app.focus = app.focus.prev(),
+        Action::FocusNext => app.focus = app.focus.next(!app.view().picks.is_empty()),
+        Action::FocusPrev => app.focus = app.focus.prev(!app.view().picks.is_empty()),
         Action::InsertChar(_)
         | Action::DeleteChar
         | Action::DeleteCharForward
@@ -57,6 +68,7 @@ pub fn update(app: &mut App, action: Action) -> Option<Effect> {
                 (Focus::Detail, Tab::Monster) => move_in_monster_detail(app, action),
                 // スペル詳細は部位表がないので ↑↓ も本文の1行スクロールにする
                 (Focus::Detail, Tab::Spell) => scroll_detail(app, action),
+                (Focus::Picks, _) => move_in_picks(app, action),
                 _ => move_in_list(app, action),
             }
         }
@@ -143,22 +155,25 @@ fn stats_body(formatted: &str) -> String {
         .join("\n")
 }
 
-/// ヒット中のモンスターを書き出すエクスポートモーダルを開く
+/// ヒット中または選択リストのモンスターを書き出すエクスポートモーダルを開く
 ///
 /// 形式・出力先・スプレッドシート ID は直前のエクスポートの値を引き継ぐ。スペルは core にエクスポーターがないため対象外。
-fn open_export(app: &mut App) {
+fn open_export(app: &mut App, target: ExportTarget) {
     if app.tab == Tab::Spell {
         app.status = Some(StatusMessage::info(
             "スペルのエクスポートには対応していません（モンスタータブで使えます）",
         ));
         return;
     }
-    let count = app.monster_view.hits.len();
+    let (count, empty) = match target {
+        ExportTarget::Hits => (app.monster_view.hits.len(), "エクスポートするモンスターがありません"),
+        ExportTarget::Picks => (app.monster_view.picks.len(), EMPTY_PICKS),
+    };
     if count == 0 {
-        app.status = Some(StatusMessage::info("エクスポートするモンスターがありません"));
+        app.status = Some(StatusMessage::info(empty));
         return;
     }
-    let form = ExportForm { count, ..app.last_export.clone().unwrap_or_default() };
+    let form = ExportForm { target, count, ..app.last_export.clone().unwrap_or_default() };
     app.modal = Some(Modal::new(ModalKind::Export(form)));
 }
 
@@ -217,13 +232,14 @@ fn edit_line_input(input: &mut LineInput, action: Action) -> bool {
     }
 }
 
-/// 入力内容を確定してモーダルを閉じ、ヒット中のモンスター（結果リストの並び順）の書き出しを要求する
+/// 入力内容を確定してモーダルを閉じ、対象のモンスター（結果リストの並び順または追加順）の書き出しを要求する
 fn submit_export(app: &mut App) -> Option<Effect> {
     let Some(ModalKind::Export(form)) = app.modal.as_ref().map(|m| &m.kind) else {
         return None;
     };
     let output = form.input().trim().to_string();
     let format = form.format;
+    let target = form.target;
     if output.is_empty() {
         let message = if format.is_file() {
             "出力先のパスを入力してください"
@@ -237,7 +253,11 @@ fn submit_export(app: &mut App) -> Option<Effect> {
     let mut remembered = form.clone();
     *remembered.input_mut() = LineInput::new(output.clone());
     app.last_export = Some(remembered);
-    let monsters = app.monster_view.hits.iter().map(|&i| app.monsters[i].clone()).collect();
+    let indices = match target {
+        ExportTarget::Hits => &app.monster_view.hits,
+        ExportTarget::Picks => &app.monster_view.picks,
+    };
+    let monsters = indices.iter().map(|&i| app.monsters[i].clone()).collect();
     app.modal = None;
     Some(Effect::Export { monsters, format, output })
 }
@@ -318,15 +338,26 @@ fn copy_palette(app: &mut App) -> Option<Effect> {
 ///
 /// CLI の `spell palette` と同じく、生成に失敗したスペルは飛ばして残りをコピーする。
 fn copy_all_palettes(app: &mut App) -> Option<Effect> {
-    let view = &app.spell_view;
-    if view.hits.is_empty() {
-        app.status = Some(StatusMessage::info("コピーするスペルがありません"));
+    let hits = app.spell_view.hits.clone();
+    copy_palettes(app, &hits, "コピーするスペルがありません", "ヒット中")
+}
+
+/// 選択リストの全スペルのチャットパレットを追加順に改行区切りでコピーするよう要求する
+fn copy_picks(app: &mut App) -> Option<Effect> {
+    let picks = app.spell_view.picks.clone();
+    copy_palettes(app, &picks, EMPTY_PICKS, "選択リスト")
+}
+
+/// `indices` のスペルのパレットを改行区切りでコピーするよう要求する（`scope` はエラーの文言に使う）
+fn copy_palettes(app: &mut App, indices: &[usize], empty: &str, scope: &str) -> Option<Effect> {
+    if indices.is_empty() {
+        app.status = Some(StatusMessage::info(empty));
         return None;
     }
 
     let mut palettes = Vec::new();
     let mut failed = Vec::new();
-    for spell in view.hits.iter().map(|&i| &app.spells[i]) {
+    for spell in indices.iter().map(|&i| &app.spells[i]) {
         match generate_spell_palette(spell) {
             Ok(p) => palettes.push(p),
             Err(_) => failed.push(spell.name.as_str()),
@@ -335,7 +366,8 @@ fn copy_all_palettes(app: &mut App) -> Option<Effect> {
 
     if palettes.is_empty() {
         app.status = Some(StatusMessage::error(format!(
-            "ヒット中の {} 件すべてでパレット生成に失敗しました",
+            "{}の {} 件すべてでパレット生成に失敗しました",
+            scope,
             failed.len()
         )));
         return None;
@@ -353,6 +385,31 @@ fn copy_all_palettes(app: &mut App) -> Option<Effect> {
         ));
     }
     Some(Effect::CopyToClipboard { text: palettes.join("\n"), success })
+}
+
+/// 選択リストのペインへ移る。すでにいれば結果リストへ戻る
+fn toggle_picks_focus(app: &mut App) {
+    if app.focus == Focus::Picks {
+        app.focus = Focus::List;
+    } else if app.view().picks.is_empty() {
+        app.status = Some(StatusMessage::info(EMPTY_PICKS));
+    } else {
+        app.focus = Focus::Picks;
+    }
+}
+
+fn move_in_picks(app: &mut App, action: Action) {
+    let view = app.view_mut();
+    let page = view.page() as isize;
+    match action {
+        Action::Up => view.move_pick_cursor(-1),
+        Action::Down => view.move_pick_cursor(1),
+        Action::PageUp => view.move_pick_cursor(-page),
+        Action::PageDown => view.move_pick_cursor(page),
+        Action::Top => view.pick_cursor = 0,
+        Action::Bottom => view.move_pick_cursor(isize::MAX),
+        _ => {}
+    }
 }
 
 fn move_in_list(app: &mut App, action: Action) {
@@ -1346,6 +1403,192 @@ mod tests {
     }
 
     // ---- データの再読み込み（R） ----
+
+    fn picked_names(app: &App) -> Vec<&str> {
+        app.monster_view.picks.iter().map(|&i| app.monsters[i].name.as_str()).collect()
+    }
+
+    #[test]
+    fn test_toggle_pick_adds_in_order_and_removes() {
+        let mut app = sample_app();
+        update(&mut app, Action::Down);
+        update(&mut app, Action::TogglePick);
+        update(&mut app, Action::Up);
+        update(&mut app, Action::TogglePick);
+        assert_eq!(picked_names(&app), vec!["テストの戦士", "サンプル動物"]);
+        assert_eq!(app.status.as_ref().unwrap().text, "\"サンプル動物\" を選択リストに追加しました（2 件）");
+
+        update(&mut app, Action::TogglePick);
+        assert_eq!(picked_names(&app), vec!["テストの戦士"]);
+        assert_eq!(app.status.as_ref().unwrap().text, "\"サンプル動物\" を選択リストから外しました（1 件）");
+    }
+
+    #[test]
+    fn test_picks_survive_query_change() {
+        let mut app = sample_app();
+        update(&mut app, Action::TogglePick);
+        update(&mut app, Action::FocusSearch);
+        type_str(&mut app, "テストの");
+        update(&mut app, Action::FocusList);
+        update(&mut app, Action::TogglePick);
+        assert_eq!(names(&app), vec!["テストの戦士"]);
+        assert_eq!(picked_names(&app), vec!["サンプル動物", "テストの戦士"]);
+    }
+
+    #[test]
+    fn test_picks_are_per_tab_and_empty_hits_only_informs() {
+        let mut app = sample_app();
+        update(&mut app, Action::TogglePick);
+        update(&mut app, Action::SwitchTab(Tab::Spell));
+        update(&mut app, Action::TogglePick);
+        assert!(app.spell_view.picks.is_empty());
+        assert_eq!(app.status.as_ref().unwrap().text, "選択リストに入れる項目がありません");
+        assert_eq!(app.monster_view.picks.len(), 1);
+    }
+
+    #[test]
+    fn test_reload_remaps_picks_by_name_and_reports_dropped() {
+        let mut app = sample_app();
+        update(&mut app, Action::TogglePick); // サンプル動物
+        update(&mut app, Action::Down);
+        update(&mut app, Action::TogglePick); // テストの戦士
+        let monsters = vec![
+            monster("新しいモンスター", 2, "動物", vec![part("", true)]),
+            monster("テストの戦士", 3, "蛮族", vec![part("", true)]),
+        ];
+        let status = app.apply_reload(reloaded(Ok(monsters), Ok(Vec::new())));
+        assert_eq!(picked_names(&app), vec!["テストの戦士"]);
+        assert!(status.text.ends_with("。データから消えた 1 件を選択リストから外しました"), "{}", status.text);
+    }
+
+    #[test]
+    fn test_reload_keeps_same_named_picks_apart() {
+        let same = || monster("同名", 1, "動物", vec![part("", true)]);
+        let mut app = App::new(vec![same(), same()], Vec::new(), Tab::Monster);
+        update(&mut app, Action::TogglePick);
+        update(&mut app, Action::Down);
+        update(&mut app, Action::TogglePick);
+        app.apply_reload(reloaded(Ok(vec![same(), same()]), Ok(Vec::new())));
+        assert_eq!(app.monster_view.picks, vec![0, 1]);
+    }
+
+    #[test]
+    fn test_reload_failure_keeps_picks() {
+        let mut app = sample_app();
+        update(&mut app, Action::TogglePick);
+        app.apply_reload(reloaded(Err("壊れたファイル"), Ok(Vec::new())));
+        assert_eq!(picked_names(&app), vec!["サンプル動物"]);
+    }
+
+    /// 上から順に n 件を選択リストへ入れ、ペインへフォーカスする
+    fn app_with_picks(n: usize) -> App {
+        let mut app = sample_app();
+        for _ in 0..n {
+            update(&mut app, Action::TogglePick);
+            update(&mut app, Action::Down);
+        }
+        update(&mut app, Action::TogglePicksFocus);
+        app
+    }
+
+    #[test]
+    fn test_picks_focus_needs_items() {
+        let mut app = sample_app();
+        update(&mut app, Action::TogglePicksFocus);
+        assert_eq!(app.focus, Focus::List);
+        update(&mut app, Action::FocusNext);
+        update(&mut app, Action::FocusNext);
+        assert_eq!(app.focus, Focus::Search); // 空なら Tab の巡回に入らない
+
+        let mut app = app_with_picks(1);
+        assert_eq!(app.focus, Focus::Picks);
+        update(&mut app, Action::FocusNext);
+        assert_eq!(app.focus, Focus::Search);
+        update(&mut app, Action::FocusPrev);
+        assert_eq!(app.focus, Focus::Picks);
+        update(&mut app, Action::TogglePicksFocus);
+        assert_eq!(app.focus, Focus::List);
+    }
+
+    #[test]
+    fn test_move_and_remove_in_picks_keeps_result_cursor() {
+        let mut app = app_with_picks(3);
+        let selected = app.monster_view.selected;
+        update(&mut app, Action::Bottom);
+        assert_eq!(app.monster_view.pick_cursor, 2);
+        update(&mut app, Action::Down);
+        assert_eq!(app.monster_view.pick_cursor, 2);
+        assert_eq!(app.monster_view.selected, selected);
+
+        update(&mut app, Action::RemovePick);
+        assert_eq!(picked_names(&app), vec!["サンプル動物", "テストの戦士"]);
+        assert_eq!(app.monster_view.pick_cursor, 1);
+    }
+
+    #[test]
+    fn test_focus_leaves_picks_when_empty() {
+        let mut app = app_with_picks(1);
+        update(&mut app, Action::RemovePick);
+        assert_eq!(app.focus, Focus::List);
+
+        // スペルタブの選択リストは空
+        let mut app = app_with_picks(1);
+        update(&mut app, Action::SwitchTab(Tab::Spell));
+        assert_eq!(app.focus, Focus::List);
+
+        let mut app = app_with_picks(1);
+        app.apply_reload(reloaded(Ok(Vec::new()), Ok(Vec::new())));
+        assert_eq!(app.focus, Focus::List);
+    }
+
+    #[test]
+    fn test_copy_picks_in_added_order() {
+        let mut app = spell_app();
+        assert!(update(&mut app, Action::CopyPicks).is_none());
+        assert_eq!(app.status.as_ref().unwrap().text, EMPTY_PICKS);
+
+        type_str(&mut app, "テストスペル");
+        update(&mut app, Action::Down);
+        update(&mut app, Action::TogglePick);
+        update(&mut app, Action::Up);
+        update(&mut app, Action::TogglePick);
+        let (text, success) = copy_text(update(&mut app, Action::CopyPicks));
+        let lines: Vec<&str> = text.lines().collect();
+        assert_eq!(lines.len(), 2);
+        assert!(lines[0].contains(" テストスペルB / "), "{}", lines[0]);
+        assert!(lines[1].contains(" テストスペル / "), "{}", lines[1]);
+        assert_eq!(success, "2 件のチャットパレットをクリップボードにコピーしました");
+    }
+
+    #[test]
+    fn test_copy_picks_is_spell_only() {
+        let mut app = app_with_picks(1);
+        assert!(update(&mut app, Action::CopyPicks).is_none());
+    }
+
+    #[test]
+    fn test_picks_export_targets_picks_in_added_order() {
+        let mut app = sample_app();
+        update(&mut app, Action::OpenPicksExport);
+        assert!(app.modal.is_none());
+        assert_eq!(app.status.as_ref().unwrap().text, EMPTY_PICKS);
+
+        update(&mut app, Action::Down);
+        update(&mut app, Action::TogglePick);
+        update(&mut app, Action::Up);
+        update(&mut app, Action::TogglePick);
+        update(&mut app, Action::OpenPicksExport);
+        let Some(ModalKind::Export(form)) = app.modal.as_ref().map(|m| &m.kind) else { panic!() };
+        assert_eq!((form.target, form.count), (ExportTarget::Picks, 2));
+        let Some(Effect::Export { monsters, .. }) = update(&mut app, Action::SubmitExport) else { panic!() };
+        let exported: Vec<&str> = monsters.iter().map(|m| m.name.as_str()).collect();
+        assert_eq!(exported, vec!["テストの戦士", "サンプル動物"]);
+
+        // 次の e はヒット全件に戻る
+        update(&mut app, Action::OpenExport);
+        let Some(ModalKind::Export(form)) = app.modal.as_ref().map(|m| &m.kind) else { panic!() };
+        assert_eq!((form.target, form.count), (ExportTarget::Hits, 4));
+    }
 
     fn reloaded(monsters: Result<Vec<Monster>, &str>, spells: Result<Vec<Spell>, &str>) -> ReloadedData {
         ReloadedData {

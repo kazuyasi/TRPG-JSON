@@ -43,7 +43,9 @@ pub fn draw(frame: &mut Frame, area: Rect, app: &App) {
                 .collect(),
         ),
     };
-    let rows = rows.into_iter().map(|(lv, name, class)| {
+    let rows = rows.into_iter().zip(&view.hits).map(|((lv, name, class), &index)| {
+        // 選択リストにある行は名前の前に印を付ける（印のない行の名前列の幅は変えない）
+        let name = if view.is_picked(index) { format!("✓ {}", name) } else { name.to_string() };
         Row::new(vec![
             Cell::from(Line::from(lv).alignment(Alignment::Right)),
             Cell::from(name),

@@ -87,22 +87,26 @@ pub enum Focus {
     List,
     /// 詳細ペイン（部位表の選択・本文スクロール）
     Detail,
+    /// 選択リストのペイン（リストが空のときはフォーカスしない）
+    Picks,
 }
 
 impl Focus {
-    /// Tab キーでの次のフォーカス
-    pub fn next(self) -> Self {
+    /// Tab キーでの次のフォーカス（`has_picks` は選択リストのペインが巡回に入るか）
+    pub fn next(self, has_picks: bool) -> Self {
         match self {
             Focus::Search => Focus::List,
             Focus::List => Focus::Detail,
-            Focus::Detail => Focus::Search,
+            Focus::Detail if has_picks => Focus::Picks,
+            Focus::Detail | Focus::Picks => Focus::Search,
         }
     }
 
-    /// Shift-Tab キーでの前のフォーカス
-    pub fn prev(self) -> Self {
+    /// Shift-Tab キーでの前のフォーカス（`has_picks` は選択リストのペインが巡回に入るか）
+    pub fn prev(self, has_picks: bool) -> Self {
         match self {
-            Focus::Search => Focus::Detail,
+            Focus::Search if has_picks => Focus::Picks,
+            Focus::Search | Focus::Picks => Focus::Detail,
             Focus::List => Focus::Search,
             Focus::Detail => Focus::List,
         }
@@ -190,6 +194,16 @@ impl ExportChoice {
     }
 }
 
+/// エクスポートモーダルで書き出す対象
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum ExportTarget {
+    /// ヒット中の全件（`e`）
+    #[default]
+    Hits,
+    /// 選択リストの全件（`E`）
+    Picks,
+}
+
 /// エクスポートモーダルの入力内容
 ///
 /// ファイルの出力先とスプレッドシート ID は別々に持ち、形式を切り替えても失わない。
@@ -200,7 +214,9 @@ pub struct ExportForm {
     pub path: LineInput,
     /// スプレッドシート ID（Sheets）
     pub sheet_id: LineInput,
-    /// 書き出す件数（開いた時点のヒット件数）
+    /// 書き出す対象
+    pub target: ExportTarget,
+    /// 書き出す件数（開いた時点の対象の件数）
     pub count: usize,
 }
 
@@ -211,6 +227,7 @@ impl Default for ExportForm {
             format: ExportChoice::Json,
             path: format!("monsters{}", ExportChoice::Json.extension()).into(),
             sheet_id: LineInput::default(),
+            target: ExportTarget::default(),
             count: 0,
         }
     }
@@ -285,9 +302,51 @@ pub struct ListView {
     pub detail_scroll: u16,
     /// 検索構文を解釈できなかったときの理由（検索バーを警告色にし、直前の結果を残す）
     pub query_error: Option<String>,
+    /// 選択リストの項目の元データ index（追加順）。検索条件を変えても保持する
+    pub picks: Vec<usize>,
+    /// `picks` 内でのカーソル位置（選択リストのペイン）
+    pub pick_cursor: usize,
+    /// 選択リストの先頭に表示している行（描画時に書き戻す）
+    pub pick_offset: Cell<usize>,
 }
 
 impl ListView {
+    /// 元データ index の項目が選択リストにあるか
+    pub fn is_picked(&self, index: usize) -> bool {
+        self.picks.contains(&index)
+    }
+
+    /// 選択リストへ追加する。すでにあれば外す。追加したら `true`
+    fn toggle_pick(&mut self, index: usize) -> bool {
+        match self.picks.iter().position(|&i| i == index) {
+            Some(pos) => {
+                self.picks.remove(pos);
+                self.clamp_pick_cursor();
+                false
+            }
+            None => {
+                self.picks.push(index);
+                true
+            }
+        }
+    }
+
+    /// 選択リストを差し替える（読み直し後の index）
+    fn set_picks(&mut self, picks: Vec<usize>) {
+        self.picks = picks;
+        self.clamp_pick_cursor();
+    }
+
+    /// 選択リストのカーソルを `delta` だけ動かす（範囲外は端で止める）
+    pub fn move_pick_cursor(&mut self, delta: isize) {
+        self.pick_cursor = self.pick_cursor.saturating_add_signed(delta);
+        self.clamp_pick_cursor();
+    }
+
+    fn clamp_pick_cursor(&mut self) {
+        self.pick_cursor = self.pick_cursor.min(self.picks.len().saturating_sub(1));
+    }
+
     /// 選択中の項目の元データ index
     pub fn selected_index(&self) -> Option<usize> {
         self.hits.get(self.selected).copied()
@@ -436,6 +495,50 @@ impl App {
         self.spell_view.selected_index().and_then(|i| self.spells.get(i))
     }
 
+    /// カーソル行の項目を選択リストへ追加する／外す（結果はステータス行に出す）
+    pub fn toggle_pick(&mut self) {
+        let Some(index) = self.view().selected_index() else {
+            self.status = Some(StatusMessage::info("選択リストに入れる項目がありません"));
+            return;
+        };
+        let name = self.item_name(index);
+        let added = self.view_mut().toggle_pick(index);
+        let verb = if added { "に追加しました" } else { "から外しました" };
+        let count = self.view().picks.len();
+        self.status = Some(StatusMessage::info(format!(
+            "\"{}\" を選択リスト{}（{} 件）",
+            name, verb, count
+        )));
+    }
+
+    /// 選択リストのカーソル行を外す（空になったら結果リストへフォーカスを戻す）
+    pub fn remove_pick(&mut self) {
+        let view = self.view();
+        let Some(&index) = view.picks.get(view.pick_cursor) else {
+            return;
+        };
+        let name = self.item_name(index);
+        self.view_mut().toggle_pick(index);
+        self.leave_empty_picks();
+        let count = self.view().picks.len();
+        self.status = Some(StatusMessage::info(format!("\"{}\" を選択リストから外しました（{} 件）", name, count)));
+    }
+
+    /// 現在のタブの選択リストが空なら、選択リストのペインからフォーカスを外す
+    pub fn leave_empty_picks(&mut self) {
+        if self.focus == Focus::Picks && self.view().picks.is_empty() {
+            self.focus = Focus::List;
+        }
+    }
+
+    /// 現在のタブの元データ index の項目名
+    fn item_name(&self, index: usize) -> String {
+        match self.tab {
+            Tab::Monster => self.monsters[index].name.clone(),
+            Tab::Spell => self.spells[index].name.clone(),
+        }
+    }
+
     /// 現在のタブのヒット結果を検索バーの条件で作り直す
     pub fn refresh_hits(&mut self) {
         match self.tab {
@@ -489,29 +592,40 @@ impl App {
     /// 読み込みに失敗した種類は今のデータを残す。結果をステータス行のメッセージで返す。
     pub fn apply_reload(&mut self, data: ReloadedData) -> StatusMessage {
         let mut errors = Vec::new();
+        let mut dropped = 0;
         match data.monsters {
-            Ok(monsters) => self.replace_monsters(monsters),
+            Ok(monsters) => dropped += self.replace_monsters(monsters),
             Err(e) => errors.push(format!("モンスターデータを読み込めません（前のデータのままです）: {}", e)),
         }
         match data.spells {
-            Ok(spells) => self.replace_spells(spells),
+            Ok(spells) => dropped += self.replace_spells(spells),
             Err(e) => errors.push(format!("スペルデータを読み込めません（前のデータのままです）: {}", e)),
         }
+        self.leave_empty_picks();
+        let note = match dropped {
+            0 => String::new(),
+            n => format!("。データから消えた {} 件を選択リストから外しました", n),
+        };
         if errors.is_empty() {
             StatusMessage::success(format!(
-                "データを再読み込みしました（モンスター {} 件・スペル {} 件）",
+                "データを再読み込みしました（モンスター {} 件・スペル {} 件）{}",
                 self.monsters.len(),
-                self.spells.len()
+                self.spells.len(),
+                note
             ))
         } else {
-            StatusMessage::error(errors.join(" / "))
+            StatusMessage::error(format!("{}{}", errors.join(" / "), note))
         }
     }
 
     /// モンスターを差し替える。選択中の項目は名前で探し、部位の選択とスクロールも保つ
-    fn replace_monsters(&mut self, monsters: Vec<Monster>) {
+    ///
+    /// 選択リストも名前で引き直し、データから消えて外した件数を返す。
+    fn replace_monsters(&mut self, monsters: Vec<Monster>) -> usize {
         let previous = self.selected_monster().map(|m| m.name.clone());
+        let picked: Vec<String> = self.monster_view.picks.iter().map(|&i| self.monsters[i].name.clone()).collect();
         self.monsters = monsters;
+        self.monster_view.set_picks(remap_picks(&picked, self.monsters.iter().map(|m| m.name.as_str())));
         let filter = self.reload_monster_filter();
         let hits = monster_hits(&self.monsters, &filter);
         let keep = position_by_name(&hits, previous.as_deref(), |i| &self.monsters[i].name);
@@ -521,12 +635,17 @@ impl App {
         if !kept || self.selected_part >= part_count {
             self.reset_monster_detail();
         }
+        picked.len() - self.monster_view.picks.len()
     }
 
     /// スペルを差し替える。選択中の項目は名前で探し、本文のスクロールも保つ
-    fn replace_spells(&mut self, spells: Vec<Spell>) {
+    ///
+    /// 選択リストも名前で引き直し、データから消えて外した件数を返す。
+    fn replace_spells(&mut self, spells: Vec<Spell>) -> usize {
         let previous = self.selected_spell().map(|s| s.name.clone());
+        let picked: Vec<String> = self.spell_view.picks.iter().map(|&i| self.spells[i].name.clone()).collect();
         self.spells = spells;
+        self.spell_view.set_picks(remap_picks(&picked, self.spells.iter().map(|s| s.name.as_str())));
         let filter = self.reload_spell_filter();
         let hits = spell_hits(&self.spells, &filter);
         let keep = position_by_name(&hits, previous.as_deref(), |i| &self.spells[i].name);
@@ -534,6 +653,7 @@ impl App {
         if !self.spell_view.replace_hits_after_reload(hits, keep) {
             self.spell_view.detail_scroll = 0;
         }
+        picked.len() - self.spell_view.picks.len()
     }
 
     /// 再読み込みで使うモンスターの検索条件（検索語を解釈できなければ直前に解釈できた条件）
@@ -595,6 +715,20 @@ fn spell_hits(spells: &[Spell], filter: &SpellQuery) -> Vec<usize> {
             .then_with(|| spells[a].name.cmp(&spells[b].name))
     });
     hits
+}
+
+/// 読み直したデータの中で選択リストの名前を探し、新しい index の列を返す（順序は保つ）
+///
+/// 同名の項目を複数選んでいたら、まだ使っていない同名の項目へ順に割り当てる。見つからない名前は外す。
+fn remap_picks<'a>(picked: &[String], names: impl Iterator<Item = &'a str>) -> Vec<usize> {
+    let names: Vec<&str> = names.collect();
+    let mut picks = Vec::new();
+    for name in picked {
+        if let Some(i) = (0..names.len()).find(|i| names[*i] == name && !picks.contains(i)) {
+            picks.push(i);
+        }
+    }
+    picks
 }
 
 /// ヒット中で名前が `name` の最初の項目の位置

@@ -2,7 +2,7 @@
 
 ## 🧭 Meta
 - Project: TRPG-JSON
-- Last Updated: 2026-11-01 JST (T054 TUI データ再読み込みキー; v0.19.0)
+- Last Updated: 2026-11-09 JST (T051 TUI 選択リストペイン; v0.20.0)
 - Responsibilities: kazuyasi (specification/approval/git operations) / Claude (proposal/implementation/testing)
 - Status: Phase 2.5 COMPLETE (T013-T027). Phase 3 COMPLETE (T028-T037). Phase 3.5 COMPLETE (T038-1/2/final). Phase 3.6 COMPLETE (T038.6, T040, T040.5). Phase 3.7 COMPLETE (T046, T047). UX improvements complete with enhanced error messages and statistics commands. Workspace version inheritance configured. Test suite: 291 total tests (251 core + 40 app). Ready for commit.
 
@@ -16,8 +16,8 @@
    - Status: All Phase 3.7 tasks complete and ready for commit
 
 ## 🚧 In Progress
-- 実装中のタスクはなし（T054 は 2026-11-01 に `claude/T054` で完了、マージ待ち）
-- 次の候補（Phase 4 内）: T051 選択リストペイン
+- 実装中のタスクはなし（T051 は 2026-11-09 に `claude/T051` で完了、マージ待ち）
+- 次の候補（Phase 4 内）: 未定。T042 は範囲の確認、T041 / T045 はデータ形式の決定が先
 
 ---
 
@@ -527,7 +527,7 @@
         5. ✅ README のエクスポート節、TUI_DESIGN.md §2 / §4.3 / §7.4 / §12 を更新
         6. ✅ 単体テスト 3 件追加（update 1・Effect 2）、既存テスト 2 件を Sheets 込みに更新。全 385 件通過（core 258 + app 127）
         7. ✅ 疑似端末（サンプル設定、100×24）で `e` → `Tab` `Tab` → 短い ID → `Enter` → 一時停止画面にエラーと案内 → `Enter` で TUI に戻りステータス行にエラーを確認
-        8. ⚠️ 実際の OAuth 認証・Sheets API への書き込みは未確認（認証情報とスプレッドシートが必要。Operator による手動確認を推奨）
+        8. ✅ Sheets への実際の書き込みは Operator が確認（2026-11-09、T051 の `E` から）
 - [x] T052 CLI `monster add` / `delete` の保存先修正（fix, 0.17.1）— 2026-11-01 登録、完了 2026-11-01
       - Status: ✅ 完了（Known Issues の該当項目を解消）
       - 背景: Known Issues「`gm monster add` / `delete` が全ファイルの内容を最初のファイルへ保存する」
@@ -577,7 +577,24 @@
         3. ✅ 選択中の項目そのものを削除して `R` → 同じ行の項目（末尾なら末尾）が選ばれる
         4. ✅ データファイルをエディタで壊して（JSON の構文エラーなど）`R` → ステータス行にエラー、画面のデータは前のまま。直して `R` で復帰
         5. ✅ 検索バーで `R` を押すと文字として入力される／ヘルプ（`?`）表示中の `R` は何も起きない
-- [ ] T051 Phase 4: TUI selection list pane (multi-select → bulk copy/export) — future, after T050 (see TUI_DESIGN.md §4.5)
+- [x] T051 TUI 選択リストペイン（feat, 0.20.0）— 2026-11-09 完了
+      - Status: ✅ 完了
+      - Design doc: TUI_DESIGN.md §4.5
+      - 実装:
+        1. ✅ 結果リストの `Space` で追加・解除。`ListView.picks`（元データの index、追加順）にタブごとに保持し、検索を変えても残す。選択済みの行は名前の前に `✓`
+        2. ✅ ペイン（新規 `tui/ui/picks.rs`）: 空なら出さない。幅 120 桁以上は3ペイン、それ未満は `v` でフォーカスしたときだけ詳細の位置（100 桁未満は全幅）に表示
+        3. ✅ `Focus::Picks`: `v` / `Esc`、項目があるときだけ `Tab` の巡回に入る。`↑↓`/`jk`/`PgUp`/`PgDn`/`g`/`G` で移動、`x` で外す。空になったら結果リストへ戻す
+        4. ✅ `C`: スペルの選択全件のパレットを追加順にコピー（`Y` と処理を共用）。モンスタータブでは無効
+        5. ✅ `E`: モンスターの選択全件を追加順にエクスポート（`ExportForm.target`）。`e` はヒット全件のまま
+        6. ✅ `R` のあとは名前で引き直し、データから消えた項目は外して件数をステータス行に表示
+        7. ✅ ヘルプモーダル・キーヘルプ行（結果リストの `↑↓/jk:選択` を `Space:選択` に）・README・TUI_DESIGN.md §4.3 / §4.5 / §6 / §11 / §13 を更新
+        8. ✅ 単体テスト 16 件追加。全 432 件通過（core 258 + app 174）
+      - 設計書からの変更: `J`/`K` の並べ替えは入れない（`J` は JSON ビューと衝突）。`Y` は残す。`✓` は行末ではなく名前の前
+      - Operator 確認（実端末、2026-11-09）: すべて OK
+        1. ✅ `Space` で `✓` が付き、検索し直しても消えない。名前が溢れるモンスターでも正しく付き、末尾を崩さない
+        2. ✅ 幅 120 桁以上の3ペインが読め、空に戻すと2ペイン。長い名前もペインからはみ出さない
+        3. ✅ `v` / `Esc` の移動、幅 120 / 100 桁未満の表示、`x`、空のときの案内、ペイン内のスクロール
+        4. ✅ `C` の順序、`E` の JSON / Udonarium / Sheets 出力、`E` のあとの `e` がヒット全件に戻ること、空のときの案内
 - [ ] T044 Phase 4: Multi-system support (extend beyond SW2.5)
 - [ ] T045 Phase 4: Skill/Fairy magic CLI commands (gm skill find/list/palette)
 

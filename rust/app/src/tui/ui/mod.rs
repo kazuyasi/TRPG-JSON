@@ -12,6 +12,7 @@ use super::input::LineInput;
 mod detail;
 mod list;
 mod modal;
+mod picks;
 mod search;
 
 /// 描画を行う最小の端末の高さ（これ未満は警告のみ表示）
@@ -19,6 +20,9 @@ pub const MIN_HEIGHT: u16 = 15;
 
 /// 結果リストと詳細を左右に並べる最小の端末の幅（これ未満は1ペイン表示）
 pub const SPLIT_MIN_WIDTH: u16 = 100;
+
+/// 結果リスト・詳細・選択リストを3つ並べる最小の端末の幅（これ未満は選択リストを切り替えて表示）
+pub const THREE_PANE_MIN_WIDTH: u16 = 120;
 
 /// 幅が狭く、結果リストと詳細を切り替えて1ペインずつ表示するか
 pub fn is_narrow(width: u16) -> bool {
@@ -125,18 +129,35 @@ fn draw_body(frame: &mut Frame, area: Rect, app: &App) {
     search::draw(frame, search_area, app);
 
     if is_narrow(area.width) {
-        if app.focus == Focus::Detail {
-            detail::draw(frame, panes, app);
-        } else {
-            list::draw(frame, panes, app);
+        match app.focus {
+            Focus::Detail => detail::draw(frame, panes, app),
+            Focus::Picks => picks::draw(frame, panes, app),
+            Focus::Search | Focus::List => list::draw(frame, panes, app),
         }
+        return;
+    }
+
+    if area.width >= THREE_PANE_MIN_WIDTH && !app.view().picks.is_empty() {
+        let [list_area, detail_area, picks_area] = Layout::horizontal([
+            Constraint::Percentage(35),
+            Constraint::Percentage(40),
+            Constraint::Percentage(25),
+        ])
+        .areas(panes);
+        list::draw(frame, list_area, app);
+        detail::draw(frame, detail_area, app);
+        picks::draw(frame, picks_area, app);
         return;
     }
 
     let [list_area, detail_area] =
         Layout::horizontal([Constraint::Percentage(40), Constraint::Percentage(60)]).areas(panes);
     list::draw(frame, list_area, app);
-    detail::draw(frame, detail_area, app);
+    if app.focus == Focus::Picks {
+        picks::draw(frame, detail_area, app);
+    } else {
+        detail::draw(frame, detail_area, app);
+    }
 }
 
 fn draw_status(frame: &mut Frame, area: Rect, app: &App) {
@@ -176,14 +197,16 @@ fn help_text(app: &App) -> &'static str {
         (_, Focus::Search) => {
             "文字入力:絞り込み  ←→:カーソル  Enter/Esc:リストへ  Ctrl-u:クリア  Ctrl-c:終了"
         }
+        (Tab::Monster, Focus::Picks) => "↑↓/jk:移動  x:外す  E:出力  v/Esc:結果リストへ  ?:ヘルプ  q:終了",
+        (Tab::Spell, Focus::Picks) => "↑↓/jk:移動  x:外す  C:パレット  v/Esc:結果リストへ  ?:ヘルプ  q:終了",
         (Tab::Monster, Focus::List) => {
-            "↑↓/jk:選択  Enter:詳細  c:ココフォリア  e:出力  J:JSON  /:検索  ?:ヘルプ  q:終了"
+            "Space:選択  Enter:詳細  c:ココフォリア  e:出力  J:JSON  /:検索  ?:ヘルプ  q:終了"
         }
         (Tab::Monster, Focus::Detail) => {
             "↑↓/jk:部位  c:ココフォリア  e:出力  J:JSON  Esc:リスト  ?:ヘルプ  q:終了"
         }
         (Tab::Spell, Focus::List) => {
-            "↑↓/jk:選択  Enter:詳細  y:パレット  Y:全件  J:JSON  /:検索  ?:ヘルプ  q:終了"
+            "Space:選択  Enter:詳細  y:パレット  Y:全件  J:JSON  /:検索  ?:ヘルプ  q:終了"
         }
         (Tab::Spell, Focus::Detail) => {
             "↑↓/jk/PgUp/Dn:本文  y:パレット  Y:全件  J:JSON  Esc:リスト  ?:ヘルプ  q:終了"
@@ -689,7 +712,7 @@ mod tests {
         let mut app = sample_app();
         for tab in Tab::ALL {
             app.tab = tab;
-            for focus in [Focus::List, Focus::Detail, Focus::Search] {
+            for focus in [Focus::List, Focus::Detail, Focus::Search, Focus::Picks] {
                 app.focus = focus;
                 let width = Line::from(help_text(&app)).width();
                 assert!(width <= 80, "{tab:?} {focus:?}: {width}");
@@ -726,6 +749,36 @@ mod tests {
             &rows,
             "成功: \"テストモンスター\" をココフォリア形式でクリップボードにコピーしました"
         ));
+    }
+
+    #[test]
+    fn test_render_marks_picked_rows() {
+        let mut app = sample_app();
+        assert!(!contains(&render(&app, 120, 24), "✓"));
+        let index = app.monster_view.selected_index().unwrap();
+        app.monster_view.picks.push(index);
+        let name = app.monsters[index].name.clone();
+        assert!(contains(&render(&app, 120, 24), &format!("✓{}", name)));
+    }
+
+    #[test]
+    fn test_render_picks_pane_by_width() {
+        let mut app = sample_app();
+        // 空なら幅があっても出さない
+        assert!(!contains(&render(&app, 120, 24), "選択リスト"));
+        app.monster_view.picks.push(0);
+        let shows = |app: &App, width| {
+            let rows = render(app, width, 24);
+            (contains(&rows, "選択リスト (1)"), contains(&rows, "【"))
+        };
+        // 幅 120 以上は常に3ペイン（詳細も出る）
+        assert_eq!(shows(&app, 120), (true, true));
+        // それ未満はフォーカスしたときだけ、詳細の位置に出す
+        assert_eq!(shows(&app, 119), (false, true));
+        app.focus = Focus::Picks;
+        assert_eq!(shows(&app, 119), (true, false));
+        assert_eq!(shows(&app, 80), (true, false));
+        assert!(!contains(&render(&app, 80, 24), "カテゴリ"));
     }
 
     #[test]

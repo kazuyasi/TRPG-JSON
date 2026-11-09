@@ -9,7 +9,7 @@ use ratatui::style::{Color, Modifier, Style};
 use ratatui::text::{Line, Span};
 use ratatui::widgets::{Block, Borders, Clear, Paragraph, Wrap};
 
-use super::super::app::{ExportChoice, ExportForm, Modal, ModalKind};
+use super::super::app::{ExportChoice, ExportForm, ExportTarget, Modal, ModalKind};
 use super::super::help::SECTIONS;
 use super::{heading, input_spans, wrapped_height};
 
@@ -98,7 +98,10 @@ pub fn export_lines(form: &ExportForm) -> Vec<Line<'static>> {
     vec![
         Line::from(vec![
             label("対象"),
-            Span::raw(format!("ヒット中のモンスター {} 件（結果リストの並び順）", form.count)),
+            Span::raw(match form.target {
+                ExportTarget::Hits => format!("ヒット中のモンスター {} 件（結果リストの並び順）", form.count),
+                ExportTarget::Picks => format!("選択リストのモンスター {} 件（追加順）", form.count),
+            }),
         ]),
         Line::from(formats),
         Line::from(vec![label(form.format.input_label()), Span::raw(form.input().as_str().to_string())]),
